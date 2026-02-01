@@ -11,6 +11,7 @@ import {
   EyeOff,
   BookOpen,
   Volume2,
+  VolumeX,
   CheckCircle,
   XCircle,
   Lightbulb,
@@ -31,6 +32,7 @@ import Navigation from '@/components/Navigation';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useTTS } from '@/hooks/useTTS';
 import { compareStrings, calculateScore, DiffResult } from '@/lib/stringComparison';
 
 interface VideoSource {
@@ -82,6 +84,7 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+  const { speak, stop, isSpeaking, isSupported } = useTTS({ lang: 'ja-JP', rate: 0.85 });
 
   const currentSegment = segments[currentIndex];
   const progress = segments.length > 0 
@@ -255,15 +258,6 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
     inputRef.current?.focus();
   };
 
-  const speak = (text: string) => {
-    if ('speechSynthesis' in window) {
-      speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'ja-JP';
-      utterance.rate = 0.8;
-      speechSynthesis.speak(utterance);
-    }
-  };
 
   const saveVocabulary = async (word: { word: string; reading: string; meaning: string }) => {
     if (!user || !currentSegment) return;
@@ -347,13 +341,15 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
                 Phát đoạn này
               </Button>
 
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => speak(currentSegment.japanese_text)}
-              >
-                <Volume2 className="h-5 w-5" />
-              </Button>
+              {isSupported && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => isSpeaking ? stop() : speak(currentSegment.japanese_text)}
+                >
+                  {isSpeaking ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+                </Button>
+              )}
 
               <Button
                 variant="outline"
