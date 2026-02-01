@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   PlayCircle,
@@ -12,6 +12,8 @@ import {
   ExternalLink,
   Upload,
   Globe,
+  Heart,
+  Filter,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -71,11 +73,22 @@ const VideoLearning = () => {
   const [inputMode, setInputMode] = useState<'auto' | 'manual'>('auto');
   const [captionLanguage, setCaptionLanguage] = useState<string>('');
   const [selectedLanguage, setSelectedLanguage] = useState<string>('ja');
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // YouTube thumbnail from video URL
+  const previewThumbnail = useMemo(() => {
+    const youtubeId = extractYouTubeId(newVideoUrl);
+    if (youtubeId) {
+      return `https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg`;
+    }
+    return null;
+  }, [newVideoUrl]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -86,6 +99,7 @@ const VideoLearning = () => {
   useEffect(() => {
     if (user) {
       fetchVideos();
+      fetchFavorites();
     }
   }, [user]);
 
@@ -105,6 +119,63 @@ const VideoLearning = () => {
       setLoading(false);
     }
   };
+
+  const fetchFavorites = async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('favorite_videos')
+        .select('video_id')
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      setFavoriteIds(new Set(data?.map(f => f.video_id) || []));
+    } catch (error) {
+      console.error('Error fetching favorites:', error);
+    }
+  };
+
+  const toggleFavorite = async (videoId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) return;
+
+    const isFavorite = favoriteIds.has(videoId);
+    
+    try {
+      if (isFavorite) {
+        await supabase
+          .from('favorite_videos')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('video_id', videoId);
+        
+        setFavoriteIds(prev => {
+          const next = new Set(prev);
+          next.delete(videoId);
+          return next;
+        });
+        toast({ title: 'Đã bỏ yêu thích' });
+      } else {
+        await supabase
+          .from('favorite_videos')
+          .insert({ user_id: user.id, video_id: videoId });
+        
+        setFavoriteIds(prev => new Set(prev).add(videoId));
+        toast({ title: 'Đã thêm vào yêu thích' });
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      toast({ title: 'Lỗi', description: 'Không thể cập nhật yêu thích', variant: 'destructive' });
+    }
+  };
+
+  // Filter videos by favorites
+  const filteredVideos = useMemo(() => {
+    if (showFavoritesOnly) {
+      return videos.filter(v => favoriteIds.has(v.id));
+    }
+    return videos;
+  }, [videos, favoriteIds, showFavoritesOnly]);
 
   const extractYouTubeId = (url: string): string | null => {
     const patterns = [
@@ -383,6 +454,17 @@ const VideoLearning = () => {
               </DialogHeader>
               
               <div className="space-y-4">
+                {/* Thumbnail Preview */}
+                {previewThumbnail && (
+                  <div className="rounded-lg overflow-hidden border bg-muted/30">
+                    <img 
+                      src={previewThumbnail} 
+                      alt="Video thumbnail" 
+                      className="w-full aspect-video object-cover"
+                    />
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="video-url">Link YouTube</Label>
                   <div className="flex gap-2">
@@ -528,24 +610,46 @@ const VideoLearning = () => {
           </Dialog>
         </div>
 
+        {/* Favorites Filter */}
+        {videos.length > 0 && (
+          <div className="flex items-center gap-2">
+            <Button
+              variant={showFavoritesOnly ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+              className="gap-2"
+            >
+              <Heart className={`h-4 w-4 ${showFavoritesOnly ? 'fill-current' : ''}`} />
+              Yêu thích ({favoriteIds.size})
+            </Button>
+          </div>
+        )}
+
         {/* Video List */}
-        {videos.length === 0 ? (
+        {filteredVideos.length === 0 ? (
           <Card className="shadow-card">
             <CardContent className="py-12 text-center">
               <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Chưa có video nào</h3>
+              <h3 className="text-lg font-semibold mb-2">
+                {showFavoritesOnly ? 'Chưa có video yêu thích' : 'Chưa có video nào'}
+              </h3>
               <p className="text-muted-foreground mb-4">
-                Thêm video YouTube để bắt đầu luyện nghe chép
+                {showFavoritesOnly 
+                  ? 'Bấm vào icon trái tim để thêm video vào danh sách yêu thích'
+                  : 'Thêm video YouTube để bắt đầu luyện nghe chép'
+                }
               </p>
-              <Button onClick={() => setAddDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Thêm Video Đầu Tiên
-              </Button>
+              {!showFavoritesOnly && (
+                <Button onClick={() => setAddDialogOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Thêm Video Đầu Tiên
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {videos.map((video, index) => (
+            {filteredVideos.map((video, index) => (
               <motion.div
                 key={video.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -567,6 +671,19 @@ const VideoLearning = () => {
                     <div className="absolute inset-0 flex items-center justify-center bg-background/40 opacity-0 group-hover:opacity-100 transition-opacity">
                       <PlayCircle className="h-12 w-12 text-primary" />
                     </div>
+                    {/* Favorite button */}
+                    <button
+                      onClick={(e) => toggleFavorite(video.id, e)}
+                      className="absolute top-2 right-2 p-2 rounded-full bg-background/80 hover:bg-background transition-colors"
+                    >
+                      <Heart 
+                        className={`h-5 w-5 transition-colors ${
+                          favoriteIds.has(video.id) 
+                            ? 'fill-red-500 text-red-500' 
+                            : 'text-muted-foreground hover:text-red-500'
+                        }`} 
+                      />
+                    </button>
                   </div>
                   <CardContent className="p-4">
                     <h3 className="font-semibold line-clamp-2">{video.title}</h3>

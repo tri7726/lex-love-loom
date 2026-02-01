@@ -41,6 +41,35 @@ export type Database = {
         }
         Relationships: []
       }
+      favorite_videos: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+          video_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+          video_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "favorite_videos_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "video_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learning_progress: {
         Row: {
           created_at: string
