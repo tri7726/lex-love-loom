@@ -6,19 +6,25 @@ import {
   BookOpen,
   Loader2,
   ChevronRight,
+  Download,
+  FileText,
+  Sparkles,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Navigation from '@/components/Navigation';
 import DictationPlayer from '@/components/DictationPlayer';
 import { useAuth } from '@/hooks/useAuth';
@@ -48,9 +54,12 @@ const VideoLearning = () => {
   const [selectedVideo, setSelectedVideo] = useState<VideoSource | null>(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [fetchingCaptions, setFetchingCaptions] = useState(false);
   const [newVideoUrl, setNewVideoUrl] = useState('');
   const [newVideoTitle, setNewVideoTitle] = useState('');
   const [newVideoSubtitles, setNewVideoSubtitles] = useState('');
+  const [inputMode, setInputMode] = useState<'auto' | 'manual'>('auto');
+  const [captionLanguage, setCaptionLanguage] = useState<string>('');
   
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -146,6 +155,69 @@ const VideoLearning = () => {
     return subtitles;
   };
 
+  // Auto-fetch captions from YouTube
+  const handleFetchCaptions = async () => {
+    const youtubeId = extractYouTubeId(newVideoUrl);
+    if (!youtubeId) {
+      toast({
+        title: 'Lỗi',
+        description: 'Link YouTube không hợp lệ',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setFetchingCaptions(true);
+    setCaptionLanguage('');
+
+    try {
+      const { data, error } = await supabase.functions.invoke('fetch-youtube-captions', {
+        body: { youtube_id: youtubeId }
+      });
+
+      if (error) throw error;
+
+      if (data.error) {
+        toast({
+          title: 'Không tìm thấy phụ đề',
+          description: data.message || 'Video này không có phụ đề CC',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Convert fetched captions to SRT format
+      const srtContent = data.captions.map((cap: SubtitleEntry, idx: number) => {
+        const formatTime = (seconds: number) => {
+          const h = Math.floor(seconds / 3600);
+          const m = Math.floor((seconds % 3600) / 60);
+          const s = (seconds % 60).toFixed(3).replace('.', ',');
+          return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.padStart(6, '0')}`;
+        };
+        return `${idx + 1}\n${formatTime(cap.start)} --> ${formatTime(cap.end)}\n${cap.text}\n`;
+      }).join('\n');
+
+      setNewVideoSubtitles(srtContent);
+      setNewVideoTitle(data.title || '');
+      setCaptionLanguage(data.language);
+
+      toast({
+        title: 'Lấy phụ đề thành công!',
+        description: `Đã lấy ${data.segments_count} đoạn phụ đề (${data.language})`,
+      });
+
+    } catch (error: any) {
+      console.error('Error fetching captions:', error);
+      toast({
+        title: 'Lỗi lấy phụ đề',
+        description: error.message || 'Không thể lấy phụ đề từ YouTube',
+        variant: 'destructive',
+      });
+    } finally {
+      setFetchingCaptions(false);
+    }
+  };
+
   const handleAddVideo = async () => {
     const youtubeId = extractYouTubeId(newVideoUrl);
     if (!youtubeId) {
@@ -170,7 +242,7 @@ const VideoLearning = () => {
     if (subtitles.length === 0) {
       toast({
         title: 'Lỗi',
-        description: 'Không tìm thấy phụ đề hợp lệ. Vui lòng dán phụ đề SRT.',
+        description: 'Không tìm thấy phụ đề hợp lệ. Vui lòng dán phụ đề SRT hoặc lấy từ YouTube.',
         variant: 'destructive',
       });
       return;
@@ -200,6 +272,7 @@ const VideoLearning = () => {
       setNewVideoUrl('');
       setNewVideoTitle('');
       setNewVideoSubtitles('');
+      setCaptionLanguage('');
       fetchVideos();
     } catch (error: any) {
       console.error('Error processing video:', error);
@@ -257,17 +330,44 @@ const VideoLearning = () => {
             <DialogContent className="max-w-lg">
               <DialogHeader>
                 <DialogTitle>Thêm Video Mới</DialogTitle>
+                <DialogDescription>
+                  Lấy phụ đề tự động từ YouTube hoặc dán phụ đề SRT thủ công
+                </DialogDescription>
               </DialogHeader>
+              
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="video-url">Link YouTube</Label>
-                  <Input
-                    id="video-url"
-                    placeholder="https://youtube.com/watch?v=..."
-                    value={newVideoUrl}
-                    onChange={(e) => setNewVideoUrl(e.target.value)}
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      id="video-url"
+                      placeholder="https://youtube.com/watch?v=..."
+                      value={newVideoUrl}
+                      onChange={(e) => setNewVideoUrl(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="outline"
+                      onClick={handleFetchCaptions}
+                      disabled={fetchingCaptions || !newVideoUrl}
+                      className="gap-1 shrink-0"
+                    >
+                      {fetchingCaptions ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                      Lấy CC
+                    </Button>
+                  </div>
+                  {captionLanguage && (
+                    <Badge variant="secondary" className="gap-1">
+                      <Sparkles className="h-3 w-3" />
+                      Phụ đề: {captionLanguage}
+                    </Badge>
+                  )}
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="video-title">Tiêu đề</Label>
                   <Input
@@ -277,10 +377,16 @@ const VideoLearning = () => {
                     onChange={(e) => setNewVideoTitle(e.target.value)}
                   />
                 </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="subtitles">
-                    Phụ đề (định dạng SRT)
-                  </Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="subtitles">Phụ đề (SRT)</Label>
+                    {newVideoSubtitles && (
+                      <Badge variant="outline" className="text-xs">
+                        {parseSubtitles(newVideoSubtitles).length} đoạn
+                      </Badge>
+                    )}
+                  </div>
                   <Textarea
                     id="subtitles"
                     placeholder={`1
@@ -293,23 +399,28 @@ const VideoLearning = () => {
                     rows={8}
                     value={newVideoSubtitles}
                     onChange={(e) => setNewVideoSubtitles(e.target.value)}
+                    className="font-mono text-sm"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Dán phụ đề tiếng Nhật của video. AI sẽ tự động phân tích từ vựng và ngữ pháp.
+                    💡 Click "Lấy CC" để tự động lấy phụ đề từ YouTube, hoặc dán phụ đề SRT thủ công.
                   </p>
                 </div>
+
                 <Button
-                  className="w-full"
+                  className="w-full gap-2"
                   onClick={handleAddVideo}
-                  disabled={processing}
+                  disabled={processing || !newVideoSubtitles}
                 >
                   {processing ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                       Đang xử lý với AI...
                     </>
                   ) : (
-                    'Thêm & Xử lý Video'
+                    <>
+                      <Sparkles className="h-4 w-4" />
+                      Thêm & Xử lý Video
+                    </>
                   )}
                 </Button>
               </div>
