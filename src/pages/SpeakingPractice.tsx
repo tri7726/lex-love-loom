@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { MessageSquare, Mic, Volume2, Send, Loader2, Trash2 } from 'lucide-react';
+import { MessageSquare, Mic, Volume2, Send, Loader2, Trash2, VolumeX } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import Navigation from '@/components/Navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
+import { useTTS } from '@/hooks/useTTS';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -31,6 +32,7 @@ const SpeakingPractice = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { speak, stop, isSpeaking, isSupported } = useTTS({ lang: 'ja-JP', rate: 0.85 });
 
   useEffect(() => {
     if (!loading && !user) {
@@ -41,19 +43,6 @@ const SpeakingPractice = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [conversation]);
-
-  const speak = (text: string) => {
-    if ('speechSynthesis' in window) {
-      // Cancel any ongoing speech
-      speechSynthesis.cancel();
-      
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'ja-JP';
-      utterance.rate = 0.8;
-      speechSynthesis.speak(utterance);
-    }
-  };
-
   const parseResponse = (content: string): { japanese: string; translation: string } => {
     // Try to extract translation marked with [翻訳] or similar patterns
     const translationMatch = content.match(/\[翻訳\]\s*(.+?)(?:\n|$)/);
@@ -240,15 +229,24 @@ const SpeakingPractice = () => {
                       {msg.translation}
                     </p>
                   )}
-                  {msg.role === 'assistant' && msg.content && (
+                  {msg.role === 'assistant' && msg.content && isSupported && (
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => speak(msg.content)}
+                      onClick={() => isSpeaking ? stop() : speak(msg.content)}
                       className="mt-2 h-8"
                     >
-                      <Volume2 className="h-4 w-4 mr-1" />
-                      Nghe
+                      {isSpeaking ? (
+                        <>
+                          <VolumeX className="h-4 w-4 mr-1" />
+                          Dừng
+                        </>
+                      ) : (
+                        <>
+                          <Volume2 className="h-4 w-4 mr-1" />
+                          Nghe
+                        </>
+                      )}
                     </Button>
                   )}
                 </div>
