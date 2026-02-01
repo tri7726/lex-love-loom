@@ -2,95 +2,136 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap');
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Japanese-inspired color palette */
+    --background: 30 40% 98%;
+    --foreground: 0 0% 15%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 30 30% 99%;
+    --card-foreground: 0 0% 15%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 30 30% 99%;
+    --popover-foreground: 0 0% 15%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Sakura pink primary */
+    --primary: 350 70% 65%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Warm cream secondary */
+    --secondary: 35 40% 92%;
+    --secondary-foreground: 0 0% 20%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 30 20% 94%;
+    --muted-foreground: 0 0% 45%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Gold accent for achievements */
+    --accent: 40 85% 55%;
+    --accent-foreground: 0 0% 10%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 30 20% 88%;
+    --input: 30 20% 88%;
+    --ring: 350 70% 65%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
-    --sidebar-background: 0 0% 98%;
+    /* Custom colors */
+    --sakura: 350 70% 65%;
+    --sakura-light: 350 80% 92%;
+    --sakura-dark: 350 65% 45%;
+    --crimson: 350 80% 40%;
+    --gold: 40 85% 55%;
+    --gold-light: 45 90% 75%;
+    --cream: 35 40% 96%;
+    --matcha: 140 35% 45%;
+    --matcha-light: 140 40% 90%;
+    --indigo-jp: 235 45% 35%;
+    --sumi: 0 0% 15%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    /* Gradients */
+    --gradient-sakura: linear-gradient(135deg, hsl(350 70% 65%), hsl(340 60% 75%));
+    --gradient-gold: linear-gradient(135deg, hsl(40 85% 55%), hsl(45 90% 70%));
+    --gradient-matcha: linear-gradient(135deg, hsl(140 35% 45%), hsl(150 40% 55%));
+    --gradient-hero: linear-gradient(180deg, hsl(30 40% 98%), hsl(350 80% 97%));
 
-    --sidebar-primary: 240 5.9% 10%;
+    /* Shadows */
+    --shadow-soft: 0 4px 20px -4px hsl(350 70% 65% / 0.15);
+    --shadow-card: 0 2px 12px -2px hsl(0 0% 0% / 0.08);
+    --shadow-elevated: 0 8px 30px -8px hsl(0 0% 0% / 0.12);
 
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 30 30% 97%;
+    --sidebar-foreground: 0 0% 20%;
+    --sidebar-primary: 350 70% 65%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 35 40% 92%;
+    --sidebar-accent-foreground: 0 0% 20%;
+    --sidebar-border: 30 20% 88%;
+    --sidebar-ring: 350 70% 65%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 240 10% 8%;
+    --foreground: 30 20% 95%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 240 10% 12%;
+    --card-foreground: 30 20% 95%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 240 10% 12%;
+    --popover-foreground: 30 20% 95%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 350 65% 60%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 240 8% 18%;
+    --secondary-foreground: 30 20% 90%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 240 8% 20%;
+    --muted-foreground: 30 10% 60%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 40 80% 50%;
+    --accent-foreground: 0 0% 10%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 65% 50%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --border: 240 8% 20%;
+    --input: 240 8% 20%;
+    --ring: 350 65% 60%;
+
+    --sakura: 350 65% 60%;
+    --sakura-light: 350 50% 25%;
+    --sakura-dark: 350 60% 50%;
+    --crimson: 350 70% 50%;
+    --gold: 40 80% 50%;
+    --gold-light: 45 70% 35%;
+    --cream: 30 15% 15%;
+    --matcha: 140 30% 40%;
+    --matcha-light: 140 25% 20%;
+    --indigo-jp: 235 40% 50%;
+    --sumi: 30 20% 90%;
+
+    --gradient-sakura: linear-gradient(135deg, hsl(350 65% 50%), hsl(340 55% 40%));
+    --gradient-gold: linear-gradient(135deg, hsl(40 80% 45%), hsl(45 75% 55%));
+    --gradient-matcha: linear-gradient(135deg, hsl(140 30% 35%), hsl(150 35% 45%));
+    --gradient-hero: linear-gradient(180deg, hsl(240 10% 8%), hsl(350 30% 12%));
+
+    --shadow-soft: 0 4px 20px -4px hsl(0 0% 0% / 0.4);
+    --shadow-card: 0 2px 12px -2px hsl(0 0% 0% / 0.3);
+    --shadow-elevated: 0 8px 30px -8px hsl(0 0% 0% / 0.5);
+
+    --sidebar-background: 240 10% 10%;
+    --sidebar-foreground: 30 20% 90%;
+    --sidebar-primary: 350 65% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 240 8% 18%;
+    --sidebar-accent-foreground: 30 20% 90%;
+    --sidebar-border: 240 8% 20%;
+    --sidebar-ring: 350 65% 60%;
   }
 }
 
@@ -100,6 +141,152 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Noto Sans JP', system-ui, sans-serif;
   }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', 'Noto Sans JP', serif;
+  }
+}
+
+@layer components {
+  /* Furigana / Ruby text styling */
+  ruby {
+    @apply inline-flex flex-col items-center;
+    ruby-align: center;
+  }
+
+  ruby rt {
+    @apply text-xs text-muted-foreground font-normal;
+    font-size: 0.5em;
+    line-height: 1;
+  }
+
+  /* Japanese text styling */
+  .jp-text {
+    font-family: 'Noto Sans JP', sans-serif;
+    @apply tracking-wide;
+  }
+
+  .jp-text-lg {
+    @apply text-2xl md:text-3xl font-medium;
+  }
+
+  /* Sakura decorative elements */
+  .sakura-bg {
+    background: var(--gradient-hero);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .sakura-bg::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, hsl(var(--sakura-light)) 0%, transparent 70%);
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  /* Card hover effects */
+  .card-hover {
+    @apply transition-all duration-300 ease-out;
+  }
+
+  .card-hover:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-elevated);
+  }
+
+  /* Progress bar styling */
+  .progress-sakura {
+    @apply h-2 rounded-full overflow-hidden;
+    background: hsl(var(--sakura-light));
+  }
+
+  .progress-sakura-fill {
+    @apply h-full rounded-full transition-all duration-500 ease-out;
+    background: var(--gradient-sakura);
+  }
+
+  /* Achievement badge */
+  .badge-gold {
+    background: var(--gradient-gold);
+    @apply text-foreground font-semibold shadow-md;
+  }
+
+  /* Streak fire effect */
+  .streak-fire {
+    @apply relative;
+  }
+
+  .streak-fire::after {
+    content: '🔥';
+    @apply absolute -top-1 -right-1 text-sm;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  /* Floating animation */
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  /* Shimmer effect */
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  .shimmer {
+    background: linear-gradient(90deg, transparent, hsl(var(--sakura-light)), transparent);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+  }
+
+  /* Click feedback */
+  .click-feedback {
+    @apply transition-transform duration-150 active:scale-95;
+  }
+}
+
+@layer utilities {
+  .text-gradient-sakura {
+    background: var(--gradient-sakura);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-gold {
+    background: var(--gradient-gold);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .bg-sakura { background-color: hsl(var(--sakura)); }
+  .bg-sakura-light { background-color: hsl(var(--sakura-light)); }
+  .bg-cream { background-color: hsl(var(--cream)); }
+  .bg-matcha { background-color: hsl(var(--matcha)); }
+  .bg-matcha-light { background-color: hsl(var(--matcha-light)); }
+  .bg-gold { background-color: hsl(var(--gold)); }
+  .bg-gold-light { background-color: hsl(var(--gold-light)); }
+
+  .text-sakura { color: hsl(var(--sakura)); }
+  .text-crimson { color: hsl(var(--crimson)); }
+  .text-gold { color: hsl(var(--gold)); }
+  .text-matcha { color: hsl(var(--matcha)); }
+  .text-sumi { color: hsl(var(--sumi)); }
+
+  .border-sakura { border-color: hsl(var(--sakura)); }
+  .border-sakura-light { border-color: hsl(var(--sakura-light)); }
 }
