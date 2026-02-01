@@ -17,12 +17,39 @@ interface SubtitleSegment {
   text: string;
 }
 
+// Parse JSON captions (srv3 format)
+function parseJSONCaptions(jsonText: string): SubtitleSegment[] {
+  const segments: SubtitleSegment[] = [];
+  
+  try {
+    const data = JSON.parse(jsonText);
+    const events = data?.events || [];
+    
+    for (const event of events) {
+      if (event.segs && event.tStartMs !== undefined) {
+        const text = event.segs.map((s: any) => s.utf8 || '').join('').trim();
+        if (text && text !== '\n') {
+          segments.push({
+            start: event.tStartMs / 1000,
+            end: (event.tStartMs + (event.dDurationMs || 3000)) / 1000,
+            text: text.replace(/\n/g, ' ').trim()
+          });
+        }
+      }
+    }
+  } catch (e) {
+    console.log('Failed to parse as JSON:', e);
+  }
+  
+  return segments;
+}
+
 // Parse XML captions to subtitle segments
 function parseXMLCaptions(xml: string): SubtitleSegment[] {
   const segments: SubtitleSegment[] = [];
   
   // Match <text start="X" dur="Y">content</text>
-  const regex = /<text start="([\d.]+)" dur="([\d.]+)"[^>]*>([^<]*)<\/text>/g;
+  const regex = /<text[^>]*start="([\d.]+)"[^>]*dur="([\d.]+)"[^>]*>([^<]*(?:<[^>]+>[^<]*)*)<\/text>/g;
   let match;
   
   while ((match = regex.exec(xml)) !== null) {
@@ -30,13 +57,16 @@ function parseXMLCaptions(xml: string): SubtitleSegment[] {
     const dur = parseFloat(match[2]);
     let text = match[3];
     
-    // Decode HTML entities
+    // Decode HTML entities and clean up
     text = text
+      .replace(/<[^>]+>/g, '')
       .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'")
+      .replace(/&apos;/g, "'")
+      .replace(/&#\d+;/g, '')
       .replace(/\n/g, ' ')
       .trim();
     
@@ -50,6 +80,33 @@ function parseXMLCaptions(xml: string): SubtitleSegment[] {
   }
   
   return segments;
+}
+
+// Parse captions - try JSON first (srv3), then XML
+function parseCaptions(content: string): SubtitleSegment[] {
+  console.log('Content length:', content.length);
+  console.log('Content preview:', content.substring(0, 200));
+  
+  // Try JSON first (srv3 format)
+  if (content.trim().startsWith('{')) {
+    console.log('Detected JSON format');
+    const segments = parseJSONCaptions(content);
+    if (segments.length > 0) {
+      return segments;
+    }
+  }
+  
+  // Try XML format
+  if (content.includes('<text')) {
+    console.log('Detected XML format');
+    return parseXMLCaptions(content);
+  }
+  
+  console.log('Unknown format, trying both...');
+  const jsonSegments = parseJSONCaptions(content);
+  if (jsonSegments.length > 0) return jsonSegments;
+  
+  return parseXMLCaptions(content);
 }
 
 // Extract video info and captions from YouTube
@@ -122,18 +179,33 @@ async function getYouTubeCaptions(videoId: string): Promise<{
     
     console.log('Selected track:', selectedTrack.languageCode);
     
-    // Fetch the caption content
-    const captionUrl = selectedTrack.baseUrl.replace(/\\u0026/g, '&');
-    console.log('Fetching captions from:', captionUrl.substring(0, 100) + '...');
+    // Fetch the caption content - decode URL properly
+    let captionUrl = selectedTrack.baseUrl;
+    captionUrl = captionUrl.replace(/\\u0026/g, '&');
+    captionUrl = captionUrl.replace(/\\\//g, '/');
+    captionUrl = captionUrl.replace(/\\"/g, '"');
     
-    const captionResponse = await fetch(captionUrl);
+    // Add lang parameter if missing
+    if (!captionUrl.includes('lang=')) {
+      captionUrl += `&lang=${selectedTrack.languageCode}`;
+    }
+    
+    console.log('Final caption URL:', captionUrl);
+    
+    const captionResponse = await fetch(captionUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      }
+    });
     if (!captionResponse.ok) {
       console.error('Failed to fetch captions:', captionResponse.status);
       return null;
     }
     
-    const captionXml = await captionResponse.text();
-    const captions = parseXMLCaptions(captionXml);
+    const captionContent = await captionResponse.text();
+    console.log('Caption content length:', captionContent.length);
+    
+    const captions = parseCaptions(captionContent);
     
     console.log('Parsed', captions.length, 'caption segments');
     

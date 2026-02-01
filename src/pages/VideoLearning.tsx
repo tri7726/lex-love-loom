@@ -177,12 +177,13 @@ const VideoLearning = () => {
 
       if (error) throw error;
 
-      if (data.error) {
+      if (data.error || !data.captions || data.captions.length === 0) {
         toast({
-          title: 'Không tìm thấy phụ đề',
-          description: data.message || 'Video này không có phụ đề CC',
+          title: 'Không thể lấy phụ đề tự động',
+          description: 'YouTube có thể chặn truy cập. Vui lòng tải file SRT từ YouTube và dán vào bên dưới.',
           variant: 'destructive',
         });
+        setInputMode('manual');
         return;
       }
 

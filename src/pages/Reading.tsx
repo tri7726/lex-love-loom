@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { BookOpen, Volume2, Loader2, Zap, Database, Globe } from 'lucide-react';
+import { BookOpen, Volume2, Loader2, Zap, Database, Globe, Filter } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Navigation from '@/components/Navigation';
 import { CreatePassageDialog } from '@/components/CreatePassageDialog';
 import { WordLookupPanel } from '@/components/WordLookupPanel';
@@ -74,6 +75,10 @@ const Reading = () => {
   const [displayMode, setDisplayMode] = useState<DisplayMode>('furigana');
   const [loading, setLoading] = useState(true);
   
+  // Filter state
+  const [levelFilter, setLevelFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  
   // Word lookup state
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [wordData, setWordData] = useState<WordData | null>(null);
@@ -121,6 +126,21 @@ const Reading = () => {
       setLoading(false);
     }
   };
+
+  // Get unique categories from passages
+  const categories = useMemo(() => {
+    const cats = passages.map(p => p.category).filter(Boolean) as string[];
+    return [...new Set(cats)];
+  }, [passages]);
+
+  // Filtered passages
+  const filteredPassages = useMemo(() => {
+    return passages.filter(p => {
+      const matchLevel = levelFilter === 'all' || p.level === levelFilter;
+      const matchCategory = categoryFilter === 'all' || p.category === categoryFilter;
+      return matchLevel && matchCategory;
+    });
+  }, [passages, levelFilter, categoryFilter]);
 
   // Convert furigana HTML to kana only
   const extractKanaOnly = (html: string): string => {
@@ -296,15 +316,48 @@ const Reading = () => {
           {/* Passage List */}
           <div className="lg:col-span-1 space-y-3">
             <h2 className="font-semibold text-lg">Danh sách bài đọc</h2>
+            
+            {/* Filters */}
+            <div className="flex gap-2">
+              <Select value={levelFilter} onValueChange={setLevelFilter}>
+                <SelectTrigger className="flex-1 bg-background">
+                  <SelectValue placeholder="Level" />
+                </SelectTrigger>
+                <SelectContent className="bg-background border shadow-lg z-50">
+                  <SelectItem value="all">Tất cả Level</SelectItem>
+                  {LEVEL_ORDER.map(level => (
+                    <SelectItem key={level} value={level}>{level}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="flex-1 bg-background">
+                  <SelectValue placeholder="Chủ đề" />
+                </SelectTrigger>
+                <SelectContent className="bg-background border shadow-lg z-50">
+                  <SelectItem value="all">Tất cả chủ đề</SelectItem>
+                  {categories.map(cat => (
+                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
             {loading ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
                   <Skeleton key={i} className="h-20 w-full" />
                 ))}
               </div>
+            ) : filteredPassages.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Filter className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>Không có bài đọc phù hợp</p>
+              </div>
             ) : (
-              <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
-                {passages.map((passage) => (
+              <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-2">
+                {filteredPassages.map((passage) => (
                   <motion.div
                     key={passage.id}
                     initial={{ opacity: 0, y: 10 }}
