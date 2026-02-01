@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { BookOpen, Volume2, Loader2 } from 'lucide-react';
+import { BookOpen, Volume2, Loader2, Zap, Database, Globe } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +19,15 @@ interface VocabItem {
   meaning: string;
 }
 
+interface PreloadedVocab {
+  word: string;
+  reading: string;
+  meaning: string;
+  word_type?: string;
+  examples?: Array<{ japanese: string; vietnamese: string }>;
+  notes?: string;
+}
+
 interface ReadingPassage {
   id: string;
   title: string;
@@ -27,6 +36,7 @@ interface ReadingPassage {
   level: string;
   category: string | null;
   vocabulary_list: VocabItem[] | null;
+  preloaded_vocabulary: PreloadedVocab[] | null;
 }
 
 interface WordData {
@@ -36,11 +46,26 @@ interface WordData {
   word_type?: string;
   examples?: Array<{ japanese: string; vietnamese: string }>;
   notes?: string;
+  source?: string;
+  cached?: boolean;
 }
 
 type DisplayMode = 'kanji' | 'furigana' | 'kana';
 
 const LEVEL_ORDER = ['N5', 'N4', 'N3', 'N2', 'N1'];
+
+const SourceBadge = ({ source, cached }: { source?: string; cached?: boolean }) => {
+  if (cached && source === 'preload') {
+    return <Badge variant="outline" className="gap-1 text-xs"><Database className="h-3 w-3" /> Preload</Badge>;
+  }
+  if (cached) {
+    return <Badge variant="outline" className="gap-1 text-xs"><Zap className="h-3 w-3" /> Cache</Badge>;
+  }
+  if (source === 'jisho') {
+    return <Badge variant="outline" className="gap-1 text-xs"><Globe className="h-3 w-3" /> Jisho</Badge>;
+  }
+  return <Badge variant="secondary" className="gap-1 text-xs">AI</Badge>;
+};
 
 const Reading = () => {
   const { user } = useAuth();
@@ -74,11 +99,14 @@ const Reading = () => {
         return LEVEL_ORDER.indexOf(a.level) - LEVEL_ORDER.indexOf(b.level);
       });
 
-      // Parse vocabulary_list from JSONB
+      // Parse JSONB fields
       const parsed = sorted.map(p => ({
         ...p,
         vocabulary_list: Array.isArray(p.vocabulary_list) 
           ? (p.vocabulary_list as unknown as VocabItem[])
+          : null,
+        preloaded_vocabulary: Array.isArray(p.preloaded_vocabulary)
+          ? (p.preloaded_vocabulary as unknown as PreloadedVocab[])
           : null
       }));
 
@@ -96,10 +124,9 @@ const Reading = () => {
 
   // Convert furigana HTML to kana only
   const extractKanaOnly = (html: string): string => {
-    // Replace ruby tags with just the rt content
     return html
       .replace(/<ruby>([^<]+)<rt>([^<]+)<\/rt><\/ruby>/g, '$2')
-      .replace(/<[^>]+>/g, ''); // Remove any remaining HTML tags
+      .replace(/<[^>]+>/g, '');
   };
 
   // Get display content based on mode
@@ -131,7 +158,7 @@ const Reading = () => {
     }
   };
 
-  // Word lookup
+  // Word lookup - check local first, then API
   const lookupWord = async (word: string) => {
     if (!word.trim()) return;
     
@@ -140,6 +167,34 @@ const Reading = () => {
     setWordData(null);
 
     try {
+      // Step 1: Check preloaded vocabulary in current passage
+      if (selectedPassage?.preloaded_vocabulary) {
+        const preloaded = selectedPassage.preloaded_vocabulary.find(
+          v => v.word === word || v.reading === word
+        );
+        if (preloaded) {
+          console.log('Found in preloaded vocabulary!');
+          setWordData({ ...preloaded, source: 'preload', cached: true });
+          setLookupLoading(false);
+          return;
+        }
+      }
+
+      // Step 2: Check vocabulary_list
+      if (selectedPassage?.vocabulary_list) {
+        const vocab = selectedPassage.vocabulary_list.find(
+          v => v.word === word || v.reading === word
+        );
+        if (vocab) {
+          console.log('Found in vocabulary list!');
+          setWordData({ ...vocab, source: 'preload', cached: true });
+          setLookupLoading(false);
+          return;
+        }
+      }
+
+      // Step 3: Call API (will check cache → Jisho → AI)
+      console.log('Calling lookup API...');
       const { data, error } = await supabase.functions.invoke('lookup-word', {
         body: { word, context: selectedPassage?.content }
       });
@@ -200,7 +255,6 @@ const Reading = () => {
       );
     }
 
-    // Split into characters/words for kanji and kana modes
     const chars = text.split('');
     return (
       <div className="font-jp text-xl leading-loose">
@@ -230,7 +284,9 @@ const Reading = () => {
             <BookOpen className="h-8 w-8 text-sakura" />
             <div>
               <h1 className="text-2xl font-display font-bold">Luyện Đọc</h1>
-              <p className="text-muted-foreground text-sm">Đọc hiểu tiếng Nhật với hỗ trợ AI</p>
+              <p className="text-muted-foreground text-sm">
+                Đọc hiểu tiếng Nhật • Cache + Jisho + AI
+              </p>
             </div>
           </div>
           <CreatePassageDialog onCreated={fetchPassages} />
@@ -270,11 +326,19 @@ const Reading = () => {
                         <div className="flex items-start justify-between">
                           <div>
                             <p className="font-jp font-medium">{passage.title}</p>
-                            {passage.category && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {passage.category}
-                              </p>
-                            )}
+                            <div className="flex items-center gap-2 mt-1">
+                              {passage.category && (
+                                <span className="text-xs text-muted-foreground">
+                                  {passage.category}
+                                </span>
+                              )}
+                              {passage.preloaded_vocabulary && passage.preloaded_vocabulary.length > 0 && (
+                                <Badge variant="outline" className="text-xs gap-1">
+                                  <Database className="h-3 w-3" />
+                                  {passage.preloaded_vocabulary.length} từ
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                           <Badge variant="outline">{passage.level}</Badge>
                         </div>
@@ -341,7 +405,12 @@ const Reading = () => {
                     {/* Vocabulary List */}
                     {selectedPassage.vocabulary_list && selectedPassage.vocabulary_list.length > 0 && (
                       <div className="mt-6">
-                        <h3 className="font-semibold mb-3">Từ vựng trong bài</h3>
+                        <h3 className="font-semibold mb-3 flex items-center gap-2">
+                          Từ vựng trong bài
+                          <Badge variant="outline" className="text-xs">
+                            <Zap className="h-3 w-3 mr-1" /> Click = tra từ tức thì
+                          </Badge>
+                        </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {selectedPassage.vocabulary_list.map((vocab, idx) => (
                             <div
@@ -365,16 +434,79 @@ const Reading = () => {
                 </Card>
 
                 {/* Word Lookup Panel */}
-                <WordLookupPanel
-                  wordData={wordData}
-                  loading={lookupLoading}
-                  onClose={() => {
-                    setWordData(null);
-                    setSelectedWord(null);
-                  }}
-                  onSave={saveVocabulary}
-                  onSpeak={speak}
-                />
+                {(lookupLoading || wordData) && (
+                  <Card className="shadow-elevated border-sakura/20">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <BookOpen className="h-5 w-5 text-sakura" />
+                          Tra từ
+                          {wordData && <SourceBadge source={wordData.source} cached={wordData.cached} />}
+                        </CardTitle>
+                        <Button variant="ghost" size="sm" onClick={() => { setWordData(null); setSelectedWord(null); }}>
+                          ✕
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {lookupLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="h-8 w-8 animate-spin text-sakura" />
+                        </div>
+                      ) : wordData ? (
+                        <div className="space-y-4">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <p className="text-3xl font-jp font-bold">{wordData.word}</p>
+                              <p className="text-lg text-muted-foreground font-jp">{wordData.reading}</p>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => speak(wordData.word)}
+                            >
+                              <Volume2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+
+                          {wordData.word_type && (
+                            <Badge variant="secondary">{wordData.word_type}</Badge>
+                          )}
+
+                          <div>
+                            <p className="text-sm text-muted-foreground mb-1">Nghĩa</p>
+                            <p className="text-lg">{wordData.meaning}</p>
+                          </div>
+
+                          {wordData.examples && wordData.examples.length > 0 && (
+                            <div>
+                              <p className="text-sm text-muted-foreground mb-2">Ví dụ</p>
+                              <div className="space-y-2">
+                                {wordData.examples.map((ex, idx) => (
+                                  <div key={idx} className="p-3 rounded-lg bg-muted/50">
+                                    <p className="font-jp text-sm">{ex.japanese}</p>
+                                    <p className="text-sm text-muted-foreground">{ex.vietnamese}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {wordData.notes && (
+                            <div>
+                              <p className="text-sm text-muted-foreground mb-1">Ghi chú</p>
+                              <p className="text-sm">{wordData.notes}</p>
+                            </div>
+                          )}
+
+                          <Button onClick={saveVocabulary} className="w-full gap-2">
+                            Lưu vào bộ sưu tập
+                          </Button>
+                        </div>
+                      ) : null}
+                    </CardContent>
+                  </Card>
+                )}
               </motion.div>
             ) : (
               <div className="flex items-center justify-center h-64 text-muted-foreground">
