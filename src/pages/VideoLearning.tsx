@@ -176,15 +176,25 @@ const VideoLearning = () => {
         body: { youtube_id: youtubeId }
       });
 
-      if (error) throw error;
+      // Transport / invocation error (network, CORS, non-2xx response, etc.)
+      if (error) {
+        console.error('Error fetching captions (invoke):', error);
+        toast({
+          title: 'Lỗi lấy phụ đề',
+          description: error.message || 'Không thể lấy phụ đề từ YouTube',
+          variant: 'destructive',
+        });
+        setInputMode('manual');
+        return;
+      }
 
-      if (data.error || !data.captions || data.captions.length === 0) {
-        const youtubeId = extractYouTubeId(newVideoUrl);
+      // Application-level failure returned as 200
+      if (!data || data.success === false || data.error || !data.captions || data.captions.length === 0) {
         toast({
           title: 'Không thể lấy phụ đề tự động',
           description: (
             <div className="space-y-2">
-              <p>YouTube chặn truy cập phụ đề từ server.</p>
+              <p>{data?.message || 'Video này không có phụ đề CC tiếng Nhật hoặc YouTube đang chặn truy cập.'}</p>
               <a 
                 href={`https://downsub.com/?url=https://www.youtube.com/watch?v=${youtubeId}`}
                 target="_blank"
@@ -229,6 +239,7 @@ const VideoLearning = () => {
         description: error.message || 'Không thể lấy phụ đề từ YouTube',
         variant: 'destructive',
       });
+      setInputMode('manual');
     } finally {
       setFetchingCaptions(false);
     }
