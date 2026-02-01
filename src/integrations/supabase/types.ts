@@ -127,6 +127,7 @@ export type Database = {
           created_at: string
           id: string
           level: string
+          preloaded_vocabulary: Json | null
           title: string
           updated_at: string
           user_id: string | null
@@ -139,6 +140,7 @@ export type Database = {
           created_at?: string
           id?: string
           level?: string
+          preloaded_vocabulary?: Json | null
           title: string
           updated_at?: string
           user_id?: string | null
@@ -151,6 +153,7 @@ export type Database = {
           created_at?: string
           id?: string
           level?: string
+          preloaded_vocabulary?: Json | null
           title?: string
           updated_at?: string
           user_id?: string | null
@@ -380,6 +383,45 @@ export type Database = {
           status?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      word_cache: {
+        Row: {
+          created_at: string
+          examples: Json | null
+          id: string
+          meaning: string
+          notes: string | null
+          reading: string | null
+          source: string | null
+          updated_at: string
+          word: string
+          word_type: string | null
+        }
+        Insert: {
+          created_at?: string
+          examples?: Json | null
+          id?: string
+          meaning: string
+          notes?: string | null
+          reading?: string | null
+          source?: string | null
+          updated_at?: string
+          word: string
+          word_type?: string | null
+        }
+        Update: {
+          created_at?: string
+          examples?: Json | null
+          id?: string
+          meaning?: string
+          notes?: string | null
+          reading?: string | null
+          source?: string | null
+          updated_at?: string
+          word?: string
+          word_type?: string | null
         }
         Relationships: []
       }

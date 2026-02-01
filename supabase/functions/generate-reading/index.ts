@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -27,7 +28,11 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    // Use Lovable AI Gateway endpoint
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Use Lovable AI Gateway endpoint - PRELOAD all vocabulary with details
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -39,20 +44,32 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `Bạn là giáo viên tiếng Nhật. Phân tích đoạn văn tiếng Nhật và trả về JSON với format:
+            content: `Bạn là giáo viên tiếng Nhật. Phân tích đoạn văn và trả về JSON với TẤT CẢ từ vựng chi tiết:
 {
-  "content_with_furigana": "HTML với ruby tags cho furigana, ví dụ: <ruby>日本語<rt>にほんご</rt></ruby>",
+  "content_with_furigana": "HTML với ruby tags, ví dụ: <ruby>日本語<rt>にほんご</rt></ruby>",
   "vocabulary_list": [
-    {"word": "từ kanji", "reading": "hiragana", "meaning": "nghĩa tiếng Việt"}
+    {"word": "từ", "reading": "hiragana", "meaning": "nghĩa VN ngắn"}
+  ],
+  "preloaded_vocabulary": [
+    {
+      "word": "từ kanji",
+      "reading": "hiragana",
+      "meaning": "nghĩa tiếng Việt đầy đủ",
+      "word_type": "loại từ (danh từ, động từ, v.v.)",
+      "examples": [{"japanese": "câu ví dụ", "vietnamese": "nghĩa"}],
+      "notes": "ghi chú cách dùng"
+    }
   ]
 }
-- Thêm furigana cho TẤT CẢ các từ Kanji
-- vocabulary_list chứa 5-10 từ vựng quan trọng phù hợp level ${level || 'N5'}
-- Chỉ trả về JSON, không có text khác.`
+- Thêm furigana cho TẤT CẢ Kanji
+- vocabulary_list: 5-10 từ quan trọng (hiển thị)
+- preloaded_vocabulary: TẤT CẢ từ trong bài với chi tiết đầy đủ (cho tra từ offline)
+- Level: ${level || 'N5'}
+- Chỉ trả về JSON.`
           },
           {
             role: 'user',
-            content: `Phân tích đoạn văn sau (level ${level || 'N5'}):\n${content}`
+            content: `Phân tích đoạn văn sau:\n${content}`
           }
         ],
         response_format: { type: 'json_object' },
@@ -84,7 +101,33 @@ serve(async (req) => {
       throw new Error('Invalid AI response format');
     }
 
-    console.log('Reading analysis result:', analysisData);
+    console.log('Reading analysis result - vocabulary count:', analysisData.preloaded_vocabulary?.length || 0);
+
+    // Cache all preloaded vocabulary to word_cache table
+    if (analysisData.preloaded_vocabulary && analysisData.preloaded_vocabulary.length > 0) {
+      console.log('Caching preloaded vocabulary...');
+      
+      const wordsToCache = analysisData.preloaded_vocabulary.map((v: any) => ({
+        word: v.word,
+        reading: v.reading,
+        meaning: v.meaning,
+        word_type: v.word_type,
+        examples: v.examples || [],
+        notes: v.notes,
+        source: 'preload'
+      }));
+
+      // Upsert to avoid duplicates
+      const { error: cacheError } = await supabase
+        .from('word_cache')
+        .upsert(wordsToCache, { onConflict: 'word', ignoreDuplicates: true });
+
+      if (cacheError) {
+        console.error('Cache error:', cacheError);
+      } else {
+        console.log('Cached', wordsToCache.length, 'words');
+      }
+    }
 
     return new Response(
       JSON.stringify(analysisData),
