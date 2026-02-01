@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   PlayCircle,
@@ -10,6 +10,8 @@ import {
   FileText,
   Sparkles,
   ExternalLink,
+  Upload,
+  Globe,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,6 +28,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import Navigation from '@/components/Navigation';
 import DictationPlayer from '@/components/DictationPlayer';
 import { useAuth } from '@/hooks/useAuth';
@@ -61,6 +70,8 @@ const VideoLearning = () => {
   const [newVideoSubtitles, setNewVideoSubtitles] = useState('');
   const [inputMode, setInputMode] = useState<'auto' | 'manual'>('auto');
   const [captionLanguage, setCaptionLanguage] = useState<string>('');
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('ja');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -173,7 +184,7 @@ const VideoLearning = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke('fetch-youtube-captions', {
-        body: { youtube_id: youtubeId }
+        body: { youtube_id: youtubeId, language: selectedLanguage }
       });
 
       // Transport / invocation error (network, CORS, non-2xx response, etc.)
@@ -193,20 +204,29 @@ const VideoLearning = () => {
         toast({
           title: 'Không thể lấy phụ đề tự động',
           description: (
-            <div className="space-y-2">
-              <p>{data?.message || 'Video này không có phụ đề CC tiếng Nhật hoặc YouTube đang chặn truy cập.'}</p>
+            <div className="space-y-3">
+              <p className="font-medium">{data?.message || 'Video này không có phụ đề CC hoặc YouTube đang chặn truy cập.'}</p>
+              <div className="bg-muted/50 rounded-md p-2 text-sm space-y-1">
+                <p className="font-semibold">📋 Cách tải phụ đề thủ công:</p>
+                <ol className="list-decimal list-inside space-y-0.5 text-muted-foreground">
+                  <li>Mở link DownSub bên dưới</li>
+                  <li>Chọn "Japanese" và tải file SRT</li>
+                  <li>Mở file, copy nội dung và dán vào ô phụ đề</li>
+                </ol>
+              </div>
               <a 
                 href={`https://downsub.com/?url=https://www.youtube.com/watch?v=${youtubeId}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sakura underline block"
+                className="inline-flex items-center gap-1 bg-sakura text-white px-3 py-1.5 rounded-md hover:bg-sakura/90 transition-colors"
               >
-                👉 Tải SRT từ DownSub.com
+                <ExternalLink className="h-3 w-3" />
+                Mở DownSub.com
               </a>
             </div>
           ),
           variant: 'destructive',
-          duration: 10000,
+          duration: 15000,
         });
         setInputMode('manual');
         return;
@@ -373,6 +393,17 @@ const VideoLearning = () => {
                       onChange={(e) => setNewVideoUrl(e.target.value)}
                       className="flex-1"
                     />
+                    <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+                      <SelectTrigger className="w-24 shrink-0">
+                        <Globe className="h-4 w-4 mr-1" />
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ja">🇯🇵 日本語</SelectItem>
+                        <SelectItem value="en">🇬🇧 English</SelectItem>
+                        <SelectItem value="auto">🌐 Auto</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <Button
                       variant="outline"
                       onClick={handleFetchCaptions}
@@ -428,8 +459,40 @@ const VideoLearning = () => {
                     onChange={(e) => setNewVideoSubtitles(e.target.value)}
                     className="font-mono text-sm"
                   />
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>💡 Dán phụ đề SRT hoặc</span>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      accept=".srt,.vtt,.txt"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            const content = event.target?.result as string;
+                            setNewVideoSubtitles(content);
+                            toast({
+                              title: 'File đã tải',
+                              description: `Đã tải ${file.name}`,
+                            });
+                          };
+                          reader.readAsText(file);
+                        }
+                        e.target.value = '';
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload className="h-3 w-3" />
+                      Tải file SRT
+                    </Button>
+                    <span className="text-muted-foreground">hoặc</span>
                     {newVideoUrl && extractYouTubeId(newVideoUrl) && (
                       <a 
                         href={`https://downsub.com/?url=https://www.youtube.com/watch?v=${extractYouTubeId(newVideoUrl)}`}
