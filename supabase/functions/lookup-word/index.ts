@@ -1,4 +1,3 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -23,13 +22,17 @@ serve(async (req) => {
 
     console.log('Looking up word:', word);
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const apiKey = Deno.env.get('LOVABLE_API_KEY');
+    if (!apiKey) {
+      throw new Error('LOVABLE_API_KEY not configured');
+    }
+
+    // Use Lovable AI Gateway endpoint
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://lovable.dev',
-        'X-Title': 'Nihongo AI Coach',
       },
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
@@ -56,18 +59,20 @@ Chỉ trả về JSON, không có text khác.`
               : `Tra từ "${word}"`
           }
         ],
-        temperature: 0.3,
+        response_format: { type: 'json_object' },
       }),
     });
 
+    const responseText = await response.text();
+    console.log('API response status:', response.status);
+
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('API error:', errorText);
+      console.error('API error:', responseText);
       throw new Error(`API error: ${response.status}`);
     }
 
-    const data = await response.json();
-    const content = data.choices[0]?.message?.content;
+    const data = JSON.parse(responseText);
+    const content = data.choices?.[0]?.message?.content;
 
     if (!content) {
       throw new Error('No response from AI');
