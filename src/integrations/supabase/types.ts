@@ -119,6 +119,183 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_vocabulary: {
+        Row: {
+          created_at: string
+          example_sentence: string | null
+          id: string
+          mastery_level: number | null
+          meaning: string
+          reading: string | null
+          source_segment_id: string | null
+          user_id: string
+          word: string
+        }
+        Insert: {
+          created_at?: string
+          example_sentence?: string | null
+          id?: string
+          mastery_level?: number | null
+          meaning: string
+          reading?: string | null
+          source_segment_id?: string | null
+          user_id: string
+          word: string
+        }
+        Update: {
+          created_at?: string
+          example_sentence?: string | null
+          id?: string
+          mastery_level?: number | null
+          meaning?: string
+          reading?: string | null
+          source_segment_id?: string | null
+          user_id?: string
+          word?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_vocabulary_source_segment_id_fkey"
+            columns: ["source_segment_id"]
+            isOneToOne: false
+            referencedRelation: "video_segments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_video_progress: {
+        Row: {
+          attempts: number | null
+          created_at: string
+          id: string
+          last_practiced_at: string
+          score: number | null
+          segment_id: string
+          status: string | null
+          user_id: string
+          user_input: string | null
+        }
+        Insert: {
+          attempts?: number | null
+          created_at?: string
+          id?: string
+          last_practiced_at?: string
+          score?: number | null
+          segment_id: string
+          status?: string | null
+          user_id: string
+          user_input?: string | null
+        }
+        Update: {
+          attempts?: number | null
+          created_at?: string
+          id?: string
+          last_practiced_at?: string
+          score?: number | null
+          segment_id?: string
+          status?: string | null
+          user_id?: string
+          user_input?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_video_progress_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "video_segments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_segments: {
+        Row: {
+          created_at: string
+          end_time: number
+          grammar_notes: Json | null
+          id: string
+          japanese_text: string
+          segment_index: number
+          start_time: number
+          video_id: string
+          vietnamese_text: string | null
+          vocabulary: Json | null
+        }
+        Insert: {
+          created_at?: string
+          end_time: number
+          grammar_notes?: Json | null
+          id?: string
+          japanese_text: string
+          segment_index: number
+          start_time: number
+          video_id: string
+          vietnamese_text?: string | null
+          vocabulary?: Json | null
+        }
+        Update: {
+          created_at?: string
+          end_time?: number
+          grammar_notes?: Json | null
+          id?: string
+          japanese_text?: string
+          segment_index?: number
+          start_time?: number
+          video_id?: string
+          vietnamese_text?: string | null
+          vocabulary?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_segments_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "video_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_sources: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          duration: number | null
+          id: string
+          jlpt_level: string | null
+          processed: boolean | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+          youtube_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration?: number | null
+          id?: string
+          jlpt_level?: string | null
+          processed?: boolean | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string
+          youtube_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration?: number | null
+          id?: string
+          jlpt_level?: string | null
+          processed?: boolean | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+          youtube_id?: string
+        }
+        Relationships: []
+      }
       vocabulary: {
         Row: {
           created_at: string
