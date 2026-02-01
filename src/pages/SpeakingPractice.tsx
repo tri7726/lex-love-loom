@@ -1,14 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { MessageSquare, Mic, Volume2, Send, Loader2, Trash2, VolumeX } from 'lucide-react';
+import { MessageSquare, Mic, MicOff, Volume2, Send, Loader2, Trash2, VolumeX, Settings2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import Navigation from '@/components/Navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
-import { useTTS } from '@/hooks/useTTS';
+import { useTTS, TTSSpeed } from '@/hooks/useTTS';
+import { useSpeechToText } from '@/hooks/useSpeechToText';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -32,7 +40,39 @@ const SpeakingPractice = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { speak, stop, isSpeaking, isSupported } = useTTS({ lang: 'ja-JP', rate: 0.85 });
+  const { speak, stop, isSpeaking, isSupported: ttsSupported, rate, setRate } = useTTS({ lang: 'ja-JP' });
+  
+  // Speech-to-Text
+  const handleSpeechResult = (transcript: string, isFinal: boolean) => {
+    setMessage(transcript);
+    if (isFinal && transcript.trim()) {
+      // Auto-send after final result
+      setTimeout(() => {
+        const input = document.querySelector('input[placeholder*="Nhập"]') as HTMLInputElement;
+        if (input?.value) {
+          handleSend();
+        }
+      }, 500);
+    }
+  };
+
+  const { 
+    isListening, 
+    startListening, 
+    stopListening, 
+    isSupported: sttSupported,
+    error: sttError 
+  } = useSpeechToText({ 
+    lang: 'ja-JP',
+    onResult: handleSpeechResult,
+    onError: (error) => {
+      toast({
+        title: 'Lỗi nhận diện giọng nói',
+        description: error,
+        variant: 'destructive',
+      });
+    }
+  });
 
   useEffect(() => {
     if (!loading && !user) {
@@ -229,25 +269,46 @@ const SpeakingPractice = () => {
                       {msg.translation}
                     </p>
                   )}
-                  {msg.role === 'assistant' && msg.content && isSupported && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => isSpeaking ? stop() : speak(msg.content)}
-                      className="mt-2 h-8"
-                    >
-                      {isSpeaking ? (
-                        <>
-                          <VolumeX className="h-4 w-4 mr-1" />
-                          Dừng
-                        </>
-                      ) : (
-                        <>
-                          <Volume2 className="h-4 w-4 mr-1" />
-                          Nghe
-                        </>
-                      )}
-                    </Button>
+                  {msg.role === 'assistant' && msg.content && ttsSupported && (
+                    <div className="flex items-center gap-1 mt-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => isSpeaking ? stop() : speak(msg.content)}
+                        className="h-8"
+                      >
+                        {isSpeaking ? (
+                          <>
+                            <VolumeX className="h-4 w-4 mr-1" />
+                            Dừng
+                          </>
+                        ) : (
+                          <>
+                            <Volume2 className="h-4 w-4 mr-1" />
+                            Nghe
+                          </>
+                        )}
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 px-2">
+                            <Settings2 className="h-3 w-3 mr-1" />
+                            {rate}x
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                          {([0.5, 0.75, 1, 1.25] as TTSSpeed[]).map((speed) => (
+                            <DropdownMenuItem
+                              key={speed}
+                              onClick={() => setRate(speed)}
+                              className={rate === speed ? 'bg-accent' : ''}
+                            >
+                              {speed}x {speed === 1 && '(bình thường)'}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   )}
                 </div>
               </motion.div>
@@ -277,8 +338,14 @@ const SpeakingPractice = () => {
             onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
             disabled={isLoading}
           />
-          <Button variant="outline" size="icon" disabled>
-            <Mic className="h-5 w-5" />
+          <Button 
+            variant={isListening ? "destructive" : "outline"} 
+            size="icon" 
+            onClick={isListening ? stopListening : startListening}
+            disabled={!sttSupported || isLoading}
+            title={sttSupported ? (isListening ? 'Dừng ghi âm' : 'Nói tiếng Nhật') : 'Trình duyệt không hỗ trợ'}
+          >
+            {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
           </Button>
           <Button onClick={handleSend} disabled={isLoading || !message.trim()}>
             {isLoading ? (

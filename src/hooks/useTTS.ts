@@ -1,8 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 
+export type TTSSpeed = 0.5 | 0.75 | 1 | 1.25;
+
 interface UseTTSOptions {
   lang?: string;
-  rate?: number;
+  rate?: TTSSpeed;
   pitch?: number;
 }
 
@@ -14,17 +16,40 @@ interface UseTTSReturn {
   voices: SpeechSynthesisVoice[];
   selectedVoice: SpeechSynthesisVoice | null;
   setSelectedVoice: (voice: SpeechSynthesisVoice | null) => void;
+  rate: TTSSpeed;
+  setRate: (rate: TTSSpeed) => void;
 }
 
+// Get rate from localStorage or default
+const getStoredRate = (): TTSSpeed => {
+  if (typeof window === 'undefined') return 1;
+  const stored = localStorage.getItem('tts-rate');
+  if (stored) {
+    const parsed = parseFloat(stored) as TTSSpeed;
+    if ([0.5, 0.75, 1, 1.25].includes(parsed)) {
+      return parsed;
+    }
+  }
+  return 1;
+};
+
 export const useTTS = (options: UseTTSOptions = {}): UseTTSReturn => {
-  const { lang = 'ja-JP', rate = 1, pitch = 1 } = options;
+  const { lang = 'ja-JP', rate: initialRate, pitch = 1 } = options;
   
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
+  const [rate, setRateState] = useState<TTSSpeed>(initialRate || getStoredRate());
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   const isSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
+
+  const setRate = useCallback((newRate: TTSSpeed) => {
+    setRateState(newRate);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tts-rate', String(newRate));
+    }
+  }, []);
 
   // Load voices
   useEffect(() => {
@@ -100,6 +125,8 @@ export const useTTS = (options: UseTTSOptions = {}): UseTTSReturn => {
     voices,
     selectedVoice,
     setSelectedVoice,
+    rate,
+    setRate,
   };
 };
 

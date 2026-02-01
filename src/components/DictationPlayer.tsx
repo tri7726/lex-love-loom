@@ -84,7 +84,7 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
-  const { speak, stop, isSpeaking, isSupported } = useTTS({ lang: 'ja-JP', rate: 0.85 });
+  const { speak, stop, isSpeaking, isSupported, rate, setRate } = useTTS({ lang: 'ja-JP' });
 
   const currentSegment = segments[currentIndex];
   const progress = segments.length > 0 
