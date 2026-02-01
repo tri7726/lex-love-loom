@@ -5,219 +5,277 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface CaptionTrack {
-  baseUrl: string;
-  name: { simpleText: string };
-  languageCode: string;
-}
-
 interface SubtitleSegment {
   start: number;
   end: number;
   text: string;
 }
 
-// Parse JSON captions (srv3 format)
-function parseJSONCaptions(jsonText: string): SubtitleSegment[] {
+// Parse transcript from innertube response
+function parseTranscriptSegments(transcriptData: any): SubtitleSegment[] {
   const segments: SubtitleSegment[] = [];
   
   try {
-    const data = JSON.parse(jsonText);
-    const events = data?.events || [];
+    const actions = transcriptData?.actions?.[0]?.updateEngagementPanelAction?.content
+      ?.transcriptRenderer?.content?.transcriptSearchPanelRenderer?.body
+      ?.transcriptSegmentListRenderer?.initialSegments;
     
-    for (const event of events) {
-      if (event.segs && event.tStartMs !== undefined) {
-        const text = event.segs.map((s: any) => s.utf8 || '').join('').trim();
-        if (text && text !== '\n') {
-          segments.push({
-            start: event.tStartMs / 1000,
-            end: (event.tStartMs + (event.dDurationMs || 3000)) / 1000,
-            text: text.replace(/\n/g, ' ').trim()
-          });
+    if (!actions) {
+      // Try alternative path
+      const altActions = transcriptData?.actions;
+      if (altActions) {
+        for (const action of altActions) {
+          const segments_data = action?.updateEngagementPanelAction?.content
+            ?.transcriptRenderer?.body?.transcriptBodyRenderer?.cueGroups;
+          
+          if (segments_data) {
+            for (const cueGroup of segments_data) {
+              const cue = cueGroup?.transcriptCueGroupRenderer?.cues?.[0]?.transcriptCueRenderer;
+              if (cue) {
+                const startMs = parseInt(cue.startOffsetMs || '0');
+                const durationMs = parseInt(cue.durationMs || '3000');
+                const text = cue.cue?.simpleText || 
+                  cue.cue?.runs?.map((r: any) => r.text).join('') || '';
+                
+                if (text.trim()) {
+                  segments.push({
+                    start: startMs / 1000,
+                    end: (startMs + durationMs) / 1000,
+                    text: text.trim()
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+    } else {
+      for (const segment of actions) {
+        const cue = segment?.transcriptSegmentRenderer;
+        if (cue) {
+          const startMs = parseInt(cue.startMs || '0');
+          const endMs = parseInt(cue.endMs || startMs + 3000);
+          const text = cue.snippet?.runs?.map((r: any) => r.text).join('') || '';
+          
+          if (text.trim()) {
+            segments.push({
+              start: startMs / 1000,
+              end: endMs / 1000,
+              text: text.trim()
+            });
+          }
         }
       }
     }
   } catch (e) {
-    console.log('Failed to parse as JSON:', e);
+    console.error('Error parsing transcript segments:', e);
   }
   
   return segments;
 }
 
-// Parse XML captions to subtitle segments
-function parseXMLCaptions(xml: string): SubtitleSegment[] {
-  const segments: SubtitleSegment[] = [];
-  
-  // Match <text start="X" dur="Y">content</text>
-  const regex = /<text[^>]*start="([\d.]+)"[^>]*dur="([\d.]+)"[^>]*>([^<]*(?:<[^>]+>[^<]*)*)<\/text>/g;
-  let match;
-  
-  while ((match = regex.exec(xml)) !== null) {
-    const start = parseFloat(match[1]);
-    const dur = parseFloat(match[2]);
-    let text = match[3];
-    
-    // Decode HTML entities and clean up
-    text = text
-      .replace(/<[^>]+>/g, '')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/&apos;/g, "'")
-      .replace(/&#\d+;/g, '')
-      .replace(/\n/g, ' ')
-      .trim();
-    
-    if (text) {
-      segments.push({
-        start,
-        end: start + dur,
-        text
-      });
-    }
-  }
-  
-  return segments;
-}
-
-// Parse captions - try JSON first (srv3), then XML
-function parseCaptions(content: string): SubtitleSegment[] {
-  console.log('Content length:', content.length);
-  console.log('Content preview:', content.substring(0, 200));
-  
-  // Try JSON first (srv3 format)
-  if (content.trim().startsWith('{')) {
-    console.log('Detected JSON format');
-    const segments = parseJSONCaptions(content);
-    if (segments.length > 0) {
-      return segments;
-    }
-  }
-  
-  // Try XML format
-  if (content.includes('<text')) {
-    console.log('Detected XML format');
-    return parseXMLCaptions(content);
-  }
-  
-  console.log('Unknown format, trying both...');
-  const jsonSegments = parseJSONCaptions(content);
-  if (jsonSegments.length > 0) return jsonSegments;
-  
-  return parseXMLCaptions(content);
-}
-
-// Extract video info and captions from YouTube
-async function getYouTubeCaptions(videoId: string): Promise<{
+// Fetch using YouTube's innertube API
+async function fetchWithInnertube(videoId: string): Promise<{
   title: string;
   captions: SubtitleSegment[];
   language: string;
 } | null> {
   try {
-    console.log('Fetching YouTube page for:', videoId);
+    console.log('Trying innertube API for:', videoId);
     
-    // Fetch the YouTube video page
-    const response = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+    // First get the video page to extract required params
+    const pageResponse = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept-Language': 'ja,en;q=0.9',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
       }
     });
     
-    if (!response.ok) {
-      console.error('Failed to fetch YouTube page:', response.status);
+    if (!pageResponse.ok) {
+      console.log('Failed to fetch page');
       return null;
     }
     
-    const html = await response.text();
+    const html = await pageResponse.text();
     
-    // Extract video title
+    // Extract title
     const titleMatch = html.match(/<title>([^<]+)<\/title>/);
-    let title = titleMatch ? titleMatch[1].replace(' - YouTube', '').trim() : `Video ${videoId}`;
+    const title = titleMatch ? titleMatch[1].replace(' - YouTube', '').trim() : `Video ${videoId}`;
     
-    // Find captions data in the page
-    const captionsMatch = html.match(/"captions":\s*(\{[^}]+\})/);
-    if (!captionsMatch) {
-      // Try alternative pattern
-      const altMatch = html.match(/playerCaptionsTracklistRenderer.*?"captionTracks":\s*(\[[^\]]+\])/);
-      if (!altMatch) {
-        console.log('No captions found in page');
-        return null;
+    // Try to find timedtext URL directly in the page
+    const timedtextMatch = html.match(/"baseUrl":"(https:\/\/www\.youtube\.com\/api\/timedtext[^"]+)"/);
+    
+    if (timedtextMatch) {
+      let captionUrl = timedtextMatch[1]
+        .replace(/\\u0026/g, '&')
+        .replace(/\\\//g, '/')
+        .replace(/\\"/g, '"');
+      
+      console.log('Found timedtext URL, fetching...');
+      
+      // Try different formats
+      for (const fmt of ['json3', 'srv3', '']) {
+        let url = captionUrl;
+        if (fmt) {
+          url = url.replace(/fmt=[^&]+/, `fmt=${fmt}`);
+          if (!url.includes('fmt=')) {
+            url += `&fmt=${fmt}`;
+          }
+        }
+        
+        const captionResponse = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          }
+        });
+        
+        if (captionResponse.ok) {
+          const content = await captionResponse.text();
+          console.log(`Format ${fmt || 'default'}: content length = ${content.length}`);
+          
+          if (content.length > 10) {
+            const segments = parseContent(content);
+            if (segments.length > 0) {
+              console.log(`Parsed ${segments.length} segments with format ${fmt || 'default'}`);
+              return { title, captions: segments, language: 'ja' };
+            }
+          }
+        }
       }
     }
     
-    // Extract caption tracks
-    const tracksMatch = html.match(/"captionTracks":\s*(\[[^\]]+\])/);
-    if (!tracksMatch) {
-      console.log('No caption tracks found');
-      return null;
-    }
-    
-    let tracks: CaptionTrack[];
-    try {
-      // Clean and parse JSON
-      const tracksJson = tracksMatch[1].replace(/\\u0026/g, '&').replace(/\\"/g, '"');
-      tracks = JSON.parse(tracksJson);
-    } catch (e) {
-      console.error('Failed to parse caption tracks:', e);
-      return null;
-    }
-    
-    if (!tracks || tracks.length === 0) {
-      console.log('No caption tracks available');
-      return null;
-    }
-    
-    console.log('Found caption tracks:', tracks.map(t => t.languageCode));
-    
-    // Prefer Japanese captions, fallback to first available
-    let selectedTrack = tracks.find(t => t.languageCode === 'ja') || 
-                        tracks.find(t => t.languageCode.startsWith('ja')) ||
-                        tracks[0];
-    
-    console.log('Selected track:', selectedTrack.languageCode);
-    
-    // Fetch the caption content - decode URL properly
-    let captionUrl = selectedTrack.baseUrl;
-    captionUrl = captionUrl.replace(/\\u0026/g, '&');
-    captionUrl = captionUrl.replace(/\\\//g, '/');
-    captionUrl = captionUrl.replace(/\\"/g, '"');
-    
-    // Add lang parameter if missing
-    if (!captionUrl.includes('lang=')) {
-      captionUrl += `&lang=${selectedTrack.languageCode}`;
-    }
-    
-    console.log('Final caption URL:', captionUrl);
-    
-    const captionResponse = await fetch(captionUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    // Fallback: Try to extract from ytInitialPlayerResponse
+    const playerResponseMatch = html.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\});/s);
+    if (playerResponseMatch) {
+      try {
+        const playerResponse = JSON.parse(playerResponseMatch[1]);
+        const captionTracks = playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+        
+        if (captionTracks && captionTracks.length > 0) {
+          console.log('Found caption tracks:', captionTracks.map((t: any) => t.languageCode));
+          
+          // Prefer Japanese
+          const track = captionTracks.find((t: any) => t.languageCode === 'ja') || 
+                       captionTracks.find((t: any) => t.languageCode?.startsWith('ja')) ||
+                       captionTracks[0];
+          
+          let captionUrl = track.baseUrl.replace(/\\u0026/g, '&');
+          
+          // Try fetching with json3 format
+          if (!captionUrl.includes('fmt=')) {
+            captionUrl += '&fmt=json3';
+          }
+          
+          console.log('Fetching caption from playerResponse URL...');
+          
+          const captionResponse = await fetch(captionUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Accept': '*/*',
+              'Referer': `https://www.youtube.com/watch?v=${videoId}`,
+            }
+          });
+          
+          if (captionResponse.ok) {
+            const content = await captionResponse.text();
+            console.log('Caption content length:', content.length);
+            
+            if (content.length > 10) {
+              const segments = parseContent(content);
+              if (segments.length > 0) {
+                return { title, captions: segments, language: track.languageCode };
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Error parsing playerResponse:', e);
       }
-    });
-    if (!captionResponse.ok) {
-      console.error('Failed to fetch captions:', captionResponse.status);
-      return null;
     }
     
-    const captionContent = await captionResponse.text();
-    console.log('Caption content length:', captionContent.length);
+    console.log('No captions found via any method');
+    return null;
     
-    const captions = parseCaptions(captionContent);
-    
-    console.log('Parsed', captions.length, 'caption segments');
-    
-    return {
-      title,
-      captions,
-      language: selectedTrack.languageCode
-    };
   } catch (error) {
-    console.error('Error fetching YouTube captions:', error);
+    console.error('Innertube fetch error:', error);
     return null;
   }
+}
+
+// Parse content (JSON3 or XML format)
+function parseContent(content: string): SubtitleSegment[] {
+  const segments: SubtitleSegment[] = [];
+  
+  // Try JSON3 format first
+  if (content.trim().startsWith('{')) {
+    try {
+      const data = JSON.parse(content);
+      const events = data?.events || [];
+      
+      for (const event of events) {
+        if (event.segs) {
+          const text = event.segs
+            .map((s: any) => s.utf8 || '')
+            .join('')
+            .replace(/\n/g, ' ')
+            .trim();
+          
+          if (text && text !== '\n' && text.length > 0) {
+            const startMs = event.tStartMs || 0;
+            const durationMs = event.dDurationMs || 3000;
+            
+            segments.push({
+              start: startMs / 1000,
+              end: (startMs + durationMs) / 1000,
+              text
+            });
+          }
+        }
+      }
+      
+      if (segments.length > 0) {
+        console.log('Parsed JSON3 format:', segments.length, 'segments');
+        return segments;
+      }
+    } catch (e) {
+      console.log('Not valid JSON3, trying XML...');
+    }
+  }
+  
+  // Try XML format
+  if (content.includes('<text')) {
+    const regex = /<text[^>]*start="([\d.]+)"[^>]*dur="([\d.]+)"[^>]*>([^<]*(?:<[^>]+>[^<]*)*)<\/text>/g;
+    let match;
+    
+    while ((match = regex.exec(content)) !== null) {
+      const start = parseFloat(match[1]);
+      const dur = parseFloat(match[2]);
+      let text = match[3]
+        .replace(/<[^>]+>/g, '')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&apos;/g, "'")
+        .replace(/\n/g, ' ')
+        .trim();
+      
+      if (text) {
+        segments.push({
+          start,
+          end: start + dur,
+          text
+        });
+      }
+    }
+    
+    if (segments.length > 0) {
+      console.log('Parsed XML format:', segments.length, 'segments');
+    }
+  }
+  
+  return segments;
 }
 
 serve(async (req) => {
@@ -237,13 +295,14 @@ serve(async (req) => {
 
     console.log('Fetching captions for YouTube video:', youtube_id);
 
-    const result = await getYouTubeCaptions(youtube_id);
+    const result = await fetchWithInnertube(youtube_id);
 
-    if (!result) {
+    if (!result || result.captions.length === 0) {
       return new Response(
         JSON.stringify({ 
           error: 'No captions available',
-          message: 'Video này không có phụ đề CC hoặc không thể truy cập được.'
+          message: 'Video này không có phụ đề CC tiếng Nhật hoặc YouTube đang chặn truy cập. Vui lòng tải SRT từ downsub.com và dán vào.',
+          suggestion: 'Dùng https://downsub.com để tải file SRT'
         }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );

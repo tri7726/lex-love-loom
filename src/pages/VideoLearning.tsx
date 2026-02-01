@@ -9,6 +9,7 @@ import {
   Download,
   FileText,
   Sparkles,
+  ExternalLink,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -178,10 +179,24 @@ const VideoLearning = () => {
       if (error) throw error;
 
       if (data.error || !data.captions || data.captions.length === 0) {
+        const youtubeId = extractYouTubeId(newVideoUrl);
         toast({
           title: 'Không thể lấy phụ đề tự động',
-          description: 'YouTube có thể chặn truy cập. Vui lòng tải file SRT từ YouTube và dán vào bên dưới.',
+          description: (
+            <div className="space-y-2">
+              <p>YouTube chặn truy cập phụ đề từ server.</p>
+              <a 
+                href={`https://downsub.com/?url=https://www.youtube.com/watch?v=${youtubeId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sakura underline block"
+              >
+                👉 Tải SRT từ DownSub.com
+              </a>
+            </div>
+          ),
           variant: 'destructive',
+          duration: 10000,
         });
         setInputMode('manual');
         return;
@@ -402,9 +417,19 @@ const VideoLearning = () => {
                     onChange={(e) => setNewVideoSubtitles(e.target.value)}
                     className="font-mono text-sm"
                   />
-                  <p className="text-xs text-muted-foreground">
-                    💡 Click "Lấy CC" để tự động lấy phụ đề từ YouTube, hoặc dán phụ đề SRT thủ công.
-                  </p>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>💡 Dán phụ đề SRT hoặc</span>
+                    {newVideoUrl && extractYouTubeId(newVideoUrl) && (
+                      <a 
+                        href={`https://downsub.com/?url=https://www.youtube.com/watch?v=${extractYouTubeId(newVideoUrl)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sakura hover:underline flex items-center gap-1"
+                      >
+                        Tải từ DownSub <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                  </div>
                 </div>
 
                 <Button
