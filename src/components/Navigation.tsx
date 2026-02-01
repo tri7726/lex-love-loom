@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Home,
@@ -12,6 +12,8 @@ import {
   MessageSquare,
   Keyboard,
   HelpCircle,
+  LogOut,
+  User,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -20,9 +22,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import StreakBadge from './StreakBadge';
+import { useAuth } from '@/hooks/useAuth';
 
 const navItems = [
   { path: '/', icon: Home, label: 'Home' },
@@ -52,6 +56,23 @@ export const Navigation: React.FC<NavigationProps> = ({
   xp = 1250,
 }) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/auth');
+  };
+
+  const getUserInitial = () => {
+    if (user?.user_metadata?.display_name) {
+      return user.user_metadata.display_name.charAt(0).toUpperCase();
+    }
+    if (user?.email) {
+      return user.email.charAt(0).toUpperCase();
+    }
+    return 'U';
+  };
 
   return (
     <>
@@ -123,11 +144,34 @@ export const Navigation: React.FC<NavigationProps> = ({
               <span className="text-sm">{xp.toLocaleString()} XP</span>
             </div>
 
-            <Avatar className="h-9 w-9 border-2 border-sakura/30 cursor-pointer">
-              <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                U
-              </AvatarFallback>
-            </Avatar>
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Avatar className="h-9 w-9 border-2 border-sakura/30 cursor-pointer hover:border-sakura transition-colors">
+                    <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                      {getUserInitial()}
+                    </AvatarFallback>
+                  </Avatar>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem className="flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    <span className="truncate">{user.email}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut} className="flex items-center gap-2 text-destructive">
+                    <LogOut className="h-4 w-4" />
+                    Đăng xuất
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Link to="/auth">
+                <Button variant="outline" size="sm">
+                  Đăng nhập
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
 
