@@ -60,6 +60,20 @@ interface SubtitleEntry {
   text: string;
 }
 
+// Helper function defined outside component to avoid hoisting issues
+const extractYouTubeId = (url: string): string | null => {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+    /^([a-zA-Z0-9_-]{11})$/,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+  return null;
+};
+
 const VideoLearning = () => {
   const [videos, setVideos] = useState<VideoSource[]>([]);
   const [loading, setLoading] = useState(true);
@@ -177,18 +191,6 @@ const VideoLearning = () => {
     return videos;
   }, [videos, favoriteIds, showFavoritesOnly]);
 
-  const extractYouTubeId = (url: string): string | null => {
-    const patterns = [
-      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
-      /^([a-zA-Z0-9_-]{11})$/,
-    ];
-    
-    for (const pattern of patterns) {
-      const match = url.match(pattern);
-      if (match) return match[1];
-    }
-    return null;
-  };
 
   const parseSubtitles = (text: string): SubtitleEntry[] => {
     const lines = text.trim().split('\n');
