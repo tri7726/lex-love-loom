@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 interface SubtitleSegment {
@@ -299,12 +299,14 @@ serve(async (req) => {
 
     if (!result || result.captions.length === 0) {
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
+          success: false,
           error: 'No captions available',
           message: 'Video này không có phụ đề CC tiếng Nhật hoặc YouTube đang chặn truy cập. Vui lòng tải SRT từ downsub.com và dán vào.',
           suggestion: 'Dùng https://downsub.com để tải file SRT'
         }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        // IMPORTANT: return 200 so clients don't treat this as a transport error
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
