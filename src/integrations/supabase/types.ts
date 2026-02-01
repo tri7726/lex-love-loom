@@ -119,6 +119,45 @@ export type Database = {
         }
         Relationships: []
       }
+      reading_passages: {
+        Row: {
+          category: string | null
+          content: string
+          content_with_furigana: string | null
+          created_at: string
+          id: string
+          level: string
+          title: string
+          updated_at: string
+          user_id: string | null
+          vocabulary_list: Json | null
+        }
+        Insert: {
+          category?: string | null
+          content: string
+          content_with_furigana?: string | null
+          created_at?: string
+          id?: string
+          level?: string
+          title: string
+          updated_at?: string
+          user_id?: string | null
+          vocabulary_list?: Json | null
+        }
+        Update: {
+          category?: string | null
+          content?: string
+          content_with_furigana?: string | null
+          created_at?: string
+          id?: string
+          level?: string
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+          vocabulary_list?: Json | null
+        }
+        Relationships: []
+      }
       saved_vocabulary: {
         Row: {
           created_at: string
