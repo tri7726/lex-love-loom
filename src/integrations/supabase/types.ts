@@ -14,7 +14,159 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      chat_history: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          role: string
+          translation: string | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          role: string
+          translation?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+          translation?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      learning_progress: {
+        Row: {
+          created_at: string
+          date: string
+          flashcards_reviewed: number | null
+          id: string
+          quiz_score: number | null
+          quiz_total: number | null
+          reading_minutes: number | null
+          speaking_minutes: number | null
+          user_id: string
+          xp_earned: number | null
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          flashcards_reviewed?: number | null
+          id?: string
+          quiz_score?: number | null
+          quiz_total?: number | null
+          reading_minutes?: number | null
+          speaking_minutes?: number | null
+          user_id: string
+          xp_earned?: number | null
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          flashcards_reviewed?: number | null
+          id?: string
+          quiz_score?: number | null
+          quiz_total?: number | null
+          reading_minutes?: number | null
+          speaking_minutes?: number | null
+          user_id?: string
+          xp_earned?: number | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          current_streak: number | null
+          display_name: string | null
+          id: string
+          jlpt_level: string | null
+          longest_streak: number | null
+          total_xp: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          current_streak?: number | null
+          display_name?: string | null
+          id?: string
+          jlpt_level?: string | null
+          longest_streak?: number | null
+          total_xp?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          current_streak?: number | null
+          display_name?: string | null
+          id?: string
+          jlpt_level?: string | null
+          longest_streak?: number | null
+          total_xp?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      vocabulary: {
+        Row: {
+          created_at: string
+          example_sentence: string | null
+          example_translation: string | null
+          id: string
+          jlpt_level: string | null
+          kanji: string | null
+          last_reviewed_at: string | null
+          meaning: string
+          reading: string
+          review_count: number | null
+          status: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          example_sentence?: string | null
+          example_translation?: string | null
+          id?: string
+          jlpt_level?: string | null
+          kanji?: string | null
+          last_reviewed_at?: string | null
+          meaning: string
+          reading: string
+          review_count?: number | null
+          status?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          example_sentence?: string | null
+          example_translation?: string | null
+          id?: string
+          jlpt_level?: string | null
+          kanji?: string | null
+          last_reviewed_at?: string | null
+          meaning?: string
+          reading?: string
+          review_count?: number | null
+          status?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
