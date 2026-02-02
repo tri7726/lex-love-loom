@@ -432,8 +432,15 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
 
         {/* Video Player */}
         <Card className="shadow-card overflow-hidden">
-          <div className="aspect-video bg-black" ref={playerContainerRef}>
+          <div className="aspect-video bg-black relative" ref={playerContainerRef}>
             <div id="youtube-player" className="w-full h-full" />
+            {/* Loading Indicator */}
+            {!playerReady && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-10">
+                <Loader2 className="h-12 w-12 text-primary animate-spin mb-3" />
+                <p className="text-white text-sm">Đang tải video...</p>
+              </div>
+            )}
           </div>
         </Card>
 
