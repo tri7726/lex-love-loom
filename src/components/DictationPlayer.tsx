@@ -17,6 +17,7 @@ import {
   Lightbulb,
   Bookmark,
   Loader2,
+  Languages,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,6 +34,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useTTS } from '@/hooks/useTTS';
+import { useKanaInput, KanaMode } from '@/hooks/useKanaInput';
 import { compareStrings, calculateScore, DiffResult } from '@/lib/stringComparison';
 
 interface VideoSource {
@@ -85,6 +87,7 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { speak, stop, isSpeaking, isSupported, rate, setRate } = useTTS({ lang: 'ja-JP' });
+  const { mode: kanaMode, cycleMode, processInput, resetBuffer } = useKanaInput();
 
   const currentSegment = segments[currentIndex];
   const progress = segments.length > 0 
@@ -251,6 +254,29 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
     setShowHint(false);
     setShowGrammar(false);
     setShowAnswer(false);
+    resetBuffer();
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    const processedValue = processInput(newValue, userInput);
+    setUserInput(processedValue);
+  };
+
+  const getKanaModeLabel = (mode: KanaMode): string => {
+    switch (mode) {
+      case 'hiragana': return 'あ';
+      case 'katakana': return 'ア';
+      default: return 'A';
+    }
+  };
+
+  const getKanaModeTooltip = (mode: KanaMode): string => {
+    switch (mode) {
+      case 'hiragana': return 'Chế độ Hiragana - gõ romaji để chuyển thành ひらがな';
+      case 'katakana': return 'Chế độ Katakana - gõ romaji để chuyển thành カタカナ';
+      default: return 'Chế độ bình thường - gõ trực tiếp';
+    }
   };
 
   const handleRetry = () => {
@@ -369,19 +395,39 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
                     Nhập những gì bạn nghe được:
                   </label>
                   <div className="flex gap-2">
-                    <Input
-                      ref={inputRef}
-                      value={userInput}
-                      onChange={(e) => setUserInput(e.target.value)}
-                      placeholder="Gõ tiếng Nhật tại đây..."
-                      className="flex-1 font-jp text-lg"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !hasChecked) {
-                          handleCheck();
-                        }
-                      }}
-                      disabled={hasChecked}
-                    />
+                    <div className="relative flex-1">
+                      <Input
+                        ref={inputRef}
+                        value={userInput}
+                        onChange={handleInputChange}
+                        placeholder={kanaMode === 'off' ? 'Gõ tiếng Nhật tại đây...' : 'Gõ romaji (ví dụ: konnichiwa → こんにちは)...'}
+                        className="flex-1 font-jp text-lg pr-12"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !hasChecked) {
+                            handleCheck();
+                          }
+                        }}
+                        disabled={hasChecked}
+                      />
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0 font-jp text-base"
+                            onClick={cycleMode}
+                            disabled={hasChecked}
+                          >
+                            {getKanaModeLabel(kanaMode)}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{getKanaModeTooltip(kanaMode)}</p>
+                          <p className="text-xs text-muted-foreground">Nhấn để đổi chế độ</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
                     {!hasChecked ? (
                       <Button onClick={handleCheck} disabled={!userInput.trim()}>
                         Kiểm tra
@@ -393,6 +439,11 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
                       </Button>
                     )}
                   </div>
+                  {kanaMode !== 'off' && (
+                    <p className="text-xs text-muted-foreground">
+                      💡 Gõ romaji để chuyển thành {kanaMode === 'hiragana' ? 'Hiragana' : 'Katakana'} (ví dụ: ka → {kanaMode === 'hiragana' ? 'か' : 'カ'})
+                    </p>
+                  )}
                 </div>
 
                 {/* Result Display */}
