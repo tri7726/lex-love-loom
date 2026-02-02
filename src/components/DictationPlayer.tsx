@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/tooltip';
 import Navigation from '@/components/Navigation';
 import KanaKeyboard from '@/components/KanaKeyboard';
+import KanjiSuggestions from '@/components/KanjiSuggestions';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -88,7 +89,13 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { speak, stop, isSpeaking, isSupported, rate, setRate } = useTTS({ lang: 'ja-JP' });
-  const { mode: kanaMode, cycleMode, processInput, resetBuffer } = useKanaInput();
+  const { mode: kanaMode, cycleMode, processInput, resetBuffer, getKanjiSuggestions } = useKanaInput();
+  const kanjiSuggestions = getKanjiSuggestions(userInput);
+
+  const handleKanjiSelect = (kanji: string) => {
+    setUserInput(kanji);
+    inputRef.current?.focus();
+  };
 
   const currentSegment = segments[currentIndex];
   const progress = segments.length > 0 
@@ -449,6 +456,14 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
                     <p className="text-xs text-muted-foreground">
                       💡 Gõ romaji để chuyển thành {kanaMode === 'hiragana' ? 'Hiragana' : 'Katakana'} (ví dụ: ka → {kanaMode === 'hiragana' ? 'か' : 'カ'})
                     </p>
+                  )}
+                  
+                  {/* Kanji Suggestions */}
+                  {!hasChecked && kanjiSuggestions.length > 0 && (
+                    <KanjiSuggestions 
+                      suggestions={kanjiSuggestions} 
+                      onSelect={handleKanjiSelect} 
+                    />
                   )}
                   
                   {/* Kana Keyboard */}

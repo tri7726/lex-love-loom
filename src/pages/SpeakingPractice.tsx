@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/tooltip';
 import Navigation from '@/components/Navigation';
 import KanaKeyboard from '@/components/KanaKeyboard';
+import KanjiSuggestions from '@/components/KanjiSuggestions';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -48,7 +49,12 @@ const SpeakingPractice = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { speak, stop, isSpeaking, isSupported: ttsSupported, rate, setRate } = useTTS({ lang: 'ja-JP' });
-  const { mode: kanaMode, cycleMode, processInput, resetBuffer } = useKanaInput();
+  const { mode: kanaMode, cycleMode, processInput, resetBuffer, getKanjiSuggestions } = useKanaInput();
+  const kanjiSuggestions = getKanjiSuggestions(message);
+
+  const handleKanjiSelect = (kanji: string) => {
+    setMessage(kanji);
+  };
   
   // Speech-to-Text
   const handleSpeechResult = (transcript: string, isFinal: boolean) => {
@@ -411,6 +417,14 @@ const SpeakingPractice = () => {
               )}
             </Button>
           </div>
+
+          {/* Kanji Suggestions */}
+          {kanjiSuggestions.length > 0 && (
+            <KanjiSuggestions 
+              suggestions={kanjiSuggestions} 
+              onSelect={handleKanjiSelect} 
+            />
+          )}
 
           {/* Kana Keyboard */}
           <KanaKeyboard onKeyPress={handleKanaKeyPress} />
