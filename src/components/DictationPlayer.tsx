@@ -689,29 +689,36 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
                         {currentSegment.vocabulary.length > 0 && (
                           <div>
                             <h4 className="text-sm font-medium mb-2">Từ vựng:</h4>
-                            <div className="flex flex-wrap gap-2">
+                            <div className="space-y-2">
                               {currentSegment.vocabulary.map((vocab, i) => (
-                                <Tooltip key={i}>
-                                  <TooltipTrigger asChild>
-                                    <Badge
-                                      variant="secondary"
-                                      className="cursor-pointer hover:bg-primary/20"
-                                      onClick={() => saveVocabulary(vocab)}
-                                    >
-                                      <span className="font-jp">{vocab.word}</span>
-                                      {vocab.reading && (
-                                        <span className="text-xs ml-1 opacity-70">
-                                          ({vocab.reading})
-                                        </span>
-                                      )}
-                                      <Bookmark className="h-3 w-3 ml-1" />
-                                    </Badge>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>{vocab.meaning}</p>
-                                    <p className="text-xs text-muted-foreground">Click để lưu</p>
-                                  </TooltipContent>
-                                </Tooltip>
+                                <div 
+                                  key={i}
+                                  className="flex items-center justify-between p-2 rounded-lg bg-secondary/50 hover:bg-secondary/80 transition-colors cursor-pointer group"
+                                  onClick={() => saveVocabulary(vocab)}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-jp font-medium text-primary">{vocab.word}</span>
+                                    {vocab.reading && (
+                                      <span className="text-sm text-muted-foreground font-jp">
+                                        ({vocab.reading})
+                                      </span>
+                                    )}
+                                    <span className="text-muted-foreground">-</span>
+                                    <span className="text-foreground">{vocab.meaning || 'Chưa có nghĩa'}</span>
+                                  </div>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                      >
+                                        <Bookmark className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Lưu từ vựng</TooltipContent>
+                                  </Tooltip>
+                                </div>
                               ))}
                             </div>
                           </div>
