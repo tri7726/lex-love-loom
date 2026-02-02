@@ -40,6 +40,7 @@ const sampleQuestions: QuizQuestion[] = [
   {
     id: '2',
     question: 'Làm sao nói "Cảm ơn" trong tiếng Nhật?',
+    questionJp: 'ありがとう',
     options: ['すみません', 'ありがとう', 'ごめんなさい', 'おねがいします'],
     correctAnswer: 1,
     category: 'vocabulary',
@@ -57,6 +58,7 @@ const sampleQuestions: QuizQuestion[] = [
   {
     id: '4',
     question: 'Trợ từ nào dùng để đánh dấu chủ đề câu?',
+    questionJp: 'は',
     options: ['を', 'に', 'は', 'で'],
     correctAnswer: 2,
     category: 'grammar',
@@ -92,6 +94,7 @@ const sampleQuestions: QuizQuestion[] = [
   {
     id: '8',
     question: 'Câu nào đúng ngữ pháp?',
+    questionJp: '本を読みます',
     options: ['本を読みます', '本が読みます', '本に読みます', '本で読みます'],
     correctAnswer: 0,
     category: 'grammar',
@@ -177,9 +180,13 @@ const Quiz = () => {
   // Auto-play for listening mode
   useEffect(() => {
     if (mode === 'listening' && question?.questionJp && isStarted && !showResult) {
-      speak(question.questionJp);
+      // Small delay to ensure TTS is ready
+      const timer = setTimeout(() => {
+        speak(question.questionJp);
+      }, 300);
+      return () => clearTimeout(timer);
     }
-  }, [currentQuestion, mode, isStarted, showResult]);
+  }, [currentQuestion, mode, isStarted, showResult, question?.questionJp, speak]);
 
   const handleSelectAnswer = (index: number) => {
     if (showResult) return;
@@ -483,17 +490,26 @@ const Quiz = () => {
                     </Badge>
                   </div>
                   <CardTitle className="text-xl leading-relaxed">
-                    {mode === 'listening' ? (
-                      <div className="flex items-center gap-3">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => question?.questionJp && speak(question.questionJp)}
-                          disabled={isSpeaking}
-                        >
-                          <Volume2 className={cn("h-5 w-5", isSpeaking && "animate-pulse text-primary")} />
-                        </Button>
-                        <span>Nghe và chọn đáp án đúng</span>
+                  {mode === 'listening' ? (
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-center gap-3">
+                          <Button
+                            variant="outline"
+                            size="lg"
+                            onClick={() => question?.questionJp && speak(question.questionJp)}
+                            disabled={isSpeaking}
+                            className="gap-2"
+                          >
+                            <Volume2 className={cn("h-6 w-6", isSpeaking && "animate-pulse text-primary")} />
+                            {isSpeaking ? 'Đang phát...' : 'Phát lại'}
+                          </Button>
+                        </div>
+                        <span className="text-lg">Nghe và chọn đáp án đúng</span>
+                        {!ttsSupported && (
+                          <p className="text-sm text-destructive">
+                            Trình duyệt không hỗ trợ TTS. Vui lòng dùng Chrome/Safari.
+                          </p>
+                        )}
                       </div>
                     ) : (
                       question?.question
