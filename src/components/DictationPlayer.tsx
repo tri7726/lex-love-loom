@@ -700,10 +700,14 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
                               {currentSegment.vocabulary.map((vocab, i) => (
                                 <div 
                                   key={i}
-                                  className="flex items-center justify-between p-2 rounded-lg bg-secondary/50 hover:bg-secondary/80 transition-colors cursor-pointer group"
-                                  onClick={() => saveVocabulary(vocab)}
+                                  className="flex items-center justify-between p-2 rounded-lg bg-secondary/50 hover:bg-secondary/80 transition-colors group"
                                 >
-                                  <div className="flex items-center gap-2">
+                                  <div 
+                                    className="flex items-center gap-2 cursor-pointer flex-1"
+                                    onClick={() => speak(vocab.word)}
+                                    title="Nhấn để nghe phát âm"
+                                  >
+                                    <Volume2 className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                                     <span className="font-jp font-medium text-primary">{vocab.word}</span>
                                     {vocab.reading && (
                                       <span className="text-sm text-muted-foreground font-jp">
@@ -719,6 +723,7 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
                                         variant="ghost" 
                                         size="icon" 
                                         className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        onClick={() => saveVocabulary(vocab)}
                                       >
                                         <Bookmark className="h-4 w-4" />
                                       </Button>

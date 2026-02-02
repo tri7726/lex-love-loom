@@ -19,6 +19,7 @@ import VocabularyInput from "./pages/VocabularyInput";
 import UserGuide from "./pages/UserGuide";
 import VideoLearning from "./pages/VideoLearning";
 import Auth from "./pages/Auth";
+import SavedVocabulary from "./pages/SavedVocabulary";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +46,7 @@ function App() {
                 <Route path="/vocabulary-input" element={<VocabularyInput />} />
                 <Route path="/guide" element={<UserGuide />} />
                 <Route path="/video-learning" element={<VideoLearning />} />
+                <Route path="/saved-vocabulary" element={<SavedVocabulary />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
