@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, Mic, MicOff, Volume2, Send, Loader2, Trash2, VolumeX, Settings2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,17 +19,27 @@ import {
 import Navigation from '@/components/Navigation';
 import KanaKeyboard from '@/components/KanaKeyboard';
 import KanjiSuggestions from '@/components/KanjiSuggestions';
+import KanjiStrokeOrder from '@/components/KanjiStrokeOrder';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { useTTS, TTSSpeed } from '@/hooks/useTTS';
 import { useSpeechToText } from '@/hooks/useSpeechToText';
 import { useKanaInput, KanaMode } from '@/hooks/useKanaInput';
+import { useKanjiLookup } from '@/hooks/useKanjiLookup';
+import { useWordHistory } from '@/hooks/useWordHistory';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
   translation?: string;
+}
+
+interface KanjiSuggestion {
+  kanji: string;
+  reading: string;
+  meaning: string;
+  source?: string;
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/japanese-chat`;
@@ -44,16 +54,43 @@ const SpeakingPractice = () => {
     },
   ]);
   const [isLoading, setIsLoading] = useState(false);
+  const [showStrokeOrder, setShowStrokeOrder] = useState<KanjiSuggestion | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { speak, stop, isSpeaking, isSupported: ttsSupported, rate, setRate } = useTTS({ lang: 'ja-JP' });
   const { mode: kanaMode, cycleMode, processInput, resetBuffer, getKanjiSuggestions } = useKanaInput();
-  const kanjiSuggestions = getKanjiSuggestions(message);
+  const { suggestions: apiSuggestions, isLoading: isLookupLoading, lookupKanji, clearSuggestions } = useKanjiLookup();
+  const { saveWord } = useWordHistory();
+
+  // Combine local and API suggestions
+  const localSuggestions = getKanjiSuggestions(message);
+  const allSuggestions: KanjiSuggestion[] = [
+    ...localSuggestions.map(s => ({ ...s, source: 'local' })),
+    ...apiSuggestions.filter(api => !localSuggestions.some(local => local.kanji === api.kanji)),
+  ];
+
+  // Lookup from API when local suggestions are empty
+  useEffect(() => {
+    if (message.length >= 2 && localSuggestions.length === 0 && !isLoading) {
+      lookupKanji(message);
+    } else if (message.length < 2) {
+      clearSuggestions();
+    }
+  }, [message, localSuggestions.length, isLoading]);
 
   const handleKanjiSelect = (kanji: string) => {
     setMessage(kanji);
+  };
+
+  const handleViewStrokeOrder = (suggestion: KanjiSuggestion) => {
+    setShowStrokeOrder(suggestion);
+  };
+
+  const handleSaveFromStrokeOrder = (word: { word: string; reading: string; meaning: string }) => {
+    saveWord(word);
+    setShowStrokeOrder(null);
   };
   
   // Speech-to-Text
@@ -419,10 +456,12 @@ const SpeakingPractice = () => {
           </div>
 
           {/* Kanji Suggestions */}
-          {kanjiSuggestions.length > 0 && (
+          {(allSuggestions.length > 0 || isLookupLoading) && (
             <KanjiSuggestions 
-              suggestions={kanjiSuggestions} 
-              onSelect={handleKanjiSelect} 
+              suggestions={allSuggestions} 
+              onSelect={handleKanjiSelect}
+              onViewStrokeOrder={handleViewStrokeOrder}
+              isLoading={isLookupLoading}
             />
           )}
 
@@ -440,6 +479,19 @@ const SpeakingPractice = () => {
           💡 Mẹo: Hãy thử hỏi "〇〇は日本語で何ですか？" để học từ mới!
         </p>
       </main>
+
+      {/* Stroke Order Modal */}
+      <AnimatePresence>
+        {showStrokeOrder && (
+          <KanjiStrokeOrder
+            kanji={showStrokeOrder.kanji}
+            reading={showStrokeOrder.reading}
+            meaning={showStrokeOrder.meaning}
+            onClose={() => setShowStrokeOrder(null)}
+            onSaveToVocabulary={handleSaveFromStrokeOrder}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
