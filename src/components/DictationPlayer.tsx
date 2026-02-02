@@ -32,11 +32,14 @@ import {
 import Navigation from '@/components/Navigation';
 import KanaKeyboard from '@/components/KanaKeyboard';
 import KanjiSuggestions from '@/components/KanjiSuggestions';
+import KanjiStrokeOrder from '@/components/KanjiStrokeOrder';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useTTS } from '@/hooks/useTTS';
 import { useKanaInput, KanaMode } from '@/hooks/useKanaInput';
+import { useKanjiLookup } from '@/hooks/useKanjiLookup';
+import { useWordHistory } from '@/hooks/useWordHistory';
 import { compareStrings, calculateScore, DiffResult } from '@/lib/stringComparison';
 
 interface VideoSource {
@@ -61,6 +64,13 @@ interface DictationPlayerProps {
   onBack: () => void;
 }
 
+interface KanjiSuggestion {
+  kanji: string;
+  reading: string;
+  meaning: string;
+  source?: string;
+}
+
 declare global {
   interface Window {
     YT: any;
@@ -83,6 +93,7 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
   const [showGrammar, setShowGrammar] = useState(false);
   const [showAnswer, setShowAnswer] = useState(false);
   const [completedSegments, setCompletedSegments] = useState<Set<number>>(new Set());
+  const [showStrokeOrder, setShowStrokeOrder] = useState<KanjiSuggestion | null>(null);
   
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -90,11 +101,37 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
   const { toast } = useToast();
   const { speak, stop, isSpeaking, isSupported, rate, setRate } = useTTS({ lang: 'ja-JP' });
   const { mode: kanaMode, cycleMode, processInput, resetBuffer, getKanjiSuggestions } = useKanaInput();
-  const kanjiSuggestions = getKanjiSuggestions(userInput);
+  const { suggestions: apiSuggestions, isLoading: isLookupLoading, lookupKanji, clearSuggestions } = useKanjiLookup();
+  const { saveWord } = useWordHistory();
+  
+  // Combine local and API suggestions
+  const localSuggestions = getKanjiSuggestions(userInput);
+  const allSuggestions: KanjiSuggestion[] = [
+    ...localSuggestions.map(s => ({ ...s, source: 'local' })),
+    ...apiSuggestions.filter(api => !localSuggestions.some(local => local.kanji === api.kanji)),
+  ];
+
+  // Lookup from API when local suggestions are empty
+  useEffect(() => {
+    if (userInput.length >= 2 && localSuggestions.length === 0 && !hasChecked) {
+      lookupKanji(userInput);
+    } else if (userInput.length < 2) {
+      clearSuggestions();
+    }
+  }, [userInput, localSuggestions.length, hasChecked]);
 
   const handleKanjiSelect = (kanji: string) => {
     setUserInput(kanji);
     inputRef.current?.focus();
+  };
+
+  const handleViewStrokeOrder = (suggestion: KanjiSuggestion) => {
+    setShowStrokeOrder(suggestion);
+  };
+
+  const handleSaveFromStrokeOrder = (word: { word: string; reading: string; meaning: string }) => {
+    saveWord(word);
+    setShowStrokeOrder(null);
   };
 
   const currentSegment = segments[currentIndex];
@@ -459,10 +496,12 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
                   )}
                   
                   {/* Kanji Suggestions */}
-                  {!hasChecked && kanjiSuggestions.length > 0 && (
+                  {!hasChecked && (allSuggestions.length > 0 || isLookupLoading) && (
                     <KanjiSuggestions 
-                      suggestions={kanjiSuggestions} 
-                      onSelect={handleKanjiSelect} 
+                      suggestions={allSuggestions} 
+                      onSelect={handleKanjiSelect}
+                      onViewStrokeOrder={handleViewStrokeOrder}
+                      isLoading={isLookupLoading}
                     />
                   )}
                   
@@ -691,6 +730,19 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
           </Card>
         )}
       </main>
+
+      {/* Stroke Order Modal */}
+      <AnimatePresence>
+        {showStrokeOrder && (
+          <KanjiStrokeOrder
+            kanji={showStrokeOrder.kanji}
+            reading={showStrokeOrder.reading}
+            meaning={showStrokeOrder.meaning}
+            onClose={() => setShowStrokeOrder(null)}
+            onSaveToVocabulary={handleSaveFromStrokeOrder}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
