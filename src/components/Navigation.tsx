@@ -14,6 +14,7 @@ import {
   HelpCircle,
   LogOut,
   User,
+  Gamepad2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,7 @@ const navItems = [
 ];
 
 const moreMenuItems = [
+  { path: '/flashcard-games', icon: Gamepad2, label: 'Flashcard Games' },
   { path: '/video-learning', icon: BookOpen, label: 'Video Learning' },
   { path: '/speaking-practice', icon: MessageSquare, label: 'AI Speaking' },
   { path: '/saved-vocabulary', icon: BookMarked, label: 'Saved Vocabulary' },
