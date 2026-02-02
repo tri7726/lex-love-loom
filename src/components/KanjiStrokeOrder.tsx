@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, forwardRef } from 'react';
 import { motion } from 'framer-motion';
 import { X, Loader2, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -24,13 +24,13 @@ interface KanjiInfo {
   jlpt?: number;
 }
 
-const KanjiStrokeOrder: React.FC<KanjiStrokeOrderProps> = ({
+const KanjiStrokeOrder = forwardRef<HTMLDivElement, KanjiStrokeOrderProps>(({
   kanji,
   reading,
   meaning,
   onClose,
   onSaveToVocabulary,
-}) => {
+}, ref) => {
   const [kanjiInfo, setKanjiInfo] = useState<KanjiInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -82,6 +82,7 @@ const KanjiStrokeOrder: React.FC<KanjiStrokeOrderProps> = ({
 
   return (
     <motion.div
+      ref={ref}
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
@@ -220,6 +221,8 @@ const KanjiStrokeOrder: React.FC<KanjiStrokeOrderProps> = ({
       </Card>
     </motion.div>
   );
-};
+});
+
+KanjiStrokeOrder.displayName = 'KanjiStrokeOrder';
 
 export default KanjiStrokeOrder;
