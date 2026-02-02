@@ -30,6 +30,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import Navigation from '@/components/Navigation';
+import KanaKeyboard from '@/components/KanaKeyboard';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -279,6 +280,11 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
     }
   };
 
+  const handleKanaKeyPress = (char: string) => {
+    setUserInput(prev => prev + char);
+    inputRef.current?.focus();
+  };
+
   const handleRetry = () => {
     resetState();
     inputRef.current?.focus();
@@ -443,6 +449,11 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
                     <p className="text-xs text-muted-foreground">
                       💡 Gõ romaji để chuyển thành {kanaMode === 'hiragana' ? 'Hiragana' : 'Katakana'} (ví dụ: ka → {kanaMode === 'hiragana' ? 'か' : 'カ'})
                     </p>
+                  )}
+                  
+                  {/* Kana Keyboard */}
+                  {!hasChecked && (
+                    <KanaKeyboard onKeyPress={handleKanaKeyPress} />
                   )}
                 </div>
 

@@ -11,12 +11,19 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import Navigation from '@/components/Navigation';
+import KanaKeyboard from '@/components/KanaKeyboard';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { useTTS, TTSSpeed } from '@/hooks/useTTS';
 import { useSpeechToText } from '@/hooks/useSpeechToText';
+import { useKanaInput, KanaMode } from '@/hooks/useKanaInput';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -41,6 +48,7 @@ const SpeakingPractice = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { speak, stop, isSpeaking, isSupported: ttsSupported, rate, setRate } = useTTS({ lang: 'ja-JP' });
+  const { mode: kanaMode, cycleMode, processInput, resetBuffer } = useKanaInput();
   
   // Speech-to-Text
   const handleSpeechResult = (transcript: string, isFinal: boolean) => {
@@ -211,6 +219,33 @@ const SpeakingPractice = () => {
         translation: 'Xin chào! Hãy nói chuyện bằng tiếng Nhật. Bạn có câu hỏi gì không?',
       },
     ]);
+    resetBuffer();
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    const processedValue = processInput(newValue, message);
+    setMessage(processedValue);
+  };
+
+  const handleKanaKeyPress = (char: string) => {
+    setMessage(prev => prev + char);
+  };
+
+  const getKanaModeLabel = (mode: KanaMode): string => {
+    switch (mode) {
+      case 'hiragana': return 'あ';
+      case 'katakana': return 'ア';
+      default: return 'A';
+    }
+  };
+
+  const getKanaModeTooltip = (mode: KanaMode): string => {
+    switch (mode) {
+      case 'hiragana': return 'Chế độ Hiragana - gõ romaji để chuyển thành ひらがな';
+      case 'katakana': return 'Chế độ Katakana - gõ romaji để chuyển thành カタカナ';
+      default: return 'Chế độ bình thường - gõ trực tiếp';
+    }
   };
 
   if (loading) {
@@ -329,31 +364,62 @@ const SpeakingPractice = () => {
         </Card>
 
         {/* Input Area */}
-        <div className="flex gap-2">
-          <Input
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="Nhập tiếng Nhật hoặc tiếng Việt..."
-            className="flex-1"
-            onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-            disabled={isLoading}
-          />
-          <Button 
-            variant={isListening ? "destructive" : "outline"} 
-            size="icon" 
-            onClick={isListening ? stopListening : startListening}
-            disabled={!sttSupported || isLoading}
-            title={sttSupported ? (isListening ? 'Dừng ghi âm' : 'Nói tiếng Nhật') : 'Trình duyệt không hỗ trợ'}
-          >
-            {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-          </Button>
-          <Button onClick={handleSend} disabled={isLoading || !message.trim()}>
-            {isLoading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <Send className="h-5 w-5" />
-            )}
-          </Button>
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Input
+                value={message}
+                onChange={handleInputChange}
+                placeholder={kanaMode === 'off' ? 'Nhập tiếng Nhật hoặc tiếng Việt...' : 'Gõ romaji (ví dụ: konnichiwa)...'}
+                className="flex-1 pr-12"
+                onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                disabled={isLoading}
+              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0 font-jp text-base"
+                    onClick={cycleMode}
+                    disabled={isLoading}
+                  >
+                    {getKanaModeLabel(kanaMode)}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{getKanaModeTooltip(kanaMode)}</p>
+                  <p className="text-xs text-muted-foreground">Nhấn để đổi chế độ</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <Button 
+              variant={isListening ? "destructive" : "outline"} 
+              size="icon" 
+              onClick={isListening ? stopListening : startListening}
+              disabled={!sttSupported || isLoading}
+              title={sttSupported ? (isListening ? 'Dừng ghi âm' : 'Nói tiếng Nhật') : 'Trình duyệt không hỗ trợ'}
+            >
+              {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+            </Button>
+            <Button onClick={handleSend} disabled={isLoading || !message.trim()}>
+              {isLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Send className="h-5 w-5" />
+              )}
+            </Button>
+          </div>
+
+          {/* Kana Keyboard */}
+          <KanaKeyboard onKeyPress={handleKanaKeyPress} />
+
+          {kanaMode !== 'off' && (
+            <p className="text-xs text-muted-foreground text-center">
+              💡 Gõ romaji để chuyển thành {kanaMode === 'hiragana' ? 'Hiragana' : 'Katakana'} (ví dụ: ka → {kanaMode === 'hiragana' ? 'か' : 'カ'})
+            </p>
+          )}
         </div>
 
         <p className="text-center text-sm text-muted-foreground">
