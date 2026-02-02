@@ -10,7 +10,7 @@ import {
   Menu,
   Trophy,
   MessageSquare,
-  Keyboard,
+  BookMarked,
   HelpCircle,
   LogOut,
   User,
@@ -40,7 +40,7 @@ const navItems = [
 const moreMenuItems = [
   { path: '/video-learning', icon: BookOpen, label: 'Video Learning' },
   { path: '/speaking-practice', icon: MessageSquare, label: 'AI Speaking' },
-  { path: '/vocabulary-input', icon: Keyboard, label: 'Word Input' },
+  { path: '/saved-vocabulary', icon: BookMarked, label: 'Saved Vocabulary' },
   { path: '/achievements', icon: Trophy, label: 'Achievements' },
   { path: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
   { path: '/guide', icon: HelpCircle, label: 'User Guide' },

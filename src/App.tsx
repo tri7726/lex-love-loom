@@ -15,7 +15,6 @@ import NotFound from "./pages/NotFound";
 import Reading from "./pages/Reading";
 import SpeakingPractice from "./pages/SpeakingPractice";
 import Achievements from "./pages/Achievements";
-import VocabularyInput from "./pages/VocabularyInput";
 import UserGuide from "./pages/UserGuide";
 import VideoLearning from "./pages/VideoLearning";
 import Auth from "./pages/Auth";
@@ -43,7 +42,6 @@ function App() {
                 <Route path="/reading" element={<Reading />} />
                 <Route path="/speaking-practice" element={<SpeakingPractice />} />
                 <Route path="/achievements" element={<Achievements />} />
-                <Route path="/vocabulary-input" element={<VocabularyInput />} />
                 <Route path="/guide" element={<UserGuide />} />
                 <Route path="/video-learning" element={<VideoLearning />} />
                 <Route path="/saved-vocabulary" element={<SavedVocabulary />} />
