@@ -148,6 +148,51 @@ export type Database = {
         }
         Relationships: []
       }
+      pronunciation_results: {
+        Row: {
+          accuracy_score: number | null
+          created_at: string
+          duration_score: number | null
+          feedback: string | null
+          fluency_score: number | null
+          id: string
+          mode: string
+          original_text: string
+          recognized_text: string
+          rhythm_score: number | null
+          score: number
+          user_id: string
+        }
+        Insert: {
+          accuracy_score?: number | null
+          created_at?: string
+          duration_score?: number | null
+          feedback?: string | null
+          fluency_score?: number | null
+          id?: string
+          mode?: string
+          original_text: string
+          recognized_text: string
+          rhythm_score?: number | null
+          score?: number
+          user_id: string
+        }
+        Update: {
+          accuracy_score?: number | null
+          created_at?: string
+          duration_score?: number | null
+          feedback?: string | null
+          fluency_score?: number | null
+          id?: string
+          mode?: string
+          original_text?: string
+          recognized_text?: string
+          rhythm_score?: number | null
+          score?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       reading_passages: {
         Row: {
           category: string | null
