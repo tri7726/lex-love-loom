@@ -1,46 +1,25 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
-  Play,
-  Pause,
-  RotateCcw,
-  ChevronLeft,
-  ChevronRight,
-  Eye,
-  EyeOff,
-  BookOpen,
-  Volume2,
-  VolumeX,
-  CheckCircle,
-  XCircle,
-  Lightbulb,
-  Bookmark,
   Loader2,
-  Languages,
+  PanelRightOpen,
+  PanelRightClose,
+  Mic,
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import Navigation from '@/components/Navigation';
-import KanaKeyboard from '@/components/KanaKeyboard';
-import KanjiSuggestions from '@/components/KanjiSuggestions';
-import KanjiStrokeOrder from '@/components/KanjiStrokeOrder';
+import VideoLearningTabs, { VideoTab } from '@/components/video/VideoLearningTabs';
+import SubtitlePanel from '@/components/video/SubtitlePanel';
+import VideoMode from '@/components/video/VideoMode';
+import DictationMode from '@/components/video/DictationMode';
+import VideoQuizMode from '@/components/video/VideoQuizMode';
+import SummaryMode from '@/components/video/SummaryMode';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { useTTS } from '@/hooks/useTTS';
-import { useKanaInput, KanaMode } from '@/hooks/useKanaInput';
-import { useKanjiLookup } from '@/hooks/useKanjiLookup';
-import { useWordHistory } from '@/hooks/useWordHistory';
-import { compareStrings, calculateScore, DiffResult } from '@/lib/stringComparison';
 
 interface VideoSource {
   id: string;
@@ -59,16 +38,17 @@ interface Segment {
   vocabulary: Array<{ word: string; reading: string; meaning: string }>;
 }
 
+interface Question {
+  id: string;
+  question_text: string;
+  options: string[];
+  correct_answer: number;
+  explanation?: string;
+}
+
 interface DictationPlayerProps {
   video: VideoSource;
   onBack: () => void;
-}
-
-interface KanjiSuggestion {
-  kanji: string;
-  reading: string;
-  meaning: string;
-  source?: string;
 }
 
 declare global {
@@ -79,80 +59,51 @@ declare global {
 }
 
 const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
+  // Core state
   const [segments, setSegments] = useState<Segment[]>([]);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  
+  // Tab & UI state
+  const [activeTab, setActiveTab] = useState<VideoTab>('video');
+  const [showSubtitlePanel, setShowSubtitlePanel] = useState(true);
+  
+  // YouTube player state
   const [player, setPlayer] = useState<any>(null);
   const [playerReady, setPlayerReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [userInput, setUserInput] = useState('');
-  const [hasChecked, setHasChecked] = useState(false);
-  const [diffResult, setDiffResult] = useState<DiffResult[]>([]);
-  const [score, setScore] = useState(0);
-  const [showHint, setShowHint] = useState(false);
-  const [showGrammar, setShowGrammar] = useState(false);
-  const [showAnswer, setShowAnswer] = useState(false);
-  const [completedSegments, setCompletedSegments] = useState<Set<number>>(new Set());
-  const [showStrokeOrder, setShowStrokeOrder] = useState<KanjiSuggestion | null>(null);
+  const [currentTime, setCurrentTime] = useState(0);
   
+  // Progress tracking
+  const [completedSegments, setCompletedSegments] = useState<Set<number>>(new Set());
+  const [segmentScores, setSegmentScores] = useState<Map<number, number>>(new Map());
+  const [quizScore, setQuizScore] = useState<{ correct: number; total: number } | undefined>();
+
   const playerContainerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const timeUpdateRef = useRef<NodeJS.Timeout | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
-  const { speak, stop, isSpeaking, isSupported, rate, setRate } = useTTS({ lang: 'ja-JP' });
-  const { mode: kanaMode, cycleMode, processInput, resetBuffer, getKanjiSuggestions } = useKanaInput();
-  const { suggestions: apiSuggestions, isLoading: isLookupLoading, lookupKanji, clearSuggestions } = useKanjiLookup();
-  const { saveWord } = useWordHistory();
-  
-  // Combine local and API suggestions
-  const localSuggestions = getKanjiSuggestions(userInput);
-  const allSuggestions: KanjiSuggestion[] = [
-    ...localSuggestions.map(s => ({ ...s, source: 'local' })),
-    ...apiSuggestions.filter(api => !localSuggestions.some(local => local.kanji === api.kanji)),
-  ];
-
-  // Lookup from API when local suggestions are empty
-  useEffect(() => {
-    if (userInput.length >= 2 && localSuggestions.length === 0 && !hasChecked) {
-      lookupKanji(userInput);
-    } else if (userInput.length < 2) {
-      clearSuggestions();
-    }
-  }, [userInput, localSuggestions.length, hasChecked]);
-
-  const handleKanjiSelect = (kanji: string) => {
-    setUserInput(kanji);
-    inputRef.current?.focus();
-  };
-
-  const handleViewStrokeOrder = (suggestion: KanjiSuggestion) => {
-    setShowStrokeOrder(suggestion);
-  };
-
-  const handleSaveFromStrokeOrder = (word: { word: string; reading: string; meaning: string }) => {
-    saveWord(word);
-    setShowStrokeOrder(null);
-  };
 
   const currentSegment = segments[currentIndex];
   const progress = segments.length > 0 
     ? (completedSegments.size / segments.length) * 100 
     : 0;
 
-  // Fetch segments
+  // Fetch segments & questions
   useEffect(() => {
-    const fetchSegments = async () => {
+    const fetchData = async () => {
       try {
-        const { data, error } = await supabase
+        // Fetch segments
+        const { data: segmentsData, error: segmentsError } = await supabase
           .from('video_segments')
           .select('*')
           .eq('video_id', video.id)
           .order('segment_index');
 
-        if (error) throw error;
+        if (segmentsError) throw segmentsError;
         
-        // Transform the data to match our interface
-        const transformedData = (data || []).map(seg => ({
+        const transformedSegments = (segmentsData || []).map(seg => ({
           id: seg.id,
           segment_index: seg.segment_index,
           start_time: seg.start_time,
@@ -167,15 +118,33 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
             : []) as Array<{ word: string; reading: string; meaning: string }>,
         }));
         
-        setSegments(transformedData);
+        setSegments(transformedSegments);
+
+        // Fetch questions
+        const { data: questionsData, error: questionsError } = await supabase
+          .from('video_questions')
+          .select('*')
+          .eq('video_id', video.id);
+
+        if (!questionsError && questionsData) {
+          const transformedQuestions = questionsData.map(q => ({
+            id: q.id,
+            question_text: q.question_text,
+            options: Array.isArray(q.options) ? q.options as string[] : [],
+            correct_answer: q.correct_answer,
+            explanation: q.explanation || undefined,
+          }));
+          setQuestions(transformedQuestions);
+        }
+
       } catch (error) {
-        console.error('Error fetching segments:', error);
+        console.error('Error fetching data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchSegments();
+    fetchData();
   }, [video.id]);
 
   // Initialize YouTube player
@@ -186,7 +155,6 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
     const initPlayer = () => {
       if (!isMounted || !playerContainerRef.current || !window.YT?.Player) return;
 
-      // Make sure the container element exists
       const container = document.getElementById('youtube-player');
       if (!container) return;
 
@@ -204,16 +172,12 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
               if (isMounted) {
                 setPlayer(ytPlayer);
                 setPlayerReady(true);
-                console.log('YouTube player ready');
               }
             },
             onStateChange: (event: any) => {
               if (isMounted) {
                 setIsPlaying(event.data === window.YT.PlayerState.PLAYING);
               }
-            },
-            onError: (event: any) => {
-              console.error('YouTube player error:', event.data);
             },
           },
         });
@@ -232,25 +196,24 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
         document.head.appendChild(tag);
         window.onYouTubeIframeAPIReady = initPlayer;
       } else {
-        // Script is loading, wait for it
         const checkReady = setInterval(() => {
           if (window.YT?.Player) {
             clearInterval(checkReady);
             initPlayer();
           }
         }, 100);
-        
-        // Clear interval after 10 seconds to prevent memory leak
         setTimeout(() => clearInterval(checkReady), 10000);
       }
     };
 
-    // Small delay to ensure DOM is ready
     const timeoutId = setTimeout(loadYouTubeAPI, 100);
 
     return () => {
       isMounted = false;
       clearTimeout(timeoutId);
+      if (timeUpdateRef.current) {
+        clearInterval(timeUpdateRef.current);
+      }
       if (ytPlayer?.destroy) {
         try {
           ytPlayer.destroy();
@@ -261,144 +224,139 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
     };
   }, [video.youtube_id]);
 
-  const playCurrentSegment = () => {
+  // Track current time for subtitle sync
+  useEffect(() => {
+    if (playerReady && player) {
+      timeUpdateRef.current = setInterval(() => {
+        const time = player.getCurrentTime?.() || 0;
+        setCurrentTime(time);
+      }, 100);
+    }
+
+    return () => {
+      if (timeUpdateRef.current) {
+        clearInterval(timeUpdateRef.current);
+      }
+    };
+  }, [playerReady, player]);
+
+  // Play current segment
+  const playCurrentSegment = useCallback(() => {
     if (!player || !currentSegment) return;
     
     player.seekTo(currentSegment.start_time, true);
     player.playVideo();
     
-    // Auto-pause at end
     const duration = (currentSegment.end_time - currentSegment.start_time) * 1000;
     setTimeout(() => {
-      const currentTime = player.getCurrentTime?.() || 0;
-      if (currentTime >= currentSegment.start_time - 0.5 && 
-          currentTime <= currentSegment.end_time + 1) {
+      const time = player.getCurrentTime?.() || 0;
+      if (time >= currentSegment.start_time - 0.5 && time <= currentSegment.end_time + 1) {
         player.pauseVideo();
-        inputRef.current?.focus();
       }
     }, duration + 200);
-  };
+  }, [player, currentSegment]);
 
-  const handleCheck = () => {
-    if (!currentSegment || !userInput.trim()) return;
+  // Handle segment selection from subtitle panel
+  const handleSegmentClick = useCallback((index: number) => {
+    setCurrentIndex(index);
+    if (player && segments[index]) {
+      player.seekTo(segments[index].start_time, true);
+      player.playVideo();
+    }
+  }, [player, segments]);
 
-    const diff = compareStrings(userInput, currentSegment.japanese_text);
-    const segmentScore = calculateScore(userInput, currentSegment.japanese_text);
+  // Handle dictation completion
+  const handleDictationComplete = useCallback((score: number) => {
+    setSegmentScores(prev => new Map(prev).set(currentIndex, score));
     
-    setDiffResult(diff);
-    setScore(segmentScore);
-    setHasChecked(true);
-
-    if (segmentScore >= 90) {
+    if (score >= 90) {
       setCompletedSegments(prev => new Set([...prev, currentIndex]));
-      toast({
-        title: '素晴らしい！',
-        description: `Điểm: ${segmentScore}% - Tuyệt vời!`,
-      });
     }
 
     // Save progress to database
-    saveProgress(segmentScore);
-  };
-
-  const saveProgress = async (segmentScore: number) => {
-    if (!user || !currentSegment) return;
-
-    try {
-      await supabase.from('user_video_progress').upsert({
+    if (user && currentSegment) {
+      supabase.from('user_video_progress').upsert({
         user_id: user.id,
         segment_id: currentSegment.id,
-        user_input: userInput,
-        score: segmentScore,
-        status: segmentScore >= 90 ? 'mastered' : 'learning',
+        score,
+        status: score >= 90 ? 'mastered' : 'learning',
         last_practiced_at: new Date().toISOString(),
       }, {
         onConflict: 'user_id,segment_id',
+      }).then(({ error }) => {
+        if (error) console.error('Error saving progress:', error);
       });
-    } catch (error) {
-      console.error('Error saving progress:', error);
     }
-  };
+  }, [currentIndex, user, currentSegment]);
 
-  const handleNext = () => {
-    if (currentIndex < segments.length - 1) {
-      setCurrentIndex(prev => prev + 1);
-      resetState();
-    }
-  };
+  // Handle quiz completion
+  const handleQuizComplete = useCallback((correct: number, total: number) => {
+    setQuizScore({ correct, total });
+  }, []);
 
-  const handlePrev = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(prev => prev - 1);
-      resetState();
-    }
-  };
-
-  const resetState = () => {
-    setUserInput('');
-    setHasChecked(false);
-    setDiffResult([]);
-    setScore(0);
-    setShowHint(false);
-    setShowGrammar(false);
-    setShowAnswer(false);
-    resetBuffer();
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value;
-    const processedValue = processInput(newValue, userInput);
-    setUserInput(processedValue);
-  };
-
-  const getKanaModeLabel = (mode: KanaMode): string => {
-    switch (mode) {
-      case 'hiragana': return 'あ';
-      case 'katakana': return 'ア';
-      default: return 'A';
-    }
-  };
-
-  const getKanaModeTooltip = (mode: KanaMode): string => {
-    switch (mode) {
-      case 'hiragana': return 'Chế độ Hiragana - gõ romaji để chuyển thành ひらがな';
-      case 'katakana': return 'Chế độ Katakana - gõ romaji để chuyển thành カタカナ';
-      default: return 'Chế độ bình thường - gõ trực tiếp';
-    }
-  };
-
-  const handleKanaKeyPress = (char: string) => {
-    setUserInput(prev => prev + char);
-    inputRef.current?.focus();
-  };
-
-  const handleRetry = () => {
-    resetState();
-    inputRef.current?.focus();
-  };
-
-
-  const saveVocabulary = async (word: { word: string; reading: string; meaning: string }) => {
-    if (!user || !currentSegment) return;
-
-    try {
-      await supabase.from('saved_vocabulary').upsert({
-        user_id: user.id,
-        word: word.word,
-        reading: word.reading,
-        meaning: word.meaning,
-        example_sentence: currentSegment.japanese_text,
-        source_segment_id: currentSegment.id,
-      }, {
-        onConflict: 'user_id,word',
-      });
+  // Render content based on active tab
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'video':
+        return (
+          <VideoMode
+            currentSegment={currentSegment}
+            currentIndex={currentIndex}
+            totalSegments={segments.length}
+            isPlaying={isPlaying}
+            onPlaySegment={playCurrentSegment}
+            onPrev={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
+            onNext={() => setCurrentIndex(prev => Math.min(segments.length - 1, prev + 1))}
+          />
+        );
       
-      toast({
-        title: 'Đã lưu!',
-        description: `"${word.word}" đã được thêm vào sổ từ vựng`,
-      });
-    } catch (error) {
-      console.error('Error saving vocabulary:', error);
+      case 'dictation':
+        return (
+          <DictationMode
+            segments={segments}
+            currentIndex={currentIndex}
+            completedSegments={completedSegments}
+            onIndexChange={setCurrentIndex}
+            onPlaySegment={playCurrentSegment}
+            onComplete={handleDictationComplete}
+            playerReady={playerReady}
+          />
+        );
+      
+      case 'pronunciation':
+        return (
+          <div className="text-center py-12">
+            <Mic className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Luyện phát âm</h3>
+            <p className="text-muted-foreground mb-4">
+              Nghe câu và nói theo để luyện phát âm
+            </p>
+            <Button onClick={() => window.location.href = '/speaking-practice'}>
+              Đến trang luyện nói
+            </Button>
+          </div>
+        );
+      
+      case 'quiz':
+        return (
+          <VideoQuizMode
+            questions={questions}
+            onComplete={handleQuizComplete}
+          />
+        );
+      
+      case 'summary':
+        return (
+          <SummaryMode
+            segments={segments}
+            completedSegments={completedSegments}
+            segmentScores={segmentScores}
+            quizScore={quizScore}
+          />
+        );
+      
+      default:
+        return null;
     }
   };
 
@@ -411,400 +369,105 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0">
+    <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
 
-      <main className="container py-6 space-y-4">
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={onBack}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-xl font-bold line-clamp-1">{video.title}</h1>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>Câu {currentIndex + 1} / {segments.length}</span>
-              <Progress value={progress} className="w-24 h-2" />
-              <span>{Math.round(progress)}%</span>
+      {/* Tabs */}
+      <VideoLearningTabs
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        quizCount={questions.length}
+        segmentsCount={segments.length}
+      />
+
+      {/* Main content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left side - Video + Content */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center gap-3 px-4 py-3 border-b bg-muted/30">
+            <Button variant="ghost" size="icon" onClick={onBack}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg font-bold truncate">{video.title}</h1>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Câu {currentIndex + 1}/{segments.length}</span>
+                <Progress value={progress} className="w-20 h-1.5" />
+                <span>{Math.round(progress)}%</span>
+              </div>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowSubtitlePanel(!showSubtitlePanel)}
+              className="hidden md:flex gap-1"
+            >
+              {showSubtitlePanel ? (
+                <>
+                  <PanelRightClose className="h-4 w-4" />
+                  Ẩn phụ đề
+                </>
+              ) : (
+                <>
+                  <PanelRightOpen className="h-4 w-4" />
+                  Hiện phụ đề
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Video Player */}
+          <Card className="m-4 overflow-hidden shadow-card">
+            <div className="aspect-video bg-black relative" ref={playerContainerRef}>
+              <div id="youtube-player" className="w-full h-full" />
+              {!playerReady && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-10">
+                  <Loader2 className="h-12 w-12 text-primary animate-spin mb-3" />
+                  <p className="text-white text-sm">Đang tải video...</p>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* Tab Content */}
+          <div className="flex-1 overflow-auto px-4 pb-20 md:pb-4">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                {renderTabContent()}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </div>
 
-        {/* Video Player */}
-        <Card className="shadow-card overflow-hidden">
-          <div className="aspect-video bg-black relative" ref={playerContainerRef}>
-            <div id="youtube-player" className="w-full h-full" />
-            {/* Loading Indicator */}
-            {!playerReady && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-10">
-                <Loader2 className="h-12 w-12 text-primary animate-spin mb-3" />
-                <p className="text-white text-sm">Đang tải video...</p>
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {currentSegment && (
-          <>
-            {/* Controls */}
-            <div className="flex items-center justify-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handlePrev}
-                disabled={currentIndex === 0}
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </Button>
-              
-              <Button
-                size="lg"
-                className="gap-2 px-6"
-                onClick={playCurrentSegment}
-                disabled={!playerReady}
-              >
-                {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-                Phát đoạn này
-              </Button>
-
-              {isSupported && (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => isSpeaking ? stop() : speak(currentSegment.japanese_text)}
-                >
-                  {isSpeaking ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-                </Button>
-              )}
-
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleNext}
-                disabled={currentIndex === segments.length - 1}
-              >
-                <ChevronRight className="h-5 w-5" />
-              </Button>
-            </div>
-
-            {/* Input Area */}
-            <Card className="shadow-card">
-              <CardContent className="p-4 space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">
-                    Nhập những gì bạn nghe được:
-                  </label>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Input
-                        ref={inputRef}
-                        value={userInput}
-                        onChange={handleInputChange}
-                        placeholder={kanaMode === 'off' ? 'Gõ tiếng Nhật tại đây...' : 'Gõ romaji (ví dụ: konnichiwa → こんにちは)...'}
-                        className="flex-1 font-jp text-lg pr-12"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !hasChecked) {
-                            handleCheck();
-                          }
-                        }}
-                        disabled={hasChecked}
-                      />
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0 font-jp text-base"
-                            onClick={cycleMode}
-                            disabled={hasChecked}
-                          >
-                            {getKanaModeLabel(kanaMode)}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{getKanaModeTooltip(kanaMode)}</p>
-                          <p className="text-xs text-muted-foreground">Nhấn để đổi chế độ</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                    {!hasChecked ? (
-                      <Button onClick={handleCheck} disabled={!userInput.trim()}>
-                        Kiểm tra
-                      </Button>
-                    ) : (
-                      <Button variant="outline" onClick={handleRetry}>
-                        <RotateCcw className="h-4 w-4 mr-2" />
-                        Thử lại
-                      </Button>
-                    )}
-                  </div>
-                  {kanaMode !== 'off' && (
-                    <p className="text-xs text-muted-foreground">
-                      💡 Gõ romaji để chuyển thành {kanaMode === 'hiragana' ? 'Hiragana' : 'Katakana'} (ví dụ: ka → {kanaMode === 'hiragana' ? 'か' : 'カ'})
-                    </p>
-                  )}
-                  
-                  {/* Kanji Suggestions */}
-                  {!hasChecked && (allSuggestions.length > 0 || isLookupLoading) && (
-                    <KanjiSuggestions 
-                      suggestions={allSuggestions} 
-                      onSelect={handleKanjiSelect}
-                      onViewStrokeOrder={handleViewStrokeOrder}
-                      isLoading={isLookupLoading}
-                    />
-                  )}
-                  
-                  {/* Kana Keyboard */}
-                  {!hasChecked && (
-                    <KanaKeyboard onKeyPress={handleKanaKeyPress} />
-                  )}
-                </div>
-
-                {/* Result Display */}
-                <AnimatePresence>
-                  {hasChecked && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="space-y-3"
-                    >
-                      {/* Score */}
-                      <div className="flex items-center gap-3">
-                        {score >= 90 ? (
-                          <CheckCircle className="h-6 w-6 text-matcha" />
-                        ) : (
-                          <XCircle className="h-6 w-6 text-destructive" />
-                        )}
-                        <span className="text-lg font-semibold">
-                          Điểm: {score}%
-                        </span>
-                        {score >= 90 && (
-                          <Badge className="bg-matcha text-white">Hoàn thành!</Badge>
-                        )}
-                      </div>
-
-                      {/* Diff Display */}
-                      <div className="p-3 bg-muted rounded-lg">
-                        <p className="text-sm text-muted-foreground mb-2">Kết quả của bạn:</p>
-                        <p className="font-jp text-lg">
-                          {diffResult.map((item, i) => (
-                            <span
-                              key={i}
-                              className={item.correct 
-                                ? 'text-matcha' 
-                                : 'text-destructive bg-destructive/10 px-0.5 rounded'
-                              }
-                            >
-                              {item.char}
-                            </span>
-                          ))}
-                        </p>
-                      </div>
-
-                      {/* Correct Answer */}
-                      <div className="p-3 bg-primary/5 rounded-lg">
-                        <p className="text-sm text-muted-foreground mb-2">Đáp án đúng:</p>
-                        <p className="font-jp text-lg">{currentSegment.japanese_text}</p>
-                        {currentSegment.vietnamese_text && (
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {currentSegment.vietnamese_text}
-                          </p>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Hint Buttons */}
-                {!hasChecked && (
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowHint(!showHint)}
-                    >
-                      <Lightbulb className="h-4 w-4 mr-2" />
-                      {showHint ? 'Ẩn gợi ý' : 'Gợi ý dịch'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowAnswer(!showAnswer)}
-                    >
-                      {showAnswer ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
-                      {showAnswer ? 'Ẩn đáp án' : 'Xem đáp án'}
-                    </Button>
-                  </div>
-                )}
-
-                {/* Hints */}
-                <AnimatePresence>
-                  {showHint && currentSegment.vietnamese_text && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="p-3 bg-gold/10 rounded-lg"
-                    >
-                      <p className="text-sm font-medium text-gold-foreground">
-                        💡 Gợi ý: {currentSegment.vietnamese_text}
-                      </p>
-                    </motion.div>
-                  )}
-
-                  {showAnswer && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="p-3 bg-muted rounded-lg"
-                    >
-                      <p className="font-jp text-lg">{currentSegment.japanese_text}</p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </CardContent>
-            </Card>
-
-            {/* Grammar & Vocabulary */}
-            {(currentSegment.grammar_notes.length > 0 || currentSegment.vocabulary.length > 0) && (
-              <Card className="shadow-card">
-                <CardContent className="p-4 space-y-4">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-between"
-                    onClick={() => setShowGrammar(!showGrammar)}
-                  >
-                    <span className="flex items-center gap-2">
-                      <BookOpen className="h-4 w-4" />
-                      Từ vựng & Ngữ pháp
-                    </span>
-                    <ChevronRight className={`h-4 w-4 transition-transform ${showGrammar ? 'rotate-90' : ''}`} />
-                  </Button>
-
-                  <AnimatePresence>
-                    {showGrammar && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="space-y-4"
-                      >
-                        {/* Vocabulary */}
-                        {currentSegment.vocabulary.length > 0 && (
-                          <div>
-                            <h4 className="text-sm font-medium mb-2">Từ vựng:</h4>
-                            <div className="space-y-2">
-                              {currentSegment.vocabulary.map((vocab, i) => (
-                                <div 
-                                  key={i}
-                                  className="flex items-center justify-between p-2 rounded-lg bg-secondary/50 hover:bg-secondary/80 transition-colors group"
-                                >
-                                  <div 
-                                    className="flex items-center gap-2 cursor-pointer flex-1"
-                                    onClick={() => speak(vocab.word)}
-                                    title="Nhấn để nghe phát âm"
-                                  >
-                                    <Volume2 className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                                    <span className="font-jp font-medium text-primary">{vocab.word}</span>
-                                    {vocab.reading && (
-                                      <span className="text-sm text-muted-foreground font-jp">
-                                        ({vocab.reading})
-                                      </span>
-                                    )}
-                                    <span className="text-muted-foreground">-</span>
-                                    <span className="text-foreground">{vocab.meaning || 'Chưa có nghĩa'}</span>
-                                  </div>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        onClick={() => saveVocabulary(vocab)}
-                                      >
-                                        <Bookmark className="h-4 w-4" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Lưu từ vựng</TooltipContent>
-                                  </Tooltip>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Grammar Notes */}
-                        {currentSegment.grammar_notes.length > 0 && (
-                          <div>
-                            <h4 className="text-sm font-medium mb-2">Ngữ pháp:</h4>
-                            <div className="space-y-2">
-                              {currentSegment.grammar_notes.map((note, i) => (
-                                <div
-                                  key={i}
-                                  className="p-2 bg-muted rounded text-sm"
-                                >
-                                  <span className="font-jp font-medium">{note.point}</span>
-                                  <span className="mx-2">-</span>
-                                  <span className="text-muted-foreground">{note.explanation}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Navigation Buttons */}
-            <div className="flex justify-between">
-              <Button
-                variant="outline"
-                onClick={handlePrev}
-                disabled={currentIndex === 0}
-              >
-                <ChevronLeft className="h-4 w-4 mr-2" />
-                Câu trước
-              </Button>
-              <Button
-                onClick={handleNext}
-                disabled={currentIndex === segments.length - 1}
-              >
-                Câu tiếp
-                <ChevronRight className="h-4 w-4 ml-2" />
-              </Button>
-            </div>
-          </>
-        )}
-
-        {segments.length === 0 && !loading && (
-          <Card className="shadow-card">
-            <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground">
-                Video này chưa có dữ liệu phụ đề được xử lý.
-              </p>
-            </CardContent>
-          </Card>
-        )}
-      </main>
-
-      {/* Stroke Order Modal */}
-      <AnimatePresence>
-        {showStrokeOrder && (
-          <KanjiStrokeOrder
-            kanji={showStrokeOrder.kanji}
-            reading={showStrokeOrder.reading}
-            meaning={showStrokeOrder.meaning}
-            onClose={() => setShowStrokeOrder(null)}
-            onSaveToVocabulary={handleSaveFromStrokeOrder}
-          />
-        )}
-      </AnimatePresence>
+        {/* Right side - Subtitle Panel (desktop only) */}
+        <AnimatePresence>
+          {showSubtitlePanel && (
+            <motion.div
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 320, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="hidden md:block border-l overflow-hidden"
+            >
+              <SubtitlePanel
+                segments={segments}
+                currentIndex={currentIndex}
+                currentTime={currentTime}
+                completedSegments={completedSegments}
+                onSegmentClick={handleSegmentClick}
+                onClose={() => setShowSubtitlePanel(false)}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 };

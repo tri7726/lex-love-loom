@@ -323,6 +323,60 @@ export type Database = {
           },
         ]
       }
+      video_questions: {
+        Row: {
+          correct_answer: number
+          created_at: string
+          difficulty: string | null
+          explanation: string | null
+          id: string
+          options: Json
+          question_text: string
+          question_type: string
+          segment_id: string | null
+          video_id: string
+        }
+        Insert: {
+          correct_answer?: number
+          created_at?: string
+          difficulty?: string | null
+          explanation?: string | null
+          id?: string
+          options?: Json
+          question_text: string
+          question_type?: string
+          segment_id?: string | null
+          video_id: string
+        }
+        Update: {
+          correct_answer?: number
+          created_at?: string
+          difficulty?: string | null
+          explanation?: string | null
+          id?: string
+          options?: Json
+          question_text?: string
+          question_type?: string
+          segment_id?: string | null
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_questions_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "video_segments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_questions_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "video_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       video_segments: {
         Row: {
           created_at: string
