@@ -34,14 +34,13 @@ const navItems = [
   { path: '/vocabulary', icon: BookOpen, label: 'Vocabulary' },
   { path: '/flashcards', icon: Layers, label: 'Flashcards' },
   { path: '/quiz', icon: Brain, label: 'Quiz' },
-  { path: '/pronunciation', icon: Mic, label: 'Speaking' },
+  { path: '/speaking-practice', icon: Mic, label: 'Speaking' },
   { path: '/reading', icon: BookOpen, label: 'Reading' },
 ];
 
 const moreMenuItems = [
   { path: '/flashcard-games', icon: Gamepad2, label: 'Flashcard Games' },
   { path: '/video-learning', icon: BookOpen, label: 'Video Learning' },
-  { path: '/speaking-practice', icon: MessageSquare, label: 'AI Speaking' },
   { path: '/saved-vocabulary', icon: BookMarked, label: 'Saved Vocabulary' },
   { path: '/achievements', icon: Trophy, label: 'Achievements' },
   { path: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
