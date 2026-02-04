@@ -15,6 +15,7 @@ import VideoLearningTabs, { VideoTab } from '@/components/video/VideoLearningTab
 import SubtitlePanel from '@/components/video/SubtitlePanel';
 import VideoMode from '@/components/video/VideoMode';
 import DictationMode from '@/components/video/DictationMode';
+import SpeakingMode from '@/components/video/SpeakingMode';
 import VideoQuizMode from '@/components/video/VideoQuizMode';
 import SummaryMode from '@/components/video/SummaryMode';
 import { supabase } from '@/integrations/supabase/client';
@@ -77,7 +78,9 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
   
   // Progress tracking
   const [completedSegments, setCompletedSegments] = useState<Set<number>>(new Set());
+  const [speakingCompletedSegments, setSpeakingCompletedSegments] = useState<Set<number>>(new Set());
   const [segmentScores, setSegmentScores] = useState<Map<number, number>>(new Map());
+  const [speakingScores, setSpeakingScores] = useState<Map<number, number>>(new Map());
   const [quizScore, setQuizScore] = useState<{ correct: number; total: number } | undefined>();
 
   const playerContainerRef = useRef<HTMLDivElement>(null);
@@ -289,6 +292,15 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
     }
   }, [currentIndex, user, currentSegment]);
 
+  // Handle speaking completion
+  const handleSpeakingComplete = useCallback((score: number) => {
+    setSpeakingScores(prev => new Map(prev).set(currentIndex, score));
+    
+    if (score >= 70) {
+      setSpeakingCompletedSegments(prev => new Set([...prev, currentIndex]));
+    }
+  }, [currentIndex]);
+
   // Handle quiz completion
   const handleQuizComplete = useCallback((correct: number, total: number) => {
     setQuizScore({ correct, total });
@@ -325,16 +337,15 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
       
       case 'pronunciation':
         return (
-          <div className="text-center py-12">
-            <Mic className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Luyện phát âm</h3>
-            <p className="text-muted-foreground mb-4">
-              Nghe câu và nói theo để luyện phát âm
-            </p>
-            <Button onClick={() => window.location.href = '/speaking-practice'}>
-              Đến trang luyện nói
-            </Button>
-          </div>
+          <SpeakingMode
+            segments={segments}
+            currentIndex={currentIndex}
+            completedSegments={speakingCompletedSegments}
+            onIndexChange={setCurrentIndex}
+            onPlaySegment={playCurrentSegment}
+            onComplete={handleSpeakingComplete}
+            playerReady={playerReady}
+          />
         );
       
       case 'quiz':
