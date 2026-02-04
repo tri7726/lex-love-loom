@@ -243,21 +243,22 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
     };
   }, [playerReady, player]);
 
-  // Play current segment
+  // Play current segment - use segments[currentIndex] directly for fresh reference
   const playCurrentSegment = useCallback(() => {
-    if (!player || !currentSegment) return;
+    const segment = segments[currentIndex];
+    if (!player || !segment) return;
     
-    player.seekTo(currentSegment.start_time, true);
+    player.seekTo(segment.start_time, true);
     player.playVideo();
     
-    const duration = (currentSegment.end_time - currentSegment.start_time) * 1000;
+    const duration = (segment.end_time - segment.start_time) * 1000;
     setTimeout(() => {
       const time = player.getCurrentTime?.() || 0;
-      if (time >= currentSegment.start_time - 0.5 && time <= currentSegment.end_time + 1) {
+      if (time >= segment.start_time - 0.5 && time <= segment.end_time + 1) {
         player.pauseVideo();
       }
     }, duration + 200);
-  }, [player, currentSegment]);
+  }, [player, segments, currentIndex]);
 
   // Handle segment selection from subtitle panel
   const handleSegmentClick = useCallback((index: number) => {
