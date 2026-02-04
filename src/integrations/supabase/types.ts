@@ -68,6 +68,13 @@ export type Database = {
             referencedRelation: "video_sources"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "favorite_videos_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "video_sources_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       learning_progress: {
@@ -375,6 +382,13 @@ export type Database = {
             referencedRelation: "video_sources"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "video_questions_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "video_sources_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       video_segments: {
@@ -420,6 +434,13 @@ export type Database = {
             columns: ["video_id"]
             isOneToOne: false
             referencedRelation: "video_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_segments_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "video_sources_public"
             referencedColumns: ["id"]
           },
         ]
@@ -555,7 +576,45 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      video_sources_public: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          duration: number | null
+          id: string | null
+          jlpt_level: string | null
+          processed: boolean | null
+          thumbnail_url: string | null
+          title: string | null
+          updated_at: string | null
+          youtube_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          duration?: number | null
+          id?: string | null
+          jlpt_level?: string | null
+          processed?: boolean | null
+          thumbnail_url?: string | null
+          title?: string | null
+          updated_at?: string | null
+          youtube_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          duration?: number | null
+          id?: string | null
+          jlpt_level?: string | null
+          processed?: boolean | null
+          thumbnail_url?: string | null
+          title?: string | null
+          updated_at?: string | null
+          youtube_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
