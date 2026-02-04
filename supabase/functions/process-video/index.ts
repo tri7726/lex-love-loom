@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,6 +21,8 @@ interface ProcessedSegment {
   grammar_notes: Array<{ point: string; explanation: string }>;
   vocabulary: Array<{ word: string; reading: string; meaning: string }>;
 }
+
+const BATCH_SIZE = 15; // Process 15 segments at a time for faster response
 
 const SYSTEM_PROMPT = `あなたは日本語教育の専門家です。YouTube動画の字幕を分析して、学習者向けのコンテンツを作成してください。
 
@@ -53,6 +55,132 @@ const SYSTEM_PROMPT = `あなたは日本語教育の専門家です。YouTube�
 6. 語彙は初中級学習者にとって有用なものを抽出（なければ空配列）
 7. ベトナム語訳は自然で分かりやすい表現を使用
 8. JSONのみを返す（説明文は不要）`;
+
+// Process a batch of subtitles with AI
+async function processBatch(
+  batch: SubtitleSegment[],
+  startIndex: number,
+  title: string,
+  apiKey: string
+): Promise<ProcessedSegment[]> {
+  const subtitleText = batch.map((s, i) => 
+    `[${startIndex + i}] ${s.start.toFixed(1)}-${s.end.toFixed(1)}: ${s.text}`
+  ).join("\n");
+
+  const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash-lite", // Faster model for quicker processing
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: `動画タイトル: ${title}\n\n字幕データ:\n${subtitleText}` },
+      ],
+      response_format: { type: "json_object" },
+    }),
+  });
+
+  if (!aiResponse.ok) {
+    const errorText = await aiResponse.text();
+    console.error(`Batch ${startIndex} AI error:`, aiResponse.status, errorText);
+    
+    if (aiResponse.status === 429) {
+      // Wait and retry on rate limit
+      await new Promise(r => setTimeout(r, 2000));
+      return processBatch(batch, startIndex, title, apiKey);
+    }
+    
+    throw new Error(`AI API error: ${aiResponse.status}`);
+  }
+
+  const aiResult = await aiResponse.json();
+  const aiContent = aiResult.choices?.[0]?.message?.content;
+  
+  if (!aiContent) {
+    throw new Error("Empty AI response");
+  }
+
+  const parsed = JSON.parse(aiContent);
+  return parsed.segments || [];
+}
+
+// Background processing function
+async function processVideoInBackground(
+  supabase: SupabaseClient,
+  videoId: string,
+  title: string,
+  subtitles: SubtitleSegment[],
+  apiKey: string
+) {
+  console.log(`Background: Processing ${subtitles.length} segments for video ${videoId}`);
+  
+  const allSegments: ProcessedSegment[] = [];
+  const totalBatches = Math.ceil(subtitles.length / BATCH_SIZE);
+  
+  // Process in parallel batches (2 at a time to avoid rate limits)
+  for (let i = 0; i < subtitles.length; i += BATCH_SIZE * 2) {
+    const batch1 = subtitles.slice(i, i + BATCH_SIZE);
+    const batch2 = subtitles.slice(i + BATCH_SIZE, i + BATCH_SIZE * 2);
+    
+    const promises: Promise<ProcessedSegment[]>[] = [];
+    
+    if (batch1.length > 0) {
+      promises.push(processBatch(batch1, i, title, apiKey));
+    }
+    if (batch2.length > 0) {
+      promises.push(processBatch(batch2, i + BATCH_SIZE, title, apiKey));
+    }
+    
+    try {
+      const results = await Promise.all(promises);
+      results.forEach(segments => allSegments.push(...segments));
+      
+      const processedBatches = Math.min(Math.ceil((i + BATCH_SIZE * 2) / BATCH_SIZE), totalBatches);
+      console.log(`Background: Processed ${processedBatches}/${totalBatches} batches`);
+    } catch (error) {
+      console.error(`Background: Error in batch starting at ${i}:`, error);
+    }
+  }
+  
+  if (allSegments.length === 0) {
+    console.error("Background: No segments processed");
+    return;
+  }
+  
+  console.log(`Background: Inserting ${allSegments.length} segments`);
+  
+  // Insert segments into database
+  const segmentsToInsert = allSegments.map((seg) => ({
+    video_id: videoId,
+    segment_index: seg.segment_index,
+    start_time: seg.start_time,
+    end_time: seg.end_time,
+    japanese_text: seg.japanese_text,
+    vietnamese_text: seg.vietnamese_text,
+    grammar_notes: seg.grammar_notes || [],
+    vocabulary: seg.vocabulary || [],
+  }));
+
+  const { error: segmentError } = await supabase
+    .from("video_segments")
+    .insert(segmentsToInsert);
+
+  if (segmentError) {
+    console.error("Background: Error inserting segments:", segmentError);
+    return;
+  }
+
+  // Mark video as processed
+  await supabase
+    .from("video_sources")
+    .update({ processed: true })
+    .eq("id", videoId);
+
+  console.log(`Background: Video ${videoId} processing complete!`);
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -92,7 +220,29 @@ serve(async (req) => {
       userId = user?.id || null;
     }
 
-    // Create video source entry first
+    // Check if video already exists and is processed
+    const { data: existingVideo } = await supabase
+      .from("video_sources")
+      .select("id, processed")
+      .eq("youtube_id", youtube_id)
+      .single();
+
+    if (existingVideo?.processed) {
+      console.log("Video already processed, returning existing data");
+      return new Response(
+        JSON.stringify({
+          success: true,
+          video_id: existingVideo.id,
+          already_processed: true,
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Create or update video source entry
     const { data: videoSource, error: videoError } = await supabase
       .from("video_sources")
       .upsert({
@@ -112,105 +262,54 @@ serve(async (req) => {
 
     console.log("Video source created:", videoSource.id);
 
-    // Format subtitles for AI processing
-    const subtitleText = subtitles.map((s, i) => 
-      `[${i}] ${s.start.toFixed(1)}-${s.end.toFixed(1)}: ${s.text}`
-    ).join("\n");
-
-    // Call AI to process subtitles
-    console.log("Calling AI to process subtitles...");
-    
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: `動画タイトル: ${title}\n\n字幕データ:\n${subtitleText}` },
-        ],
-        response_format: { type: "json_object" },
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error("AI API error:", aiResponse.status, errorText);
+    // For small videos (< 20 segments), process immediately
+    if (subtitles.length <= 20) {
+      const segments = await processBatch(subtitles, 0, title, LOVABLE_API_KEY);
       
-      if (aiResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      throw new Error(`AI API error: ${aiResponse.status}`);
+      const segmentsToInsert = segments.map((seg) => ({
+        video_id: videoSource.id,
+        segment_index: seg.segment_index,
+        start_time: seg.start_time,
+        end_time: seg.end_time,
+        japanese_text: seg.japanese_text,
+        vietnamese_text: seg.vietnamese_text,
+        grammar_notes: seg.grammar_notes || [],
+        vocabulary: seg.vocabulary || [],
+      }));
+
+      await supabase.from("video_segments").insert(segmentsToInsert);
+      await supabase.from("video_sources").update({ processed: true }).eq("id", videoSource.id);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          video_id: videoSource.id,
+          segments_count: segments.length,
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
-    const aiResult = await aiResponse.json();
-    const aiContent = aiResult.choices?.[0]?.message?.content;
-    
-    if (!aiContent) {
-      throw new Error("Empty AI response");
-    }
+    // For larger videos, use background processing
+    // @ts-ignore - EdgeRuntime is available in Supabase Edge Functions
+    EdgeRuntime.waitUntil(
+      processVideoInBackground(supabase, videoSource.id, title, subtitles, LOVABLE_API_KEY)
+    );
 
-    console.log("AI response received, parsing...");
-
-    // Parse AI response
-    let processedData: { segments: ProcessedSegment[] };
-    try {
-      processedData = JSON.parse(aiContent);
-    } catch (e) {
-      console.error("Failed to parse AI response:", aiContent);
-      throw new Error("Invalid AI response format");
-    }
-
-    if (!processedData.segments?.length) {
-      throw new Error("No segments in AI response");
-    }
-
-    console.log(`Parsed ${processedData.segments.length} segments`);
-
-    // Insert segments into database
-    const segmentsToInsert = processedData.segments.map((seg) => ({
-      video_id: videoSource.id,
-      segment_index: seg.segment_index,
-      start_time: seg.start_time,
-      end_time: seg.end_time,
-      japanese_text: seg.japanese_text,
-      vietnamese_text: seg.vietnamese_text,
-      grammar_notes: seg.grammar_notes || [],
-      vocabulary: seg.vocabulary || [],
-    }));
-
-    const { error: segmentError } = await supabase
-      .from("video_segments")
-      .insert(segmentsToInsert);
-
-    if (segmentError) {
-      console.error("Error inserting segments:", segmentError);
-      throw new Error(`Failed to save segments: ${segmentError.message}`);
-    }
-
-    // Mark video as processed
-    await supabase
-      .from("video_sources")
-      .update({ processed: true })
-      .eq("id", videoSource.id);
-
-    console.log("Video processing complete!");
-
+    // Return immediately with processing status
     return new Response(
       JSON.stringify({
         success: true,
         video_id: videoSource.id,
-        segments_count: processedData.segments.length,
+        processing: true,
+        estimated_time: Math.ceil(subtitles.length / BATCH_SIZE) * 3, // ~3 seconds per batch
+        message: "Video đang được xử lý. Vui lòng đợi một chút rồi refresh trang.",
       }),
       {
-        status: 200,
+        status: 202, // Accepted
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
