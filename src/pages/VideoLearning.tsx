@@ -119,10 +119,10 @@ const VideoLearning = () => {
 
   const fetchVideos = async () => {
     try {
+      // Sử dụng view video_sources_public để ẩn trường created_by (bảo mật)
       const { data, error } = await supabase
-        .from('video_sources')
-        .select('*')
-        .eq('processed', true)
+        .from('video_sources_public')
+        .select('id, youtube_id, title, description, duration, thumbnail_url, jlpt_level, processed, created_at, updated_at')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
