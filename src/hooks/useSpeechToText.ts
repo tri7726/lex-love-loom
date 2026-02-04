@@ -13,6 +13,7 @@ interface UseSpeechToTextReturn {
   transcript: string;
   startListening: () => void;
   stopListening: () => void;
+  resetTranscript: () => void;
   isSupported: boolean;
   error: string | null;
 }
@@ -133,11 +134,17 @@ export const useSpeechToText = (options: UseSpeechToTextOptions = {}): UseSpeech
     setIsListening(false);
   }, []);
 
+  const resetTranscript = useCallback(() => {
+    setTranscript('');
+    setError(null);
+  }, []);
+
   return {
     isListening,
     transcript,
     startListening,
     stopListening,
+    resetTranscript,
     isSupported,
     error,
   };

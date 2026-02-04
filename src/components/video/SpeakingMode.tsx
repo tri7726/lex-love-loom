@@ -58,6 +58,7 @@ const SpeakingMode: React.FC<SpeakingModeProps> = ({
   const [hideText, setHideText] = useState(false);
   const [showPhonetic, setShowPhonetic] = useState(false);
   const [hasChecked, setHasChecked] = useState(false);
+  const [hasStartedRecording, setHasStartedRecording] = useState(false);
   const [pronunciationScore, setPronunciationScore] = useState<PronunciationScore | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [speakingScores, setSpeakingScores] = useState<Map<number, number>>(new Map());
@@ -70,6 +71,7 @@ const SpeakingMode: React.FC<SpeakingModeProps> = ({
     transcript,
     startListening,
     stopListening,
+    resetTranscript,
     isSupported,
     error: sttError,
   } = useSpeechToText({
@@ -78,12 +80,20 @@ const SpeakingMode: React.FC<SpeakingModeProps> = ({
     interimResults: true,
   });
 
+  // Track previous index to detect changes
+  const prevIndexRef = React.useRef(currentIndex);
+
   // Reset state when segment changes
   useEffect(() => {
-    setHasChecked(false);
-    setPronunciationScore(null);
-    setHideText(false);
-  }, [currentIndex]);
+    if (prevIndexRef.current !== currentIndex) {
+      setHasChecked(false);
+      setHasStartedRecording(false);
+      setPronunciationScore(null);
+      setHideText(false);
+      resetTranscript();
+      prevIndexRef.current = currentIndex;
+    }
+  }, [currentIndex, resetTranscript]);
 
   // Handle check pronunciation
   const handleCheckPronunciation = useCallback(() => {
@@ -104,18 +114,20 @@ const SpeakingMode: React.FC<SpeakingModeProps> = ({
     }, 500);
   }, [currentSegment, transcript, currentIndex, onComplete]);
 
-  // Auto check when speech recognition ends
+  // Auto check when speech recognition ends - only if user started recording for this segment
   useEffect(() => {
-    if (!isListening && transcript.trim() && !hasChecked && currentSegment) {
+    if (!isListening && transcript.trim() && !hasChecked && hasStartedRecording && currentSegment) {
       handleCheckPronunciation();
     }
-  }, [isListening, transcript, hasChecked, currentSegment, handleCheckPronunciation]);
+  }, [isListening, transcript, hasChecked, hasStartedRecording, currentSegment, handleCheckPronunciation]);
 
   // Handle record button
   const handleRecord = () => {
     if (isListening) {
       stopListening();
     } else {
+      resetTranscript();
+      setHasStartedRecording(true);
       startListening();
     }
   };
@@ -123,7 +135,9 @@ const SpeakingMode: React.FC<SpeakingModeProps> = ({
   // Handle retry
   const handleRetry = () => {
     setHasChecked(false);
+    setHasStartedRecording(false);
     setPronunciationScore(null);
+    resetTranscript();
   };
 
   // Handle navigation
