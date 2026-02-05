@@ -22,6 +22,19 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 
+// Preload YouTube IFrame API as early as possible
+const preloadYouTubeAPI = () => {
+  if (typeof window !== 'undefined' && !window.YT && !document.querySelector('script[src*="youtube.com/iframe_api"]')) {
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    tag.async = true;
+    document.head.appendChild(tag);
+  }
+};
+
+// Call immediately on module load
+preloadYouTubeAPI();
+
 interface VideoSource {
   id: string;
   youtube_id: string;
@@ -70,9 +83,10 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
   const [activeTab, setActiveTab] = useState<VideoTab>('video');
   const [showSubtitlePanel, setShowSubtitlePanel] = useState(true);
   
-  // YouTube player state
+  // YouTube player state  
   const [player, setPlayer] = useState<any>(null);
   const [playerReady, setPlayerReady] = useState(false);
+  const [apiLoaded, setApiLoaded] = useState(!!window.YT?.Player);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   
@@ -160,6 +174,8 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
 
       const container = document.getElementById('youtube-player');
       if (!container) return;
+      
+      setApiLoaded(true);
 
       try {
         ytPlayer = new window.YT.Player('youtube-player', {
@@ -199,21 +215,23 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
         document.head.appendChild(tag);
         window.onYouTubeIframeAPIReady = initPlayer;
       } else {
+        // API script exists but not ready yet - wait for it
+        window.onYouTubeIframeAPIReady = initPlayer;
         const checkReady = setInterval(() => {
           if (window.YT?.Player) {
             clearInterval(checkReady);
             initPlayer();
           }
         }, 100);
-        setTimeout(() => clearInterval(checkReady), 10000);
+        setTimeout(() => clearInterval(checkReady), 15000);
       }
     };
 
-    const timeoutId = setTimeout(loadYouTubeAPI, 100);
+    // Start immediately, no delay
+    loadYouTubeAPI();
 
     return () => {
       isMounted = false;
-      clearTimeout(timeoutId);
       if (timeUpdateRef.current) {
         clearInterval(timeUpdateRef.current);
       }
@@ -434,9 +452,19 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
             <div className="aspect-video bg-black relative" ref={playerContainerRef}>
               <div id="youtube-player" className="w-full h-full" />
               {!playerReady && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-10">
-                  <Loader2 className="h-12 w-12 text-primary animate-spin mb-3" />
-                  <p className="text-white text-sm">Đang tải video...</p>
+                <div className="absolute inset-0 z-10">
+                  {/* Show thumbnail while loading */}
+                  <img 
+                    src={`https://img.youtube.com/vi/${video.youtube_id}/hqdefault.jpg`}
+                    alt={video.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
+                    <Loader2 className="h-10 w-10 text-white animate-spin mb-2" />
+                    <p className="text-white/90 text-sm">
+                      {apiLoaded ? 'Đang kết nối video...' : 'Đang tải trình phát...'}
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
