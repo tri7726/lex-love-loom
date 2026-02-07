@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Play, 
@@ -66,8 +66,11 @@ const DictationMode: React.FC<DictationModeProps> = ({
   const [showAnswer, setShowAnswer] = useState(false);
   const [hideVideo, setHideVideo] = useState(false);
   
+  // Cursor management
+  const [cursorPos, setCursorPos] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { mode: kanaMode, cycleMode, processInput, resetBuffer, getKanjiSuggestions } = useKanaInput();
+  
+  const { mode: kanaMode, cycleMode, processInput, getKanjiSuggestions } = useKanaInput();
   const { suggestions: apiSuggestions, isLoading: isLookupLoading, lookupKanji, clearSuggestions } = useKanjiLookup();
 
   const currentSegment = segments[currentIndex];
@@ -96,8 +99,15 @@ const DictationMode: React.FC<DictationModeProps> = ({
     setScore(0);
     setShowHint(false);
     setShowAnswer(false);
-    resetBuffer();
+    setCursorPos(null);
   }, [currentIndex]);
+
+  // Restore cursor position after render
+  useLayoutEffect(() => {
+    if (inputRef.current && cursorPos !== null) {
+      inputRef.current.setSelectionRange(cursorPos, cursorPos);
+    }
+  }, [userInput, cursorPos]);
 
   const handleKanjiSelect = (kanji: string) => {
     setUserInput(kanji);
@@ -106,12 +116,20 @@ const DictationMode: React.FC<DictationModeProps> = ({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
-    const processedValue = processInput(newValue, userInput);
-    setUserInput(processedValue);
+    const selectionStart = e.target.selectionStart || newValue.length;
+    
+    // Process input with cursor awareness
+    const { text, cursor } = processInput(newValue, selectionStart);
+    
+    setUserInput(text);
+    setCursorPos(cursor);
   };
 
   const handleCheck = () => {
     if (!currentSegment || !userInput.trim()) return;
+    
+    // Auto-normalize half-width/full-width before checking?
+    // The compareStrings utility already handles normalization.
 
     const diff = compareStrings(userInput, currentSegment.japanese_text);
     const segmentScore = calculateScore(userInput, currentSegment.japanese_text);
@@ -127,8 +145,8 @@ const DictationMode: React.FC<DictationModeProps> = ({
     setHasChecked(false);
     setDiffResult([]);
     setScore(0);
-    resetBuffer();
-    inputRef.current?.focus();
+    setCursorPos(null);
+    setTimeout(() => inputRef.current?.focus(), 0);
   };
 
   const handleNext = () => {
@@ -190,7 +208,6 @@ const DictationMode: React.FC<DictationModeProps> = ({
             variant="outline"
             size="sm"
             onClick={() => {
-              // Emit event to toggle subtitle panel - handled by parent
               const event = new CustomEvent('toggle-subtitle-panel');
               window.dispatchEvent(event);
             }}
@@ -404,25 +421,28 @@ const DictationMode: React.FC<DictationModeProps> = ({
               {/* Diff Display */}
               <div className="p-4 bg-muted rounded-lg text-center">
                 <p className="text-sm text-muted-foreground mb-2">Kết quả của bạn:</p>
-                <p className="font-jp text-lg">
+                <div className="font-jp text-lg flex flex-wrap justify-center gap-0.5">
                   {diffResult.map((item, i) => (
                     <span
                       key={i}
-                      className={item.correct 
-                        ? 'text-matcha' 
-                        : 'text-destructive bg-destructive/10 px-0.5 rounded'
-                      }
+                      className={`
+                        px-0.5 rounded
+                        ${item.correct 
+                          ? 'text-matcha' 
+                          : 'text-orange-600 bg-orange-100 decoration-wavy decoration-orange-400 underline-offset-4'
+                        }
+                      `}
                     >
                       {item.char}
                     </span>
                   ))}
-                </p>
+                </div>
               </div>
 
               {/* Correct Answer */}
               <div className="p-4 bg-primary/5 rounded-lg text-center">
                 <p className="text-sm text-muted-foreground mb-2">Đáp án đúng:</p>
-                <p className="font-jp text-lg">{currentSegment.japanese_text}</p>
+                <p className="font-jp text-lg text-primary font-medium">{currentSegment.japanese_text}</p>
                 {currentSegment.vietnamese_text && (
                   <p className="text-sm text-muted-foreground mt-1">
                     {currentSegment.vietnamese_text}

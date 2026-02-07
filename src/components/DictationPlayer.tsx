@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import YouTube, { YouTubeProps } from 'react-youtube';
 import {
   ArrowLeft,
   Loader2,
   PanelRightOpen,
   PanelRightClose,
-  Mic,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -21,19 +21,6 @@ import SummaryMode from '@/components/video/SummaryMode';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-
-// Preload YouTube IFrame API as early as possible
-const preloadYouTubeAPI = () => {
-  if (typeof window !== 'undefined' && !window.YT && !document.querySelector('script[src*="youtube.com/iframe_api"]')) {
-    const tag = document.createElement('script');
-    tag.src = 'https://www.youtube.com/iframe_api';
-    tag.async = true;
-    document.head.appendChild(tag);
-  }
-};
-
-// Call immediately on module load
-preloadYouTubeAPI();
 
 interface VideoSource {
   id: string;
@@ -65,13 +52,6 @@ interface DictationPlayerProps {
   onBack: () => void;
 }
 
-declare global {
-  interface Window {
-    YT: any;
-    onYouTubeIframeAPIReady: () => void;
-  }
-}
-
 const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
   // Core state
   const [segments, setSegments] = useState<Segment[]>([]);
@@ -86,7 +66,6 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
   // YouTube player state  
   const [player, setPlayer] = useState<any>(null);
   const [playerReady, setPlayerReady] = useState(false);
-  const [apiLoaded, setApiLoaded] = useState(!!window.YT?.Player);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   
@@ -97,7 +76,6 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
   const [speakingScores, setSpeakingScores] = useState<Map<number, number>>(new Map());
   const [quizScore, setQuizScore] = useState<{ correct: number; total: number } | undefined>();
 
-  const playerContainerRef = useRef<HTMLDivElement>(null);
   const timeUpdateRef = useRef<NodeJS.Timeout | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -164,94 +142,13 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
     fetchData();
   }, [video.id]);
 
-  // Initialize YouTube player
-  useEffect(() => {
-    let ytPlayer: any = null;
-    let isMounted = true;
-
-    const initPlayer = () => {
-      if (!isMounted || !playerContainerRef.current || !window.YT?.Player) return;
-
-      const container = document.getElementById('youtube-player');
-      if (!container) return;
-      
-      setApiLoaded(true);
-
-      try {
-        ytPlayer = new window.YT.Player('youtube-player', {
-          videoId: video.youtube_id,
-          playerVars: {
-            controls: 1,
-            modestbranding: 1,
-            rel: 0,
-            origin: window.location.origin,
-          },
-          events: {
-            onReady: () => {
-              if (isMounted) {
-                setPlayer(ytPlayer);
-                setPlayerReady(true);
-              }
-            },
-            onStateChange: (event: any) => {
-              if (isMounted) {
-                setIsPlaying(event.data === window.YT.PlayerState.PLAYING);
-              }
-            },
-          },
-        });
-      } catch (err) {
-        console.error('Error initializing YouTube player:', err);
-      }
-    };
-
-    const loadYouTubeAPI = () => {
-      if (window.YT?.Player) {
-        initPlayer();
-      } else if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
-        const tag = document.createElement('script');
-        tag.src = 'https://www.youtube.com/iframe_api';
-        tag.async = true;
-        document.head.appendChild(tag);
-        window.onYouTubeIframeAPIReady = initPlayer;
-      } else {
-        // API script exists but not ready yet - wait for it
-        window.onYouTubeIframeAPIReady = initPlayer;
-        const checkReady = setInterval(() => {
-          if (window.YT?.Player) {
-            clearInterval(checkReady);
-            initPlayer();
-          }
-        }, 100);
-        setTimeout(() => clearInterval(checkReady), 15000);
-      }
-    };
-
-    // Start immediately, no delay
-    loadYouTubeAPI();
-
-    return () => {
-      isMounted = false;
-      if (timeUpdateRef.current) {
-        clearInterval(timeUpdateRef.current);
-      }
-      if (ytPlayer?.destroy) {
-        try {
-          ytPlayer.destroy();
-        } catch (e) {
-          console.error('Error destroying player:', e);
-        }
-      }
-    };
-  }, [video.youtube_id]);
-
   // Track current time for subtitle sync
   useEffect(() => {
     if (playerReady && player) {
       timeUpdateRef.current = setInterval(() => {
         const time = player.getCurrentTime?.() || 0;
         setCurrentTime(time);
-      }, 100);
+      }, 200); // Reduced frequency from 100ms to 200ms for performance
     }
 
     return () => {
@@ -324,6 +221,29 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
   const handleQuizComplete = useCallback((correct: number, total: number) => {
     setQuizScore({ correct, total });
   }, []);
+
+  // YouTube Event Handlers
+  const onPlayerReady: YouTubeProps['onReady'] = (event) => {
+    setPlayer(event.target);
+    setPlayerReady(true);
+  };
+
+  const onPlayerStateChange: YouTubeProps['onStateChange'] = (event) => {
+    // 1 = PLAYING
+    setIsPlaying(event.data === 1);
+  };
+
+  const opts: YouTubeProps['opts'] = {
+    height: '100%',
+    width: '100%',
+    playerVars: {
+      autoplay: 0,
+      controls: 1,
+      modestbranding: 1,
+      rel: 0,
+      origin: window.location.origin,
+    },
+  };
 
   // Render content based on active tab
   const renderTabContent = () => {
@@ -449,22 +369,20 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
 
           {/* Video Player */}
           <Card className="m-4 overflow-hidden shadow-card">
-            <div className="aspect-video bg-black relative" ref={playerContainerRef}>
-              <div id="youtube-player" className="w-full h-full" />
+            <div className="aspect-video bg-black relative">
+              <YouTube
+                videoId={video.youtube_id}
+                opts={opts}
+                onReady={onPlayerReady}
+                onStateChange={onPlayerStateChange}
+                className="w-full h-full"
+              />
               {!playerReady && (
-                <div className="absolute inset-0 z-10">
-                  {/* Show thumbnail while loading */}
-                  <img 
-                    src={`https://img.youtube.com/vi/${video.youtube_id}/hqdefault.jpg`}
-                    alt={video.title}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
-                    <Loader2 className="h-10 w-10 text-white animate-spin mb-2" />
-                    <p className="text-white/90 text-sm">
-                      {apiLoaded ? 'Đang kết nối video...' : 'Đang tải trình phát...'}
-                    </p>
-                  </div>
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-10">
+                  <Loader2 className="h-10 w-10 text-white animate-spin mb-2" />
+                  <p className="text-white/90 text-sm">
+                    Đang tải video...
+                  </p>
                 </div>
               )}
             </div>
