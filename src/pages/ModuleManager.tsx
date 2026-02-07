@@ -278,15 +278,15 @@ const ModuleManager = () => {
                       ))}
                     </div>
                   </div>
-                </DialogFooter>
-                <div className="flex justify-end gap-2 mt-4">
+                </div>
+                <DialogFooter>
                   <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                     Hủy
                   </Button>
                   <Button onClick={handleCreateOrUpdate}>
                     {editingModule ? 'Cập Nhật' : 'Tạo'}
                   </Button>
-                </div>
+                </DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
