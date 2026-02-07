@@ -22,6 +22,7 @@ import MultipleChoiceGame from '@/components/games/MultipleChoiceGame';
 import WriteGame from '@/components/games/WriteGame';
 import ListeningGame from '@/components/games/ListeningGame';
 import SpeedGame from '@/components/games/SpeedGame';
+import TypingGame from '@/components/games/TypingGame';
 import { useToast } from '@/hooks/use-toast';
 
 interface VocabularyItem {
@@ -32,7 +33,7 @@ interface VocabularyItem {
   mastery_level: number | null;
 }
 
-type GameMode = 'hub' | 'match' | 'quiz' | 'write' | 'listening' | 'speed';
+type GameMode = 'hub' | 'match' | 'quiz' | 'write' | 'listening' | 'speed' | 'typing';
 
 const gameModes = [
   {
@@ -51,6 +52,15 @@ const gameModes = [
     description: 'Chọn đáp án đúng từ 4 lựa chọn',
     icon: CheckCircle2,
     color: 'bg-green-500',
+    difficulty: 'Trung bình',
+  },
+  {
+    id: 'typing' as GameMode,
+    title: 'Typing Practice',
+    titleVi: 'Luyện Gõ Từ',
+    description: 'Luyện gõ từ tiếng Nhật theo nghĩa',
+    icon: Keyboard,
+    color: 'bg-indigo-500',
     difficulty: 'Trung bình',
   },
   {
@@ -270,6 +280,8 @@ const FlashcardGames = () => {
         return <MatchGame {...gameProps} />;
       case 'quiz':
         return <MultipleChoiceGame {...gameProps} />;
+      case 'typing':
+        return <TypingGame {...gameProps} />;
       case 'write':
         return <WriteGame {...gameProps} />;
       case 'listening':

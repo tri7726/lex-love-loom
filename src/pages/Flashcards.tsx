@@ -9,52 +9,83 @@ import Navigation from '@/components/Navigation';
 interface FlashCard {
   id: string;
   word: string;
-  furigana: string;
+  reading: string;
+  hanviet: string;
   meaning: string;
-  example: string;
-  exampleMeaning: string;
+  example?: string;
+  exampleMeaning?: string;
 }
 
 const sampleCards: FlashCard[] = [
   {
     id: '1',
-    word: '食べる',
-    furigana: 'たべる',
-    meaning: 'to eat',
-    example: 'ご飯を食べます。',
-    exampleMeaning: 'I eat rice.',
+    word: '学校',
+    reading: 'がっこう',
+    hanviet: 'Học Hiệu',
+    meaning: 'Trường học',
   },
   {
     id: '2',
-    word: '飲む',
-    furigana: 'のむ',
-    meaning: 'to drink',
-    example: '水を飲みます。',
-    exampleMeaning: 'I drink water.',
+    word: '先生',
+    reading: 'せんせい',
+    hanviet: 'Tiên Sinh',
+    meaning: 'Giáo viên, thầy/cô',
   },
   {
     id: '3',
-    word: '見る',
-    furigana: 'みる',
-    meaning: 'to see, to watch',
-    example: 'テレビを見ます。',
-    exampleMeaning: 'I watch TV.',
+    word: '学生',
+    reading: 'がくせい',
+    hanviet: 'Học Sinh',
+    meaning: 'Học sinh, sinh viên',
   },
   {
     id: '4',
-    word: '聞く',
-    furigana: 'きく',
-    meaning: 'to listen, to hear',
-    example: '音楽を聞きます。',
-    exampleMeaning: 'I listen to music.',
+    word: '日本語',
+    reading: 'にほんご',
+    hanviet: 'Nhật Bản Ngữ',
+    meaning: 'Tiếng Nhật',
   },
   {
     id: '5',
-    word: '読む',
-    furigana: 'よむ',
-    meaning: 'to read',
-    example: '本を読みます。',
-    exampleMeaning: 'I read a book.',
+    word: '勉強',
+    reading: 'べんきょう',
+    hanviet: 'Miễn Cường',
+    meaning: 'Học tập',
+  },
+  {
+    id: '6',
+    word: '図書館',
+    reading: 'としょかん',
+    hanviet: 'Đồ Thư Quán',
+    meaning: 'Thư viện',
+  },
+  {
+    id: '7',
+    word: '電車',
+    reading: 'でんしゃ',
+    hanviet: 'Điện Xa',
+    meaning: 'Tàu điện',
+  },
+  {
+    id: '8',
+    word: '会社',
+    reading: 'かいしゃ',
+    hanviet: 'Hội Xã',
+    meaning: 'Công ty',
+  },
+  {
+    id: '9',
+    word: 'すみません',
+    reading: 'すみません',
+    hanviet: '',
+    meaning: 'Xin lỗi',
+  },
+  {
+    id: '10',
+    word: 'おはよう',
+    reading: 'おはよう',
+    hanviet: '',
+    meaning: 'Chào buổi sáng',
   },
 ];
 
@@ -151,12 +182,19 @@ const Flashcards = () => {
                   <CardContent className="flex flex-col items-center justify-center h-full p-8 text-center">
                     {!isFlipped ? (
                       <>
-                        <ruby className="text-5xl font-jp mb-4">
-                          {currentCard.word}
-                          <rt className="text-lg text-muted-foreground">
-                            {currentCard.furigana}
-                          </rt>
-                        </ruby>
+                        <div className="space-y-3 text-center">
+                          <div className="text-6xl font-jp mb-2">
+                            {currentCard.word}
+                          </div>
+                          <div className="text-2xl text-muted-foreground">
+                            {currentCard.reading}
+                          </div>
+                          {currentCard.hanviet && (
+                            <div className="text-lg text-muted-foreground/70 font-medium">
+                              ({currentCard.hanviet})
+                            </div>
+                          )}
+                        </div>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -174,26 +212,30 @@ const Flashcards = () => {
                       </>
                     ) : (
                       <>
-                        <p className="text-2xl font-semibold mb-4">
+                        <p className="text-3xl font-semibold mb-6">
                           {currentCard.meaning}
                         </p>
-                        <div className="p-4 rounded-lg bg-muted/50 w-full">
-                          <p className="font-jp text-lg">{currentCard.example}</p>
-                          <p className="text-sm text-muted-foreground mt-2">
-                            {currentCard.exampleMeaning}
-                          </p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            speak(currentCard.example);
-                          }}
-                          className="mt-4"
-                        >
-                          <Volume2 className="h-6 w-6" />
-                        </Button>
+                        {currentCard.example && (
+                          <>
+                            <div className="p-4 rounded-lg bg-muted/50 w-full">
+                              <p className="font-jp text-lg">{currentCard.example}</p>
+                              <p className="text-sm text-muted-foreground mt-2">
+                                {currentCard.exampleMeaning}
+                              </p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                speak(currentCard.example);
+                              }}
+                              className="mt-4"
+                            >
+                              <Volume2 className="h-6 w-6" />
+                            </Button>
+                          </>
+                        )}
                       </>
                     )}
                   </CardContent>

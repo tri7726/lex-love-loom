@@ -20,6 +20,9 @@ import UserGuide from "./pages/UserGuide";
 import VideoLearning from "./pages/VideoLearning";
 import Auth from "./pages/Auth";
 import SavedVocabulary from "./pages/SavedVocabulary";
+import ModuleManager from "./pages/ModuleManager";
+import FolderManager from "./pages/FolderManager";
+import FlashcardReview from "./pages/FlashcardReview";
 
 const queryClient = new QueryClient();
 
@@ -47,6 +50,9 @@ function App() {
                 <Route path="/guide" element={<UserGuide />} />
                 <Route path="/video-learning" element={<VideoLearning />} />
                 <Route path="/saved-vocabulary" element={<SavedVocabulary />} />
+                <Route path="/module-manager" element={<ModuleManager />} />
+                <Route path="/folder-manager" element={<FolderManager />} />
+                <Route path="/flashcard-review" element={<FlashcardReview />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
