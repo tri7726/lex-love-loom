@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Pause, ChevronLeft, ChevronRight, Volume2, VolumeX } from 'lucide-react';
+import { Play, Pause, ChevronLeft, ChevronRight, Volume2, VolumeX, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useTTS } from '@/hooks/useTTS';
+import AnalysisPanel from './AnalysisPanel';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Segment {
   id: string;
@@ -39,6 +41,56 @@ const VideoMode: React.FC<VideoModeProps> = ({
   showFurigana = true,
 }) => {
   const { speak, isSpeaking, stop, isSupported } = useTTS({ lang: 'ja-JP' });
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [analysisContent, setAnalysisContent] = useState<string | null>(null);
+  const [structuredAnalysis, setStructuredAnalysis] = useState<any>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setAnalysisContent(null);
+    setStructuredAnalysis(null);
+    setAnalysisError(null);
+  }, [currentSegment]);
+
+  useEffect(() => {
+    if (showAnalysis && !analysisContent && !structuredAnalysis && !isAnalyzing && currentSegment) {
+      handleAnalyze();
+    }
+  }, [showAnalysis, currentSegment]);
+
+  const handleAnalyze = async () => {
+    if (!currentSegment) return;
+    setIsAnalyzing(true);
+    setAnalysisError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('japanese-analysis', {
+        body: { 
+          prompt: "",  // Empty prompt for full analysis
+          content: currentSegment.japanese_text 
+        }
+      });
+      
+      if (error) throw error;
+
+      // Check if response is structured
+      if (data.format === 'structured' && data.analysis) {
+        setStructuredAnalysis(data.analysis);
+        setAnalysisContent(null);
+      } else if (data.response) {
+        // Fallback to text response
+        setAnalysisContent(data.response);
+        setStructuredAnalysis(null);
+      } else {
+        throw new Error('Invalid response format');
+      }
+    } catch (err) {
+      console.error(err);
+      setAnalysisError('Failed to analyze. Please try again.');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   if (!currentSegment) return null;
 
@@ -124,6 +176,15 @@ const VideoMode: React.FC<VideoModeProps> = ({
         <Button variant="outline" size="sm" className="gap-1">
           Bản dịch
         </Button>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="gap-1 border-matcha/50 text-matcha hover:bg-matcha/10"
+          onClick={() => setShowAnalysis(true)}
+        >
+          <Sparkles className="h-3 w-3" />
+          Giải thích AI
+        </Button>
       </div>
 
       {/* Vocabulary & Grammar */}
@@ -179,6 +240,15 @@ const VideoMode: React.FC<VideoModeProps> = ({
           </CardContent>
         </Card>
       )}
+
+      <AnalysisPanel
+        isOpen={showAnalysis}
+        onClose={() => setShowAnalysis(false)}
+        isLoading={isAnalyzing}
+        content={analysisContent}
+        error={analysisError}
+        structuredData={structuredAnalysis}
+      />
     </div>
   );
 };

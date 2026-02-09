@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.fetch-youtube-captions]
 verify_jwt = false
+
+[functions.japanese-analysis]
+verify_jwt = false

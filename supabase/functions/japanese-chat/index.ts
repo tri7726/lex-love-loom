@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -23,6 +24,7 @@ const SYSTEM_PROMPT = `あなたは日本語を教える優しい先生です。
 フォーマット：
 - 日本語の返答
 - [翻訳] ベトナム語訳
+- [Tiếng Việt] (Nếu cần thiết)
 
 例：
 こんにちは！今日はどんな勉強をしましたか？
@@ -34,61 +36,50 @@ serve(async (req) => {
   }
 
   try {
-    const { messages } = await req.json() as { messages: Message[] };
+    const { messages, systemPrompt } = await req.json() as { messages: Message[], systemPrompt?: string };
     
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    // Use standard OpenAI-compatible Groq API
+    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+    if (!GROQ_API_KEY) {
+      throw new Error("GROQ_API_KEY is not configured");
     }
 
-    console.log("Sending request to Lovable AI Gateway...");
+    console.log("Sending request to Groq API...");
     
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${GROQ_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "llama3-70b-8192",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt || SYSTEM_PROMPT },
           ...messages,
         ],
         stream: true,
+        temperature: 0.7,
+        max_tokens: 1024,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("AI Gateway error:", response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Đã vượt quá giới hạn yêu cầu. Vui lòng thử lại sau." }),
-          {
-            status: 429,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
-      }
-      
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Cần nạp thêm credits. Vui lòng liên hệ quản trị viên." }),
-          {
-            status: 402,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
-      }
-      
-      throw new Error(`AI Gateway error: ${response.status}`);
+      console.error("Groq API error:", response.status, errorText);
+      throw new Error(`Groq API error: ${response.status}`);
     }
 
+    // Proxy the stream directly
     return new Response(response.body, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      headers: { 
+        ...corsHeaders, 
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive"
+      },
     });
+
   } catch (error) {
     console.error("Chat function error:", error);
     return new Response(

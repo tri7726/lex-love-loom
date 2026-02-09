@@ -376,6 +376,8 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
                 onReady={onPlayerReady}
                 onStateChange={onPlayerStateChange}
                 className="w-full h-full"
+                // @ts-ignore
+                iframeClassName="w-full h-full"
               />
               {!playerReady && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-10">
