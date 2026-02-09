@@ -23,6 +23,7 @@ import SavedVocabulary from "./pages/SavedVocabulary";
 import ModuleManager from "./pages/ModuleManager";
 import FolderManager from "./pages/FolderManager";
 import FlashcardReview from "./pages/FlashcardReview";
+import KanjiDetail from "./pages/KanjiDetail";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +54,7 @@ function App() {
                 <Route path="/module-manager" element={<ModuleManager />} />
                 <Route path="/folder-manager" element={<FolderManager />} />
                 <Route path="/flashcard-review" element={<FlashcardReview />} />
+                <Route path="/kanji/:character" element={<KanjiDetail />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
