@@ -108,7 +108,6 @@ const KanjiDetail: React.FC = () => {
         <div className="lg:col-span-1">
           <HandwritingCanvas
             kanji={kanji.character}
-            strokeOrderSvg={kanji.svg_url}
             onStrokeComplete={(strokes) => {
               console.log('Strokes captured:', strokes.length);
             }}
