@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -52,20 +53,18 @@ async function lookupJisho(word: string): Promise<WordData | null> {
 // Call AI for Vietnamese translation and examples
 async function lookupAI(word: string, context: string | null, apiKey: string): Promise<WordData | null> {
   try {
-    console.log('Calling AI for:', word);
+    console.log('Calling Gemini for:', word);
     
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'system',
-            content: `Bạn là từ điển Nhật-Việt. Trả về JSON:
+        contents: [{
+          parts: [{
+            text: `Bạn là từ điển Nhật-Việt. Tra từ "${word}" ${context ? `trong ngữ cảnh: "${context}"` : ''}.
+Trả về JSON:
 {
   "word": "từ kanji",
   "reading": "hiragana",
@@ -74,31 +73,27 @@ async function lookupAI(word: string, context: string | null, apiKey: string): P
   "examples": [{"japanese": "câu JP", "vietnamese": "nghĩa VN"}],
   "notes": "ghi chú"
 }
-Chỉ trả về JSON.`
-          },
-          {
-            role: 'user',
-            content: context 
-              ? `Tra từ "${word}" trong ngữ cảnh: "${context}"`
-              : `Tra từ "${word}"`
-          }
-        ],
-        response_format: { type: 'json_object' },
+Chỉ trả về JSON, không kèm theo bất kỳ văn bản nào khác.`
+          }]
+        }],
+        generationConfig: {
+          response_mime_type: "application/json",
+        }
       }),
     });
 
     if (!response.ok) {
-      console.error('AI API error:', response.status);
+      const errorText = await response.text();
+      console.error('Gemini API error:', response.status, errorText);
       return null;
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
     
-    if (!content) return null;
+    if (!resultText) return null;
     
-    const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    const wordData = JSON.parse(cleanContent);
+    const wordData = JSON.parse(resultText);
     wordData.source = 'ai';
     
     return wordData;
@@ -161,9 +156,9 @@ serve(async (req) => {
 
     // Step 3: If Jisho failed or we need Vietnamese, use AI
     if (!wordData) {
-      const apiKey = Deno.env.get('LOVABLE_API_KEY');
+      const apiKey = Deno.env.get('GEMINI_API_KEY');
       if (!apiKey) {
-        throw new Error('LOVABLE_API_KEY not configured');
+        throw new Error('GEMINI_API_KEY not configured');
       }
       wordData = await lookupAI(word, context, apiKey);
     }

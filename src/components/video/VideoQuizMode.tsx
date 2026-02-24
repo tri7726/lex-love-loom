@@ -24,11 +24,13 @@ interface Question {
 interface VideoQuizModeProps {
   questions: Question[];
   onComplete: (score: number, total: number) => void;
+  onGenerateQuiz?: () => void;
 }
 
 const VideoQuizMode: React.FC<VideoQuizModeProps> = ({
   questions,
   onComplete,
+  onGenerateQuiz,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -83,10 +85,16 @@ const VideoQuizMode: React.FC<VideoQuizModeProps> = ({
 
   if (questions.length === 0) {
     return (
-      <div className="text-center py-12">
+      <div className="text-center py-12 space-y-4">
         <p className="text-muted-foreground">
           Chưa có câu hỏi nào cho video này.
         </p>
+        {onGenerateQuiz && (
+          <Button onClick={onGenerateQuiz} className="gap-2">
+            <Shuffle className="h-4 w-4" />
+            Tạo bài tập với AI
+          </Button>
+        )}
       </div>
     );
   }

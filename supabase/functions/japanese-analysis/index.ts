@@ -165,7 +165,7 @@ serve(async (req) => {
       }
     ];
 
-    console.log("Sending request to Gemini API (via OpenRouter-compatible endpoint)...");
+    console.log("Sending request to Groq API...");
     
     // Use Groq-compatible format which works better
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -185,12 +185,12 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Gemini API error:", response.status, errorText);
-      throw new Error(`Gemini API error: ${response.status}`);
+      console.error("Groq API error:", response.status, errorText);
+      throw new Error(`Groq API error: ${response.status}`);
     }
 
     const data = await response.json();
-    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
+    const resultText = data.choices?.[0]?.message?.content || "No response generated.";
 
     // Try to parse as JSON
     let parsedResponse: AnalysisResponse | null = null;

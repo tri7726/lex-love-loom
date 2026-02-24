@@ -222,6 +222,63 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
     setQuizScore({ correct, total });
   }, []);
 
+  // Handle manual quiz generation
+  const handleGenerateQuiz = async () => {
+    if (!video || questions.length > 0) return;
+    
+    setLoading(true);
+    try {
+      const fullText = segments.map(s => s.japanese_text).join('\n');
+      const { data, error } = await supabase.functions.invoke('generate-video-quiz', {
+        body: { 
+          video_id: video.id, 
+          title: video.title,
+          full_text: fullText
+        }
+      });
+
+      if (error) {
+        console.error('Invoke error:', error);
+        throw new Error(error.message || 'Lỗi kết nối tới server');
+      }
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      if (data.success) {
+        // Fetch questions again
+        const { data: qData } = await supabase
+          .from('video_questions')
+          .select('*')
+          .eq('video_id', video.id);
+        
+        if (qData) {
+          setQuestions(qData.map(q => ({
+            id: q.id,
+            question_text: q.question_text,
+            options: Array.isArray(q.options) ? q.options as string[] : [],
+            correct_answer: q.correct_answer,
+            explanation: q.explanation || undefined,
+          })));
+        }
+        
+        toast({ title: 'Thành công', description: `Đã tạo ${data.count} câu hỏi bài tập!` });
+      } else {
+        throw new Error('Không nhận được phản hồi thành công từ server');
+      }
+    } catch (error: any) {
+      console.error('Error generating quiz:', error);
+      toast({ 
+        title: 'Lỗi tạo bài tập', 
+        description: error.message || 'Đã có lỗi xảy ra. Hãy thử lại sau hoặc kiểm tra console.', 
+        variant: 'destructive' 
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // YouTube Event Handlers
   const onPlayerReady: YouTubeProps['onReady'] = (event) => {
     setPlayer(event.target);
@@ -292,6 +349,7 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
           <VideoQuizMode
             questions={questions}
             onComplete={handleQuizComplete}
+            onGenerateQuiz={handleGenerateQuiz}
           />
         );
       
