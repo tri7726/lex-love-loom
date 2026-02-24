@@ -6,8 +6,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { Index } from "./pages/Index";
-import { Flashcards } from "./pages/Flashcards";
-import { FlashcardGames } from "./pages/FlashcardGames";
 import { Quiz } from "./pages/Quiz";
 import { Pronunciation } from "./pages/Pronunciation";
 import { Vocabulary } from "./pages/Vocabulary";
@@ -22,7 +20,6 @@ import { Auth } from "./pages/Auth";
 import { SavedVocabulary } from "./pages/SavedVocabulary";
 import { ModuleManager } from "./pages/ModuleManager";
 import { FolderManager } from "./pages/FolderManager";
-import { FlashcardReview } from "./pages/FlashcardReview";
 import { KanjiDetail } from "./pages/KanjiDetail";
 import { AITutor } from "./pages/AITutor";
 
@@ -41,8 +38,6 @@ function App() {
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
-                <Route path="/flashcards" element={<Flashcards />} />
-                <Route path="/flashcard-games" element={<FlashcardGames />} />
                 <Route path="/quiz" element={<Quiz />} />
                 <Route path="/pronunciation" element={<Pronunciation />} />
                 <Route path="/vocabulary" element={<Vocabulary />} />
@@ -55,7 +50,6 @@ function App() {
                 <Route path="/saved-vocabulary" element={<SavedVocabulary />} />
                 <Route path="/module-manager" element={<ModuleManager />} />
                 <Route path="/folder-manager" element={<FolderManager />} />
-                <Route path="/flashcard-review" element={<FlashcardReview />} />
                 <Route path="/kanji/:character" element={<KanjiDetail />} />
                 <Route path="/ai-tutor" element={<AITutor />} />
 

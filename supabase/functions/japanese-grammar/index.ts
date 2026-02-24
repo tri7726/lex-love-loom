@@ -35,53 +35,127 @@ serve(async (req) => {
   }
 
   try {
-    const { text } = await req.json() as { text: string };
+    let text = "";
+    try {
+      const body = await req.json();
+      text = body.text || "";
+    } catch (e) {
+      console.error("Error parsing request body:", e);
+    }
     
     if (!text) {
-      throw new Error("Text is required");
+      return new Response(JSON.stringify({ 
+        isCorrect: true,
+        corrected: "",
+        explanation: "Vui lòng nhập văn bản để kiểm tra.",
+        rules: [],
+        suggestions: []
+      }), { 
+        status: 200, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      });
     }
 
     const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
-    if (!GROQ_API_KEY) {
-      throw new Error("GROQ_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+
+    // Smart routing: Use Gemini for longer texts or if Groq is likely to struggle
+    const isLongText = text.length > 100;
+    const useGemini = !!GEMINI_API_KEY && (isLongText || req.headers.get("x-ai-engine") === "gemini");
+
+    let resultText = "";
+    let engine = "groq";
+
+    if (useGemini) {
+      engine = "gemini";
+      console.log("Routing grammar check to Gemini...");
+      const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_API_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: SYSTEM_PROMPT },
+              { text: `Check this Japanese text:\n\n${text}` }
+            ]
+          }],
+          generationConfig: { response_mime_type: "application/json" }
+        }),
+      });
+
+      if (geminiResponse.ok) {
+        const geminiData = await geminiResponse.json();
+        resultText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+      } else {
+        console.error("Gemini API failed, falling back to Groq...");
+        engine = "groq";
+      }
     }
 
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GROQ_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: text },
-        ],
-        temperature: 0.2, // Low temperature for more predictable output
-        response_format: { type: "json_object" },
-      }),
-    });
+    if (!resultText && GROQ_API_KEY) {
+      console.log("Routing grammar check to Groq...");
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${GROQ_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: text },
+          ],
+          temperature: 0.1,
+          max_tokens: 2048,
+          response_format: { type: "json_object" },
+        }),
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Groq API error:", response.status, errorText);
-      throw new Error(`Groq API error: ${response.status}`);
+      if (response.ok) {
+        const data = await response.json();
+        resultText = data.choices?.[0]?.message?.content || "{}";
+      } else {
+        const errorText = await response.text();
+        console.error("Groq API error:", response.status, errorText);
+        throw new Error(`AI API error: ${response.status}`);
+      }
     }
 
-    const data = await response.json();
-    const result = JSON.parse(data.choices[0].message.content);
+    // Clean and parse JSON
+    const cleanedText = resultText
+      .replace(/```json\n?/g, "")
+      .replace(/```\n?/g, "")
+      .trim();
+    
+    const result = JSON.parse(cleanedText);
+    
+    const validatedResult = {
+      isCorrect: typeof result.isCorrect === 'boolean' ? result.isCorrect : true,
+      corrected: result.corrected || text,
+      explanation: result.explanation || "Không có giải thích.",
+      rules: Array.isArray(result.rules) ? result.rules : [],
+      suggestions: Array.isArray(result.suggestions) ? result.suggestions : [],
+      engine
+    };
 
-    return new Response(JSON.stringify(result), {
+    return new Response(JSON.stringify(validatedResult), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
   } catch (error) {
-    console.error("Grammar check function error:", error);
+    console.error("Grammar check function technical error:", error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : "Internal Server Error",
+        isCorrect: true,
+        corrected: text || "",
+        explanation: "Hệ thống AI đang quá tải. Vui lòng thử lại sau giây lát.",
+        rules: [],
+        suggestions: []
+      }),
       {
-        status: 500,
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );

@@ -36,17 +36,26 @@ export const GrammarCheckInput: React.FC<GrammarCheckInputProps> = ({ initialVal
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('japanese-grammar', {
+      const { data, error: invokeError } = await supabase.functions.invoke('japanese-grammar', {
         body: { text: textToCheck },
       });
 
-      if (error) throw error;
+      if (invokeError) throw invokeError;
+      
+      if (data?.error && !data.explanation) {
+        toast({
+          title: 'Lưu ý từ AI',
+          description: data.error,
+          variant: 'default',
+        });
+      }
+      
       setResult(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Grammar check error:', error);
       toast({
-        title: 'Lỗi',
-        description: 'Không thể kiểm tra ngữ pháp lúc này.',
+        title: 'Lỗi kết nối',
+        description: error.message || 'Không thể kết nối với hệ thống kiểm tra ngữ pháp.',
         variant: 'destructive',
       });
     } finally {
@@ -128,10 +137,10 @@ export const GrammarCheckInput: React.FC<GrammarCheckInputProps> = ({ initialVal
 
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground">Giải thích:</p>
-                  <p className="text-sm">{result.explanation}</p>
+                  <p className="text-sm">{result.explanation || "Không có giải thích."}</p>
                 </div>
 
-                {result.rules.length > 0 && (
+                {Array.isArray(result.rules) && result.rules.length > 0 && (
                   <div className="flex flex-wrap gap-2 pt-1">
                     {result.rules.map((rule, i) => (
                       <Badge key={i} variant="secondary" className="text-[10px] py-0 px-2">
@@ -141,7 +150,7 @@ export const GrammarCheckInput: React.FC<GrammarCheckInputProps> = ({ initialVal
                   </div>
                 )}
 
-                {result.suggestions.length > 0 && (
+                {Array.isArray(result.suggestions) && result.suggestions.length > 0 && (
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">Các cách diễn đạt khác:</p>
                     <ul className="text-sm list-disc list-inside space-y-0.5">
