@@ -15,6 +15,7 @@ import {
   LogOut,
   User,
   Gamepad2,
+  Video,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -32,16 +33,14 @@ import { useAuth } from '@/hooks/useAuth';
 const navItems = [
   { path: '/', icon: Home, label: 'Home' },
   { path: '/vocabulary', icon: BookOpen, label: 'Vocabulary' },
-  { path: '/flashcards', icon: Layers, label: 'Flashcards' },
-  { path: '/quiz', icon: Brain, label: 'Quiz' },
+  { path: '/video-learning', icon: Video, label: 'Video Learning' },
+  // Flashcards đã tích hợp vào Vocabulary → ẩn khỏi menu
   { path: '/speaking-practice', icon: Mic, label: 'Speaking' },
   { path: '/ai-tutor', icon: Brain, label: 'AI Tutor' },
 ];
 
 
 const moreMenuItems = [
-  { path: '/flashcard-games', icon: Gamepad2, label: 'Flashcard Games' },
-  { path: '/video-learning', icon: BookOpen, label: 'Video Learning' },
   { path: '/saved-vocabulary', icon: BookMarked, label: 'Saved Vocabulary' },
   { path: '/achievements', icon: Trophy, label: 'Achievements' },
   { path: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
