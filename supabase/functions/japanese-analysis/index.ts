@@ -190,7 +190,7 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
+    const resultText = data.choices?.[0]?.message?.content || "No response generated.";
 
     // Try to parse as JSON
     let parsedResponse: AnalysisResponse | null = null;
