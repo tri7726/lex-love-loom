@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRight, RotateCcw, Volume2, Check, X } from 'lucide-reac
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import Navigation from '@/components/Navigation';
+import { Navigation } from '@/components/Navigation';
 
 interface FlashCard {
   id: string;
@@ -89,7 +89,7 @@ const sampleCards: FlashCard[] = [
   },
 ];
 
-const Flashcards = () => {
+export const Flashcards = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [knownCards, setKnownCards] = useState<Set<string>>(new Set());
@@ -286,4 +286,4 @@ const Flashcards = () => {
   );
 };
 
-export default Flashcards;
+// export default Flashcards;

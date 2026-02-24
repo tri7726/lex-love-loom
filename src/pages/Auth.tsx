@@ -14,7 +14,7 @@ import { z } from 'zod';
 const emailSchema = z.string().email('Email không hợp lệ');
 const passwordSchema = z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự');
 
-const Auth = () => {
+export const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
@@ -293,4 +293,4 @@ const Auth = () => {
   );
 };
 
-export default Auth;
+// export default Auth;

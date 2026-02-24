@@ -1,8 +1,8 @@
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap');
 
 @layer base {
   :root {
@@ -54,9 +54,17 @@
     --sumi: 0 0% 15%;
 
     /* Gradients */
-    --gradient-sakura: linear-gradient(135deg, hsl(350 70% 65%), hsl(340 60% 75%));
+    --gradient-sakura: linear-gradient(
+      135deg,
+      hsl(350 70% 65%),
+      hsl(340 60% 75%)
+    );
     --gradient-gold: linear-gradient(135deg, hsl(40 85% 55%), hsl(45 90% 70%));
-    --gradient-matcha: linear-gradient(135deg, hsl(140 35% 45%), hsl(150 40% 55%));
+    --gradient-matcha: linear-gradient(
+      135deg,
+      hsl(140 35% 45%),
+      hsl(150 40% 55%)
+    );
     --gradient-hero: linear-gradient(180deg, hsl(30 40% 98%), hsl(350 80% 97%));
 
     /* Shadows */
@@ -115,9 +123,17 @@
     --indigo-jp: 235 40% 50%;
     --sumi: 30 20% 90%;
 
-    --gradient-sakura: linear-gradient(135deg, hsl(350 65% 50%), hsl(340 55% 40%));
+    --gradient-sakura: linear-gradient(
+      135deg,
+      hsl(350 65% 50%),
+      hsl(340 55% 40%)
+    );
     --gradient-gold: linear-gradient(135deg, hsl(40 80% 45%), hsl(45 75% 55%));
-    --gradient-matcha: linear-gradient(135deg, hsl(140 30% 35%), hsl(150 35% 45%));
+    --gradient-matcha: linear-gradient(
+      135deg,
+      hsl(140 30% 35%),
+      hsl(150 35% 45%)
+    );
     --gradient-hero: linear-gradient(180deg, hsl(240 10% 8%), hsl(350 30% 12%));
 
     --shadow-soft: 0 4px 20px -4px hsl(0 0% 0% / 0.4);
@@ -142,11 +158,11 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Noto Sans JP', system-ui, sans-serif;
+    font-family: "Noto Sans JP", system-ui, sans-serif;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Playfair Display', 'Noto Sans JP', serif;
+    font-family: "Playfair Display", "Noto Sans JP", serif;
   }
 }
 
@@ -165,7 +181,7 @@
 
   /* Japanese text styling */
   .jp-text {
-    font-family: 'Noto Sans JP', sans-serif;
+    font-family: "Noto Sans JP", sans-serif;
     @apply tracking-wide;
   }
 
@@ -181,13 +197,17 @@
   }
 
   .sakura-bg::before {
-    content: '';
+    content: "";
     position: absolute;
     top: 0;
     right: 0;
     width: 300px;
     height: 300px;
-    background: radial-gradient(circle, hsl(var(--sakura-light)) 0%, transparent 70%);
+    background: radial-gradient(
+      circle,
+      hsl(var(--sakura-light)) 0%,
+      transparent 70%
+    );
     opacity: 0.5;
     pointer-events: none;
   }
@@ -225,15 +245,19 @@
   }
 
   .streak-fire::after {
-    content: '🔥';
+    content: "🔥";
     @apply absolute -top-1 -right-1 text-sm;
     animation: pulse 1.5s ease-in-out infinite;
   }
 
   /* Floating animation */
   @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
   }
 
   .animate-float {
@@ -242,12 +266,21 @@
 
   /* Shimmer effect */
   @keyframes shimmer {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
   }
 
   .shimmer {
-    background: linear-gradient(90deg, transparent, hsl(var(--sakura-light)), transparent);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--sakura-light)),
+      transparent
+    );
     background-size: 200% 100%;
     animation: shimmer 2s infinite;
   }
@@ -273,20 +306,48 @@
     background-clip: text;
   }
 
-  .bg-sakura { background-color: hsl(var(--sakura)); }
-  .bg-sakura-light { background-color: hsl(var(--sakura-light)); }
-  .bg-cream { background-color: hsl(var(--cream)); }
-  .bg-matcha { background-color: hsl(var(--matcha)); }
-  .bg-matcha-light { background-color: hsl(var(--matcha-light)); }
-  .bg-gold { background-color: hsl(var(--gold)); }
-  .bg-gold-light { background-color: hsl(var(--gold-light)); }
+  .bg-sakura {
+    background-color: hsl(var(--sakura));
+  }
+  .bg-sakura-light {
+    background-color: hsl(var(--sakura-light));
+  }
+  .bg-cream {
+    background-color: hsl(var(--cream));
+  }
+  .bg-matcha {
+    background-color: hsl(var(--matcha));
+  }
+  .bg-matcha-light {
+    background-color: hsl(var(--matcha-light));
+  }
+  .bg-gold {
+    background-color: hsl(var(--gold));
+  }
+  .bg-gold-light {
+    background-color: hsl(var(--gold-light));
+  }
 
-  .text-sakura { color: hsl(var(--sakura)); }
-  .text-crimson { color: hsl(var(--crimson)); }
-  .text-gold { color: hsl(var(--gold)); }
-  .text-matcha { color: hsl(var(--matcha)); }
-  .text-sumi { color: hsl(var(--sumi)); }
+  .text-sakura {
+    color: hsl(var(--sakura));
+  }
+  .text-crimson {
+    color: hsl(var(--crimson));
+  }
+  .text-gold {
+    color: hsl(var(--gold));
+  }
+  .text-matcha {
+    color: hsl(var(--matcha));
+  }
+  .text-sumi {
+    color: hsl(var(--sumi));
+  }
 
-  .border-sakura { border-color: hsl(var(--sakura)); }
-  .border-sakura-light { border-color: hsl(var(--sakura-light)); }
+  .border-sakura {
+    border-color: hsl(var(--sakura));
+  }
+  .border-sakura-light {
+    border-color: hsl(var(--sakura-light));
+  }
 }

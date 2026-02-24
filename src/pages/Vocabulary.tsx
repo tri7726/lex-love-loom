@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import Navigation from '@/components/Navigation';
+import { Navigation } from '@/components/Navigation';
 import { cn } from '@/lib/utils';
 
 interface VocabularyWord {
@@ -29,7 +29,7 @@ const sampleVocabulary: VocabularyWord[] = [
   { id: '8', word: '先生', furigana: 'せんせい', meaning: 'teacher', level: 'N5', category: 'Nouns', learned: true },
 ];
 
-const Vocabulary = () => {
+export const Vocabulary = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
   const [vocabulary] = useState(sampleVocabulary);
@@ -183,4 +183,4 @@ const Vocabulary = () => {
   );
 };
 
-export default Vocabulary;
+// export default Vocabulary;

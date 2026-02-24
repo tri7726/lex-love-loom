@@ -17,8 +17,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import KanaKeyboard from '@/components/KanaKeyboard';
-import KanjiSuggestions from '@/components/KanjiSuggestions';
+import { KanaKeyboard } from '@/components/KanaKeyboard';
+import { KanjiSuggestions } from '@/components/KanjiSuggestions';
 import { useKanaInput, KanaMode } from '@/hooks/useKanaInput';
 import { useKanjiLookup } from '@/hooks/useKanjiLookup';
 import { compareStrings, calculateScore, DiffResult } from '@/lib/stringComparison';
@@ -49,7 +49,7 @@ interface KanjiSuggestion {
   source?: string;
 }
 
-const DictationMode: React.FC<DictationModeProps> = ({
+export const DictationMode: React.FC<DictationModeProps> = ({
   segments,
   currentIndex,
   completedSegments,
@@ -470,4 +470,4 @@ const DictationMode: React.FC<DictationModeProps> = ({
   );
 };
 
-export default DictationMode;
+// export default DictationMode;

@@ -21,7 +21,7 @@ interface TypingGameProps {
   onBack: () => void;
 }
 
-const TypingGame: React.FC<TypingGameProps> = ({
+export const TypingGame: React.FC<TypingGameProps> = ({
   vocabulary,
   onComplete,
   onUpdateMastery,
@@ -267,4 +267,4 @@ const TypingGame: React.FC<TypingGameProps> = ({
   );
 };
 
-export default TypingGame;
+// export default TypingGame;

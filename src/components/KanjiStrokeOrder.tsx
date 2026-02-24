@@ -24,7 +24,7 @@ interface KanjiInfo {
   jlpt?: number;
 }
 
-const KanjiStrokeOrder = forwardRef<HTMLDivElement, KanjiStrokeOrderProps>(({
+export const KanjiStrokeOrder = forwardRef<HTMLDivElement, KanjiStrokeOrderProps>(({
   kanji,
   reading,
   meaning,
@@ -225,4 +225,4 @@ const KanjiStrokeOrder = forwardRef<HTMLDivElement, KanjiStrokeOrderProps>(({
 
 KanjiStrokeOrder.displayName = 'KanjiStrokeOrder';
 
-export default KanjiStrokeOrder;
+// export default KanjiStrokeOrder;

@@ -38,7 +38,7 @@ const RELATIONSHIP_COLORS: Record<string, string> = {
   synonym: '#06b6d4',    // cyan
 };
 
-const KanjiNetworkVisualization: React.FC<KanjiNetworkProps> = ({
+export const KanjiNetworkVisualization: React.FC<KanjiNetworkProps> = ({
   centerKanji,
   relatedKanji,
   onKanjiClick,
@@ -296,4 +296,4 @@ const KanjiNetworkVisualization: React.FC<KanjiNetworkProps> = ({
   );
 };
 
-export default KanjiNetworkVisualization;
+// export default KanjiNetworkVisualization;

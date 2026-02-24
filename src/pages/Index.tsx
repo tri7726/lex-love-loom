@@ -11,11 +11,11 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import Navigation from '@/components/Navigation';
-import DailyPractice from '@/components/DailyPractice';
+import { Navigation } from '@/components/Navigation';
+import { DailyPractice } from '@/components/DailyPractice';
 import { JapaneseText } from '@/components/JapaneseText';
-import { AchievementBadge, achievements } from '@/components/StreakBadge';
-import Leaderboard from '@/components/Leaderboard';
+import { StreakBadge, AchievementBadge, achievements } from '@/components/StreakBadge';
+import { Leaderboard } from '@/components/Leaderboard';
 import { Link, useNavigate } from 'react-router-dom';
 
 // Sample data
@@ -82,7 +82,7 @@ const wordOfTheDay = {
   exampleMeaning: 'I\'m doing my best every day.',
 };
 
-const Index = () => {
+export const Index = () => {
   const navigate = useNavigate();
   const [userStats] = useState({
     streak: 7,
@@ -346,4 +346,4 @@ const Index = () => {
   );
 };
 
-export default Index;
+// export default Index;

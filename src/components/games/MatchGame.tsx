@@ -28,7 +28,7 @@ interface MatchCard {
   matched: boolean;
 }
 
-const MatchGame: React.FC<MatchGameProps> = ({
+export const MatchGame: React.FC<MatchGameProps> = ({
   vocabulary,
   onComplete,
   onUpdateMastery,
@@ -267,4 +267,4 @@ const MatchGame: React.FC<MatchGameProps> = ({
   );
 };
 
-export default MatchGame;
+// export default MatchGame;

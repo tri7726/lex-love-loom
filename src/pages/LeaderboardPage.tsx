@@ -2,8 +2,8 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Trophy } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import Navigation from '@/components/Navigation';
-import Leaderboard from '@/components/Leaderboard';
+import { Navigation } from '@/components/Navigation';
+import { Leaderboard } from '@/components/Leaderboard';
 
 const leaderboardData = [
   { rank: 1, userId: '1', username: 'SakuraMaster', xp: 4520, streak: 45 },
@@ -18,7 +18,7 @@ const leaderboardData = [
   { rank: 10, userId: '10', username: 'NewLearner', xp: 450, streak: 1 },
 ];
 
-const LeaderboardPage = () => {
+export const LeaderboardPage = () => {
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
       <Navigation />
@@ -81,4 +81,4 @@ const LeaderboardPage = () => {
   );
 };
 
-export default LeaderboardPage;
+// export default LeaderboardPage;

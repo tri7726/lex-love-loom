@@ -187,4 +187,4 @@ export const DailyPractice: React.FC<DailyPracticeProps> = ({
   );
 };
 
-export default DailyPractice;
+// export default DailyPractice;

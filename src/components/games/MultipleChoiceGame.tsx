@@ -26,7 +26,7 @@ interface Question {
   correctIndex: number;
 }
 
-const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
+export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
   vocabulary,
   onComplete,
   onUpdateMastery,
@@ -233,4 +233,4 @@ const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
   );
 };
 
-export default MultipleChoiceGame;
+// export default MultipleChoiceGame;

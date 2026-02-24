@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import Navigation from '@/components/Navigation';
+import { Navigation } from '@/components/Navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -26,7 +26,7 @@ interface CourseModule {
 const defaultIcons = ['📚', '🎯', '⭐', '🔥', '💡', '🌸', '🎌', '✨'];
 const defaultColors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
 
-const ModuleManager = () => {
+export const ModuleManager = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -371,4 +371,4 @@ const ModuleManager = () => {
   );
 };
 
-export default ModuleManager;
+// export default ModuleManager;

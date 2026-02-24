@@ -3,13 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Star, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useKanjiDetails } from '@/hooks/useKanjiDetails';
-import HandwritingCanvas from '@/components/kanji/HandwritingCanvas';
+import { SimplifiedCanvas } from '@/components/kanji/HandwritingCanvas';
 import { useToast } from '@/hooks/use-toast';
-import KanjiInfoPanel from '@/components/kanji/KanjiInfoPanel';
-import VocabularyPanel from '@/components/kanji/VocabularyPanel';
-import KanjiNetworkVisualization from '@/components/kanji/KanjiNetworkVisualization';
+import { KanjiInfoPanel } from '@/components/kanji/KanjiInfoPanel';
+import { VocabularyPanel } from '@/components/kanji/VocabularyPanel';
+import { KanjiNetworkVisualization } from '@/components/kanji/KanjiNetworkVisualization';
 
-const KanjiDetail: React.FC = () => {
+export const KanjiDetail: React.FC = () => {
   const { character } = useParams<{ character: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -106,7 +106,7 @@ const KanjiDetail: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Writing Practice */}
         <div className="lg:col-span-1">
-          <HandwritingCanvas
+          <SimplifiedCanvas
             kanji={kanji.character}
             onStrokeComplete={(strokes) => {
               console.log('Strokes captured:', strokes.length);
@@ -157,4 +157,4 @@ const KanjiDetail: React.FC = () => {
   );
 };
 
-export default KanjiDetail;
+// export default KanjiDetail;

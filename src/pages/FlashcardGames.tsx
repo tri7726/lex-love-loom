@@ -14,15 +14,15 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import Navigation from '@/components/Navigation';
+import { Navigation } from '@/components/Navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import MatchGame from '@/components/games/MatchGame';
-import MultipleChoiceGame from '@/components/games/MultipleChoiceGame';
-import WriteGame from '@/components/games/WriteGame';
-import ListeningGame from '@/components/games/ListeningGame';
-import SpeedGame from '@/components/games/SpeedGame';
-import TypingGame from '@/components/games/TypingGame';
+import { MatchGame } from '@/components/games/MatchGame';
+import { MultipleChoiceGame } from '@/components/games/MultipleChoiceGame';
+import { WriteGame } from '@/components/games/WriteGame';
+import { ListeningGame } from '@/components/games/ListeningGame';
+import { SpeedGame } from '@/components/games/SpeedGame';
+import { TypingGame } from '@/components/games/TypingGame';
 import { useToast } from '@/hooks/use-toast';
 
 interface VocabularyItem {
@@ -92,7 +92,7 @@ const gameModes = [
   },
 ];
 
-const FlashcardGames = () => {
+export const FlashcardGames = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [vocabulary, setVocabulary] = useState<VocabularyItem[]>([]);
@@ -328,4 +328,4 @@ const FlashcardGames = () => {
   );
 };
 
-export default FlashcardGames;
+// export default FlashcardGames;

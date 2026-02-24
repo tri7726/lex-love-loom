@@ -4,7 +4,7 @@ import { Mic, MicOff, Volume2, RotateCcw, CheckCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import Navigation from '@/components/Navigation';
+import { Navigation } from '@/components/Navigation';
 
 interface PronunciationPhrase {
   id: string;
@@ -52,7 +52,7 @@ const samplePhrases: PronunciationPhrase[] = [
   },
 ];
 
-const Pronunciation = () => {
+export const Pronunciation = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [completedPhrases, setCompletedPhrases] = useState<Set<string>>(new Set());
@@ -200,4 +200,4 @@ const Pronunciation = () => {
   );
 };
 
-export default Pronunciation;
+// export default Pronunciation;

@@ -37,8 +37,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import Navigation from '@/components/Navigation';
-import DictationPlayer from '@/components/DictationPlayer';
+import { Navigation } from '@/components/Navigation';
+import { DictationPlayer } from '@/components/DictationPlayer';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -74,7 +74,7 @@ const extractYouTubeId = (url: string): string | null => {
   return null;
 };
 
-const VideoLearning = () => {
+export const VideoLearning = () => {
   const [videos, setVideos] = useState<VideoSource[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedVideo, setSelectedVideo] = useState<VideoSource | null>(null);
@@ -706,4 +706,4 @@ const VideoLearning = () => {
   );
 };
 
-export default VideoLearning;
+// export default VideoLearning;

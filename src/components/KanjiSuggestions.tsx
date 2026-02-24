@@ -19,7 +19,7 @@ interface KanjiSuggestionsProps {
   className?: string;
 }
 
-const KanjiSuggestions: React.FC<KanjiSuggestionsProps> = ({ 
+export const KanjiSuggestions: React.FC<KanjiSuggestionsProps> = ({ 
   suggestions, 
   onSelect,
   onViewStrokeOrder,
@@ -76,4 +76,4 @@ const KanjiSuggestions: React.FC<KanjiSuggestionsProps> = ({
   );
 };
 
-export default KanjiSuggestions;
+// export default KanjiSuggestions;

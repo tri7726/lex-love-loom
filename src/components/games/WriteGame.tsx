@@ -21,7 +21,7 @@ interface WriteGameProps {
   onBack: () => void;
 }
 
-const WriteGame: React.FC<WriteGameProps> = ({
+export const WriteGame: React.FC<WriteGameProps> = ({
   vocabulary,
   onComplete,
   onUpdateMastery,
@@ -267,4 +267,4 @@ const WriteGame: React.FC<WriteGameProps> = ({
   );
 };
 
-export default WriteGame;
+// export default WriteGame;

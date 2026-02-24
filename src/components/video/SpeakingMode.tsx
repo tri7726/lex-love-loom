@@ -45,7 +45,7 @@ interface SpeakingModeProps {
   playerReady: boolean;
 }
 
-const SpeakingMode: React.FC<SpeakingModeProps> = ({
+export const SpeakingMode: React.FC<SpeakingModeProps> = ({
   segments,
   currentIndex,
   completedSegments,
@@ -578,4 +578,4 @@ const SpeakingMode: React.FC<SpeakingModeProps> = ({
   );
 };
 
-export default SpeakingMode;
+// export default SpeakingMode;

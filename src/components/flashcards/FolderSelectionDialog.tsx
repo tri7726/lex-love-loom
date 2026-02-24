@@ -27,7 +27,7 @@ interface FolderSelectionDialogProps {
   title?: string;
 }
 
-const FolderSelectionDialog: React.FC<FolderSelectionDialogProps> = ({
+export const FolderSelectionDialog: React.FC<FolderSelectionDialogProps> = ({
   open,
   onClose,
   onSelectFolder,
@@ -202,4 +202,4 @@ const FolderItem: React.FC<{
   );
 };
 
-export default FolderSelectionDialog;
+// export default FolderSelectionDialog;

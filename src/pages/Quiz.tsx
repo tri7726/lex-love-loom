@@ -11,7 +11,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import Navigation from '@/components/Navigation';
+import { Navigation } from '@/components/Navigation';
 import { useTTS } from '@/hooks/useTTS';
 import { cn } from '@/lib/utils';
 
@@ -122,7 +122,7 @@ const difficultyConfig = {
   hard: { label: 'Khó', color: 'bg-destructive/20 text-destructive', xp: 20 },
 };
 
-const Quiz = () => {
+export const Quiz = () => {
   const [mode, setMode] = useState<QuizMode>('classic');
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -617,4 +617,4 @@ const Quiz = () => {
   );
 };
 
-export default Quiz;
+// export default Quiz;

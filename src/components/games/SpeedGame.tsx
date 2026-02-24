@@ -29,7 +29,7 @@ interface Question {
 const QUESTION_TIME = 5; // seconds per question
 const COMBO_MULTIPLIER = 0.5; // extra points per combo
 
-const SpeedGame: React.FC<SpeedGameProps> = ({
+export const SpeedGame: React.FC<SpeedGameProps> = ({
   vocabulary,
   onComplete,
   onUpdateMastery,
@@ -274,4 +274,4 @@ const SpeedGame: React.FC<SpeedGameProps> = ({
   );
 };
 
-export default SpeedGame;
+// export default SpeedGame;

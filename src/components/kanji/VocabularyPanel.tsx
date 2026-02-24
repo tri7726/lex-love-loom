@@ -120,7 +120,7 @@ const VocabularyItem: React.FC<{ vocab: VocabularyData }> = ({ vocab }) => {
   );
 };
 
-const VocabularyPanel: React.FC<VocabularyPanelProps> = ({
+export const VocabularyPanel: React.FC<VocabularyPanelProps> = ({
   vocabularyByJlpt,
   textbookVocabulary,
 }) => {
@@ -207,4 +207,4 @@ const VocabularyPanel: React.FC<VocabularyPanelProps> = ({
   );
 };
 
-export default VocabularyPanel;
+// export default VocabularyPanel;

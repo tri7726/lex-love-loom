@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import Navigation from '@/components/Navigation';
-import FlashcardSRS from '@/components/FlashcardSRS';
+import { Navigation } from '@/components/Navigation';
+import { FlashcardSRS } from '@/components/FlashcardSRS';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -34,7 +34,7 @@ interface Folder {
   color: string;
 }
 
-const FlashcardReview = () => {
+export const FlashcardReview = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -249,4 +249,4 @@ const FlashcardReview = () => {
   );
 };
 
-export default FlashcardReview;
+// export default FlashcardReview;

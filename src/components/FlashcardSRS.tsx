@@ -29,7 +29,7 @@ interface FlashcardSRSProps {
   onComplete: () => void;
 }
 
-const FlashcardSRS: React.FC<FlashcardSRSProps> = ({
+export const FlashcardSRS: React.FC<FlashcardSRSProps> = ({
   flashcards,
   onUpdateFlashcard,
   onComplete,
@@ -301,4 +301,4 @@ const FlashcardSRS: React.FC<FlashcardSRSProps> = ({
   );
 };
 
-export default FlashcardSRS;
+// export default FlashcardSRS;

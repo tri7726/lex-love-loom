@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useTTS } from '@/hooks/useTTS';
-import AnalysisPanel from './AnalysisPanel';
+import { AnalysisPanel } from './AnalysisPanel';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Segment {
@@ -27,10 +27,11 @@ interface VideoModeProps {
   onPlaySegment: () => void;
   onPrev: () => void;
   onNext: () => void;
+  onShowAnalysis?: () => void;
   showFurigana?: boolean;
 }
 
-const VideoMode: React.FC<VideoModeProps> = ({
+export const VideoMode: React.FC<VideoModeProps> = ({
   currentSegment,
   currentIndex,
   totalSegments,
@@ -38,59 +39,10 @@ const VideoMode: React.FC<VideoModeProps> = ({
   onPlaySegment,
   onPrev,
   onNext,
+  onShowAnalysis,
   showFurigana = true,
 }) => {
   const { speak, isSpeaking, stop, isSupported } = useTTS({ lang: 'ja-JP' });
-  const [showAnalysis, setShowAnalysis] = useState(false);
-  const [analysisContent, setAnalysisContent] = useState<string | null>(null);
-  const [structuredAnalysis, setStructuredAnalysis] = useState<any>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisError, setAnalysisError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setAnalysisContent(null);
-    setStructuredAnalysis(null);
-    setAnalysisError(null);
-  }, [currentSegment]);
-
-  useEffect(() => {
-    if (showAnalysis && !analysisContent && !structuredAnalysis && !isAnalyzing && currentSegment) {
-      handleAnalyze();
-    }
-  }, [showAnalysis, currentSegment]);
-
-  const handleAnalyze = async () => {
-    if (!currentSegment) return;
-    setIsAnalyzing(true);
-    setAnalysisError(null);
-    try {
-      const { data, error } = await supabase.functions.invoke('japanese-analysis', {
-        body: { 
-          prompt: "",  // Empty prompt for full analysis
-          content: currentSegment.japanese_text 
-        }
-      });
-      
-      if (error) throw error;
-
-      // Check if response is structured
-      if (data.format === 'structured' && data.analysis) {
-        setStructuredAnalysis(data.analysis);
-        setAnalysisContent(null);
-      } else if (data.response) {
-        // Fallback to text response
-        setAnalysisContent(data.response);
-        setStructuredAnalysis(null);
-      } else {
-        throw new Error('Invalid response format');
-      }
-    } catch (err) {
-      console.error(err);
-      setAnalysisError('Failed to analyze. Please try again.');
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
 
   if (!currentSegment) return null;
 
@@ -180,77 +132,14 @@ const VideoMode: React.FC<VideoModeProps> = ({
           variant="outline" 
           size="sm" 
           className="gap-1 border-matcha/50 text-matcha hover:bg-matcha/10"
-          onClick={() => setShowAnalysis(true)}
+          onClick={() => onShowAnalysis?.()}
         >
           <Sparkles className="h-3 w-3" />
           Giải thích AI
         </Button>
       </div>
-
-      {/* Vocabulary & Grammar */}
-      {(currentSegment.vocabulary.length > 0 || currentSegment.grammar_notes.length > 0) && (
-        <Card>
-          <CardContent className="p-4 space-y-4">
-            {/* Vocabulary */}
-            {currentSegment.vocabulary.length > 0 && (
-              <div>
-                <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                  📚 Từ vựng
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {currentSegment.vocabulary.map((vocab, i) => (
-                    <Badge
-                      key={i}
-                      variant="secondary"
-                      className="cursor-pointer hover:bg-sakura/20 transition-colors font-jp"
-                      onClick={() => speak(vocab.word)}
-                    >
-                      {vocab.word}
-                      {vocab.reading && (
-                        <span className="text-muted-foreground ml-1">
-                          ({vocab.reading})
-                        </span>
-                      )}
-                      <span className="text-muted-foreground ml-1">
-                        - {vocab.meaning}
-                      </span>
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Grammar */}
-            {currentSegment.grammar_notes.length > 0 && (
-              <div>
-                <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                  📖 Ngữ pháp
-                </h4>
-                <div className="space-y-2">
-                  {currentSegment.grammar_notes.map((note, i) => (
-                    <div key={i} className="text-sm p-2 bg-muted rounded">
-                      <span className="font-jp font-medium">{note.point}</span>
-                      <span className="mx-2">-</span>
-                      <span className="text-muted-foreground">{note.explanation}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      <AnalysisPanel
-        isOpen={showAnalysis}
-        onClose={() => setShowAnalysis(false)}
-        isLoading={isAnalyzing}
-        content={analysisContent}
-        error={analysisError}
-        structuredData={structuredAnalysis}
-      />
     </div>
   );
 };
 
-export default VideoMode;
+// export default VideoMode;

@@ -34,7 +34,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import Navigation from '@/components/Navigation';
+import { Navigation } from '@/components/Navigation';
 import { useWordHistory } from '@/hooks/useWordHistory';
 import { useTTS } from '@/hooks/useTTS';
 import { useAuth } from '@/hooks/useAuth';
@@ -43,7 +43,7 @@ import { vi } from 'date-fns/locale';
 
 type SortOption = 'newest' | 'oldest' | 'alphabetical' | 'mastery';
 
-const SavedVocabulary: React.FC = () => {
+export const SavedVocabulary: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const { history, isLoading, removeWord, refreshHistory } = useWordHistory();
@@ -329,4 +329,4 @@ const SavedVocabulary: React.FC = () => {
   );
 };
 
-export default SavedVocabulary;
+// export default SavedVocabulary;

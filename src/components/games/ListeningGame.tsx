@@ -26,7 +26,7 @@ interface Question {
   correctIndex: number;
 }
 
-const ListeningGame: React.FC<ListeningGameProps> = ({
+export const ListeningGame: React.FC<ListeningGameProps> = ({
   vocabulary,
   onComplete,
   onUpdateMastery,
@@ -246,4 +246,4 @@ const ListeningGame: React.FC<ListeningGameProps> = ({
   );
 };
 
-export default ListeningGame;
+// export default ListeningGame;

@@ -124,4 +124,4 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
   );
 };
 
-export default Leaderboard;
+// export default Leaderboard;

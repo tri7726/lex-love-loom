@@ -11,7 +11,7 @@ interface SimplifiedCanvasProps {
   onValidate?: () => void;
 }
 
-const SimplifiedCanvas: React.FC<SimplifiedCanvasProps> = ({
+export const SimplifiedCanvas: React.FC<SimplifiedCanvasProps> = ({
   kanji,
   onStrokeComplete,
   onValidate,
@@ -210,4 +210,4 @@ const SimplifiedCanvas: React.FC<SimplifiedCanvasProps> = ({
   );
 };
 
-export default SimplifiedCanvas;
+// export default SimplifiedCanvas;

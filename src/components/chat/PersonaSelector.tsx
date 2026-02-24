@@ -91,7 +91,7 @@ interface PersonaSelectorProps {
   onSelect: (personaId: PersonaId) => void;
 }
 
-const PersonaSelector: React.FC<PersonaSelectorProps> = ({ selectedPersona, onSelect }) => {
+export const PersonaSelector: React.FC<PersonaSelectorProps> = ({ selectedPersona, onSelect }) => {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
       {PERSONAS.map((persona) => (
@@ -125,4 +125,4 @@ const PersonaSelector: React.FC<PersonaSelectorProps> = ({ selectedPersona, onSe
   );
 };
 
-export default PersonaSelector;
+// export default PersonaSelector;

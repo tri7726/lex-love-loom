@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { HelpCircle, BookOpen, Brain, Mic, Trophy, Layers } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import Navigation from '@/components/Navigation';
+import { Navigation } from '@/components/Navigation';
 
 const guides = [
   {
@@ -63,7 +63,7 @@ const guides = [
   },
 ];
 
-const UserGuide = () => {
+export const UserGuide = () => {
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
       <Navigation />
@@ -142,4 +142,4 @@ const UserGuide = () => {
   );
 };
 
-export default UserGuide;
+// export default UserGuide;

@@ -130,4 +130,4 @@ export const JapaneseSentence: React.FC<JapaneseSentenceProps> = ({
   );
 };
 
-export default JapaneseText;
+// export default JapaneseText;

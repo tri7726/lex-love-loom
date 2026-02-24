@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import ReactMarkdown from 'react-markdown';
 import { useToast } from '@/hooks/use-toast';
 import { useFlashcardCreation } from '@/hooks/useFlashcardCreation';
-import FolderSelectionDialog from '@/components/flashcards/FolderSelectionDialog';
+import { FolderSelectionDialog } from '@/components/flashcards/FolderSelectionDialog';
 
 // Type definitions matching the backend response
 interface WordBreakdown {
@@ -82,7 +82,7 @@ const JLPT_COLORS: Record<string, string> = {
   'N1': 'bg-red-500/20 text-red-700 dark:text-red-300',
 };
 
-const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
+export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
   isOpen,
   onClose,
   isLoading,
@@ -415,4 +415,4 @@ const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
   );
 };
 
-export default AnalysisPanel;
+// export default AnalysisPanel;

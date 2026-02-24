@@ -150,4 +150,4 @@ export const useSpeechToText = (options: UseSpeechToTextOptions = {}): UseSpeech
   };
 };
 
-export default useSpeechToText;
+// export default useSpeechToText;

@@ -19,7 +19,7 @@ interface SummaryModeProps {
   quizScore?: { correct: number; total: number };
 }
 
-const SummaryMode: React.FC<SummaryModeProps> = ({
+export const SummaryMode: React.FC<SummaryModeProps> = ({
   segments,
   completedSegments,
   segmentScores,
@@ -143,4 +143,4 @@ const SummaryMode: React.FC<SummaryModeProps> = ({
   );
 };
 
-export default SummaryMode;
+// export default SummaryMode;

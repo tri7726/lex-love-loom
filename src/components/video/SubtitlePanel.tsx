@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Play, X, CheckCircle } from 'lucide-react';
+import { Play, X, CheckCircle, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -19,6 +19,7 @@ interface SubtitlePanelProps {
   currentTime?: number;
   completedSegments: Set<number>;
   onSegmentClick: (index: number) => void;
+  onExplain?: (index: number) => void;
   onClose?: () => void;
   isOpen?: boolean;
 }
@@ -29,12 +30,13 @@ const formatTime = (seconds: number): string => {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
-const SubtitlePanel: React.FC<SubtitlePanelProps> = ({
+export const SubtitlePanel: React.FC<SubtitlePanelProps> = ({
   segments,
   currentIndex,
   currentTime = 0,
   completedSegments,
   onSegmentClick,
+  onExplain,
   onClose,
   isOpen = true,
 }) => {
@@ -113,6 +115,21 @@ const SubtitlePanel: React.FC<SubtitlePanelProps> = ({
                     {formatTime(segment.start_time)}
                   </span>
                 </div>
+
+                {/* AI Explain Button */}
+                {onExplain && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-matcha hover:text-matcha/80 hover:bg-matcha/10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onExplain(index);
+                    }}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                  </Button>
+                )}
               </motion.button>
             );
           })}
@@ -122,4 +139,4 @@ const SubtitlePanel: React.FC<SubtitlePanelProps> = ({
   );
 };
 
-export default SubtitlePanel;
+// export default SubtitlePanel;

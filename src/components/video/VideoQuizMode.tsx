@@ -27,7 +27,7 @@ interface VideoQuizModeProps {
   onGenerateQuiz?: () => void;
 }
 
-const VideoQuizMode: React.FC<VideoQuizModeProps> = ({
+export const VideoQuizMode: React.FC<VideoQuizModeProps> = ({
   questions,
   onComplete,
   onGenerateQuiz,
@@ -269,4 +269,4 @@ const Badge = ({ children, variant, className }: { children: React.ReactNode; va
   </span>
 );
 
-export default VideoQuizMode;
+// export default VideoQuizMode;

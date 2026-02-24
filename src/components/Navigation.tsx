@@ -26,7 +26,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import StreakBadge from './StreakBadge';
+import { StreakBadge } from './StreakBadge';
 import { useAuth } from '@/hooks/useAuth';
 
 const navItems = [
@@ -35,8 +35,9 @@ const navItems = [
   { path: '/flashcards', icon: Layers, label: 'Flashcards' },
   { path: '/quiz', icon: Brain, label: 'Quiz' },
   { path: '/speaking-practice', icon: Mic, label: 'Speaking' },
-  { path: '/reading', icon: BookOpen, label: 'Reading' },
+  { path: '/ai-tutor', icon: Brain, label: 'AI Tutor' },
 ];
+
 
 const moreMenuItems = [
   { path: '/flashcard-games', icon: Gamepad2, label: 'Flashcard Games' },
@@ -206,4 +207,4 @@ export const Navigation: React.FC<NavigationProps> = ({
   );
 };
 
-export default Navigation;
+// export default Navigation;

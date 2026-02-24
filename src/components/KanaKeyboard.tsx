@@ -63,7 +63,7 @@ const katakanaSmall = [
   ['ッ', '', 'ー', '', ''],
 ];
 
-const KanaKeyboard: React.FC<KanaKeyboardProps> = ({ onKeyPress, className }) => {
+export const KanaKeyboard: React.FC<KanaKeyboardProps> = ({ onKeyPress, className }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'hiragana' | 'katakana'>('hiragana');
   const [showDakuten, setShowDakuten] = useState(false);
@@ -188,4 +188,4 @@ const KanaKeyboard: React.FC<KanaKeyboardProps> = ({ onKeyPress, className }) =>
   );
 };
 
-export default KanaKeyboard;
+// export default KanaKeyboard;

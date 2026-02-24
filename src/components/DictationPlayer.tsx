@@ -10,14 +10,15 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import Navigation from '@/components/Navigation';
-import VideoLearningTabs, { VideoTab } from '@/components/video/VideoLearningTabs';
-import SubtitlePanel from '@/components/video/SubtitlePanel';
-import VideoMode from '@/components/video/VideoMode';
-import DictationMode from '@/components/video/DictationMode';
-import SpeakingMode from '@/components/video/SpeakingMode';
-import VideoQuizMode from '@/components/video/VideoQuizMode';
-import SummaryMode from '@/components/video/SummaryMode';
+import { Navigation } from '@/components/Navigation';
+import { VideoLearningTabs, VideoTab } from '@/components/video/VideoLearningTabs';
+import { SubtitlePanel } from '@/components/video/SubtitlePanel';
+import { AnalysisPanel } from '@/components/video/AnalysisPanel';
+import { VideoMode } from '@/components/video/VideoMode';
+import { DictationMode } from '@/components/video/DictationMode';
+import { SpeakingMode } from '@/components/video/SpeakingMode';
+import { VideoQuizMode } from '@/components/video/VideoQuizMode';
+import { SummaryMode } from '@/components/video/SummaryMode';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -52,7 +53,7 @@ interface DictationPlayerProps {
   onBack: () => void;
 }
 
-const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
+export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
   // Core state
   const [segments, setSegments] = useState<Segment[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -75,6 +76,13 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
   const [segmentScores, setSegmentScores] = useState<Map<number, number>>(new Map());
   const [speakingScores, setSpeakingScores] = useState<Map<number, number>>(new Map());
   const [quizScore, setQuizScore] = useState<{ correct: number; total: number } | undefined>();
+
+  // Analysis state
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [analysisContent, setAnalysisContent] = useState<string | null>(null);
+  const [structuredAnalysis, setStructuredAnalysis] = useState<any>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   const timeUpdateRef = useRef<NodeJS.Timeout | null>(null);
   const { user } = useAuth();
@@ -157,6 +165,41 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
       }
     };
   }, [playerReady, player]);
+
+  const handleAnalyzeSegment = useCallback(async (index: number) => {
+    const segment = segments[index];
+    if (!segment) return;
+    
+    setShowAnalysis(true);
+    setIsAnalyzing(true);
+    setAnalysisError(null);
+    setAnalysisContent(null);
+    setStructuredAnalysis(null);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('japanese-analysis', {
+        body: { 
+          prompt: "", 
+          content: segment.japanese_text 
+        }
+      });
+      
+      if (error) throw error;
+
+      if (data.format === 'structured' && data.analysis) {
+        setStructuredAnalysis(data.analysis);
+      } else if (data.response) {
+        setAnalysisContent(data.response);
+      } else {
+        throw new Error('Invalid response format');
+      }
+    } catch (err) {
+      console.error(err);
+      setAnalysisError('Failed to analyze. Please try again.');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [segments]);
 
   // Play current segment - use segments[currentIndex] directly for fresh reference
   const playCurrentSegment = useCallback(() => {
@@ -315,6 +358,7 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
             onPlaySegment={playCurrentSegment}
             onPrev={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
             onNext={() => setCurrentIndex(prev => Math.min(segments.length - 1, prev + 1))}
+            onShowAnalysis={() => handleAnalyzeSegment(currentIndex)}
           />
         );
       
@@ -480,14 +524,24 @@ const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
                 currentTime={currentTime}
                 completedSegments={completedSegments}
                 onSegmentClick={handleSegmentClick}
+                onExplain={handleAnalyzeSegment}
                 onClose={() => setShowSubtitlePanel(false)}
               />
             </motion.div>
           )}
         </AnimatePresence>
       </div>
+
+      <AnalysisPanel
+        isOpen={showAnalysis}
+        onClose={() => setShowAnalysis(false)}
+        isLoading={isAnalyzing}
+        content={analysisContent}
+        error={analysisError}
+        structuredData={structuredAnalysis}
+      />
     </div>
   );
 };
 
-export default DictationPlayer;
+// export default DictationPlayer;

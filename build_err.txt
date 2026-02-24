@@ -1,0 +1,25 @@
+Browserslist: browsers data (caniuse-lite) is 8 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+[31mx[39m Build failed in 7.21s
+[31merror during build:
+[31msrc/pages/FlashcardGames.tsx (20:9): "MatchGame" is not exported by "src/components/games/MatchGame.tsx", imported by "src/pages/FlashcardGames.tsx".[31m
+file: [36mC:/Users/Pheo/.gemini/antigravity/scratch/lex-love-loom/src/pages/FlashcardGames.tsx:20:9[31m
+[33m
+18: import { useAuth } from '@/hooks/useAuth';
+19: import { supabase } from '@/integrations/supabase/client';
+20: import { MatchGame } from '@/components/games/MatchGame';
+             ^
+21: import { MultipleChoiceGame } from '@/components/games/MultipleChoiceGame';
+22: import { WriteGame } from '@/components/games/WriteGame';
+[31m
+    at getRollupError (file:///C:/Users/Pheo/.gemini/antigravity/scratch/lex-love-loom/node_modules/rollup/dist/es/shared/parseAst.js:395:41)
+    at error (file:///C:/Users/Pheo/.gemini/antigravity/scratch/lex-love-loom/node_modules/rollup/dist/es/shared/parseAst.js:391:42)
+    at Module.error (file:///C:/Users/Pheo/.gemini/antigravity/scratch/lex-love-loom/node_modules/rollup/dist/es/shared/node-entry.js:15535:16)
+    at Module.traceVariable (file:///C:/Users/Pheo/.gemini/antigravity/scratch/lex-love-loom/node_modules/rollup/dist/es/shared/node-entry.js:15984:29)
+    at ModuleScope.findVariable (file:///C:/Users/Pheo/.gemini/antigravity/scratch/lex-love-loom/node_modules/rollup/dist/es/shared/node-entry.js:13770:39)
+    at ReturnValueScope.findVariable (file:///C:/Users/Pheo/.gemini/antigravity/scratch/lex-love-loom/node_modules/rollup/dist/es/shared/node-entry.js:5252:38)
+    at FunctionBodyScope.findVariable (file:///C:/Users/Pheo/.gemini/antigravity/scratch/lex-love-loom/node_modules/rollup/dist/es/shared/node-entry.js:5252:38)
+    at ReturnValueScope.findVariable (file:///C:/Users/Pheo/.gemini/antigravity/scratch/lex-love-loom/node_modules/rollup/dist/es/shared/node-entry.js:5252:38)
+    at FunctionBodyScope.findVariable (file:///C:/Users/Pheo/.gemini/antigravity/scratch/lex-love-loom/node_modules/rollup/dist/es/shared/node-entry.js:5252:38)
+    at BlockScope.findVariable (file:///C:/Users/Pheo/.gemini/antigravity/scratch/lex-love-loom/node_modules/rollup/dist/es/shared/node-entry.js:5252:38)[39m

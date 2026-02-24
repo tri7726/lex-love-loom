@@ -140,21 +140,131 @@ CRITICAL INSTRUCTIONS:
 // Edge Function Handler
 // ==========================================
 
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+
+const VISION_SYSTEM_PROMPT = `You are an expert Japanese tutor. 
+Analyze the image provided and identify the main object or scene.
+Return a JSON response with the following structure:
+{
+  "object_name": "Main object name in Japanese (Kanji/Kana)",
+  "reading": "Hiragana reading",
+  "vietnamese_meaning": "Meaning in Vietnamese",
+  "description": "Brief description of what is in the image in Vietnamese",
+  "vocabulary": [
+    {
+      "word": "Related Japanese word",
+      "reading": "Reading",
+      "meaning": "Vietnamese meaning"
+    }
+  ],
+  "sample_sentences": [
+    {
+      "japanese": "A natural sample sentence using the object name",
+      "translation": "Vietnamese translation"
+    }
+  ]
+}
+Return ONLY valid JSON.`;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { prompt, content } = await req.json();
+    const { prompt, content, image, isImageAnalysis } = await req.json();
     
-    // Get API keys
+    // Check if it's an image analysis request
+    if (isImageAnalysis && image) {
+      if (!GEMINI_API_KEY) {
+        throw new Error("GEMINI_API_KEY is not configured");
+      }
+
+      console.log("Sending request to Gemini Vision API...");
+      
+      const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                { text: VISION_SYSTEM_PROMPT },
+                {
+                  inline_data: {
+                    mime_type: "image/jpeg",
+                    data: image // base64 string
+                  }
+                }
+              ]
+            }
+          ],
+          generationConfig: {
+            response_mime_type: "application/json"
+          }
+        }),
+      });
+
+      if (!geminiResponse.ok) {
+        const errorText = await geminiResponse.text();
+        console.error("Gemini API error:", geminiResponse.status, errorText);
+        throw new Error(`Gemini API error: ${geminiResponse.status}`);
+      }
+
+      const geminiData = await geminiResponse.json();
+      const result = JSON.parse(geminiData.candidates[0].content.parts[0].text);
+
+      return new Response(JSON.stringify({ format: 'vision', result }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Default: Text analysis
     const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
     if (!GROQ_API_KEY) {
       throw new Error("GROQ_API_KEY is not configured");
     }
 
-    // Construct analysis messages
+    // Smart Routing Logic
+    const complexKeywords = ["why", "explain", "culture", "difference", "honne", "tatemae", "nuance", "history", "social", "context", "tại sao", "giải thích", "văn hóa", "khác biệt", "sắc thái", "lịch sử"];
+    const isComplex = (prompt || "").toLowerCase().split(" ").some(word => complexKeywords.includes(word)) || (content || "").length > 500;
+    
+    // Explicit override or smart check
+    const useGemini = req.headers.get("x-ai-engine") === "gemini" || isComplex;
+
+    console.log(`Routing to ${useGemini ? 'Gemini' : 'Groq'}... (Complex: ${isComplex})`);
+
+    if (useGemini && GEMINI_API_KEY) {
+      const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_API_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: ENHANCED_SYSTEM_PROMPT },
+              { text: prompt 
+                ? `Analyze this Japanese text and answer the question.\n\nText: ${content}\n\nQuestion: ${prompt}`
+                : `Analyze this Japanese text in detail:\n\n${content}` 
+              }
+            ]
+          }],
+          generationConfig: { response_mime_type: "application/json" }
+        }),
+      });
+
+      if (geminiResponse.ok) {
+        const geminiData = await geminiResponse.json();
+        const result = JSON.parse(geminiData.candidates[0].content.parts[0].text);
+        return new Response(JSON.stringify({ format: 'structured', analysis: result, engine: 'gemini' }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      console.error("Gemini fallback failed, trying Groq...");
+    }
+
+    // Groq execution (Fallback or default)
     const analysisMessages = [
       { role: "user", content: ENHANCED_SYSTEM_PROMPT },
       { 
@@ -165,19 +275,16 @@ serve(async (req) => {
       }
     ];
 
-    console.log("Sending request to Groq API...");
-    
-    // Use Groq-compatible format which works better
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${Deno.env.get("GROQ_API_KEY")}`,
+        Authorization: `Bearer ${GROQ_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile",
         messages: analysisMessages,
-        temperature: 0.3, // Lower for structured output
+        temperature: 0.3,
         max_tokens: 4096,
         response_format: { type: "json_object" }
       }),
@@ -192,12 +299,10 @@ serve(async (req) => {
     const data = await response.json();
     const resultText = data.choices?.[0]?.message?.content || "No response generated.";
 
-    // Try to parse as JSON
-    let parsedResponse: AnalysisResponse | null = null;
+    let parsedResponse = null;
     let isStructured = false;
 
     try {
-      // Clean up response (remove markdown code blocks if present)
       const cleanedText = resultText
         .replace(/```json\n?/g, '')
         .replace(/```\n?/g, '')
@@ -205,35 +310,19 @@ serve(async (req) => {
       
       parsedResponse = JSON.parse(cleanedText);
       isStructured = true;
-      console.log("Successfully parsed structured JSON response");
     } catch (parseError) {
       console.warn("Failed to parse JSON, returning as markdown text:", parseError);
-      // Fallback to text response
       isStructured = false;
     }
 
-    // Return structured or text response
     if (isStructured && parsedResponse) {
-      return new Response(
-        JSON.stringify({ 
-          format: 'structured',
-          analysis: parsedResponse 
-        }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+      return new Response(JSON.stringify({ format: 'structured', analysis: parsedResponse, engine: 'groq' }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     } else {
-      // Fallback to markdown text response (backward compatible)
-      return new Response(
-        JSON.stringify({ 
-          format: 'text',
-          response: resultText 
-        }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+      return new Response(JSON.stringify({ format: 'text', response: resultText, engine: 'groq' }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
   } catch (error) {
@@ -247,3 +336,5 @@ serve(async (req) => {
     );
   }
 });
+
+

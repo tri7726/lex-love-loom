@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { BookOpen, Volume2, Loader2, Zap, Database, Globe, Filter } from 'lucide-react';
+import { BookOpen, Volume2, Loader2, Zap, Database, Globe, Filter, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import Navigation from '@/components/Navigation';
+import { Navigation } from '@/components/Navigation';
 import { CreatePassageDialog } from '@/components/CreatePassageDialog';
 import { WordLookupPanel } from '@/components/WordLookupPanel';
+import { AnalysisPanel } from '@/components/video/AnalysisPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -68,7 +69,7 @@ const SourceBadge = ({ source, cached }: { source?: string; cached?: boolean }) 
   return <Badge variant="secondary" className="gap-1 text-xs">AI</Badge>;
 };
 
-const Reading = () => {
+export const Reading = () => {
   const { user } = useAuth();
   const [passages, setPassages] = useState<ReadingPassage[]>([]);
   const [selectedPassage, setSelectedPassage] = useState<ReadingPassage | null>(null);
@@ -83,6 +84,13 @@ const Reading = () => {
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [wordData, setWordData] = useState<WordData | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
+  
+  // Analysis state
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [analysisContent, setAnalysisContent] = useState<string | null>(null);
+  const [structuredAnalysis, setStructuredAnalysis] = useState<any>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   // Fetch passages
   useEffect(() => {
@@ -141,6 +149,40 @@ const Reading = () => {
       return matchLevel && matchCategory;
     });
   }, [passages, levelFilter, categoryFilter]);
+
+  const handleDeepAnalysis = async () => {
+    if (!selectedPassage) return;
+    
+    setShowAnalysis(true);
+    setIsAnalyzing(true);
+    setAnalysisError(null);
+    setAnalysisContent(null);
+    setStructuredAnalysis(null);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('japanese-analysis', {
+        body: { 
+          prompt: "Please provide a deep analysis of this reading passage.", 
+          content: selectedPassage.content 
+        }
+      });
+      
+      if (error) throw error;
+
+      if (data.format === 'structured' && data.analysis) {
+        setStructuredAnalysis(data.analysis);
+      } else if (data.response) {
+        setAnalysisContent(data.response);
+      } else {
+        throw new Error('Invalid response format');
+      }
+    } catch (err) {
+      console.error(err);
+      setAnalysisError('Failed to analyze. Please try again.');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   // Convert furigana HTML to kana only
   const extractKanaOnly = (html: string): string => {
@@ -421,15 +463,26 @@ const Reading = () => {
                       <TabsTrigger value="kana">Kana</TabsTrigger>
                     </TabsList>
                   </Tabs>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => speak(selectedPassage.content)}
-                    className="gap-2"
-                  >
-                    <Volume2 className="h-4 w-4" />
-                    Nghe
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDeepAnalysis}
+                      className="gap-2 border-matcha/50 text-matcha hover:bg-matcha/10"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      Phân tích sâu (AI)
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => speak(selectedPassage.content)}
+                      className="gap-2"
+                    >
+                      <Volume2 className="h-4 w-4" />
+                      Nghe
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Reading Content */}
@@ -569,8 +622,17 @@ const Reading = () => {
           </div>
         </div>
       </main>
+
+      <AnalysisPanel
+        isOpen={showAnalysis}
+        onClose={() => setShowAnalysis(false)}
+        isLoading={isAnalyzing}
+        content={analysisContent}
+        error={analysisError}
+        structuredData={structuredAnalysis}
+      />
     </div>
   );
 };
 
-export default Reading;
+// export default Reading;

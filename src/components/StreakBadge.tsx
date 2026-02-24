@@ -139,4 +139,4 @@ export const achievements = [
   },
 ];
 
-export default StreakBadge;
+// export default StreakBadge;

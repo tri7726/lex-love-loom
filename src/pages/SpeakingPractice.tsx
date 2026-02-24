@@ -22,10 +22,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import Navigation from '@/components/Navigation';
-import KanaKeyboard from '@/components/KanaKeyboard';
-import KanjiSuggestions from '@/components/KanjiSuggestions';
-import KanjiStrokeOrder from '@/components/KanjiStrokeOrder';
+import { Navigation } from '@/components/Navigation';
+import { KanaKeyboard } from '@/components/KanaKeyboard';
+import { KanjiSuggestions } from '@/components/KanjiSuggestions';
+import { KanjiStrokeOrder } from '@/components/KanjiStrokeOrder';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -33,7 +33,7 @@ import { useTTS, TTSSpeed } from '@/hooks/useTTS';
 import { useKanaInput, KanaMode } from '@/hooks/useKanaInput';
 import { useKanjiLookup } from '@/hooks/useKanjiLookup';
 import { useWordHistory } from '@/hooks/useWordHistory';
-import PersonaSelector, { PersonaId, PERSONAS } from '@/components/chat/PersonaSelector';
+import { PersonaSelector, PersonaId, PERSONAS } from '@/components/chat/PersonaSelector';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 
@@ -42,6 +42,8 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   translation?: string;
+  correction?: string;
+  explanation?: string;
 }
 
 interface KanjiSuggestion {
@@ -104,7 +106,7 @@ const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/japanese-cha
 // Speech Recognition setup
 const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-const SpeakingPractice = () => {
+export const SpeakingPractice = () => {
   // State
   const [activeMode, setActiveMode] = useState<PracticeMode>('shadowing');
   const [isRecording, setIsRecording] = useState(false);
@@ -473,6 +475,37 @@ const SpeakingPractice = () => {
     setConversation(prev => [...prev, userMessage]);
     setMessage('');
     setIsLoading(true);
+
+    // Get correction for user message in background
+    const getCorrection = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('japanese-analysis', {
+          body: { 
+            prompt: "Please check this Japanese sentence for grammar and naturalness. If it's incorrect or unnatural, provide a correction and a brief explanation in Vietnamese. Content: ", 
+            content: message 
+          }
+        });
+        
+        if (!error && data.format === 'structured' && data.analysis) {
+          const analysis = data.analysis;
+          if (analysis.is_incorrect || analysis.suggested_correction) {
+            setConversation(prev => prev.map((msg, idx) => {
+              if (idx === prev.length - 1 && msg.role === 'user' && msg.content === userMessage.content) {
+                return { 
+                  ...msg, 
+                  correction: analysis.suggested_correction,
+                  explanation: analysis.correction_explanation
+                };
+              }
+              return msg;
+            }));
+          }
+        }
+      } catch (err) {
+        console.error('Error getting correction:', err);
+      }
+    };
+    getCorrection();
 
     let assistantContent = '';
 
@@ -1014,14 +1047,14 @@ const SpeakingPractice = () => {
                     key={index}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} mb-4`}
                   >
                     <div
                       className={cn(
                         "max-w-[80%] p-4 rounded-2xl",
                         msg.role === 'user'
-                          ? "bg-gradient-to-br from-matcha to-matcha-dark text-white"
-                          : "bg-muted"
+                          ? "bg-gradient-to-br from-matcha to-matcha-dark text-white rounded-tr-none"
+                          : "bg-muted rounded-tl-none"
                       )}
                     >
                       <p className="font-jp whitespace-pre-wrap">{msg.content}</p>
@@ -1030,12 +1063,13 @@ const SpeakingPractice = () => {
                           {msg.translation}
                         </p>
                       )}
+                      
                       {msg.role === 'assistant' && msg.content && ttsSupported && (
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => isSpeaking ? stop() : speak(msg.content)}
-                          className="mt-2 h-8"
+                          className="mt-2 h-8 hover:bg-white/10"
                         >
                           {isSpeaking ? (
                             <><VolumeX className="h-4 w-4 mr-1" /> Dừng</>
@@ -1045,6 +1079,31 @@ const SpeakingPractice = () => {
                         </Button>
                       )}
                     </div>
+
+                    {/* Correction Display for User Messages */}
+                    {msg.role === 'user' && (msg.correction || msg.explanation) && (
+                      <motion.div 
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="bg-sakura/10 border border-sakura/20 rounded-xl p-3 mt-2 text-xs space-y-2 max-w-[80%] shadow-sm"
+                      >
+                        {msg.correction && (
+                          <div className="flex items-start gap-2">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-sakura shrink-0 mt-0.5" />
+                            <div>
+                              <span className="font-bold text-sakura">Gợi ý: </span>
+                              <span className="font-jp text-foreground">{msg.correction}</span>
+                            </div>
+                          </div>
+                        )}
+                        {msg.explanation && (
+                          <div className="flex items-start gap-2">
+                            <AlertCircle className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                            <div className="text-muted-foreground italic leading-normal">{msg.explanation}</div>
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
                   </motion.div>
                 ))}
                 {isLoading && (
@@ -1146,4 +1205,4 @@ const SpeakingPractice = () => {
   );
 };
 
-export default SpeakingPractice;
+// export default SpeakingPractice;

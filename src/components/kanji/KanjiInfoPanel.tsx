@@ -16,7 +16,7 @@ const JLPT_COLORS: Record<string, string> = {
   N1: 'bg-red-500',
 };
 
-const KanjiInfoPanel: React.FC<KanjiInfoPanelProps> = ({ kanji, userProgress }) => {
+export const KanjiInfoPanel: React.FC<KanjiInfoPanelProps> = ({ kanji, userProgress }) => {
   return (
     <Card>
       <CardHeader>
@@ -183,4 +183,4 @@ const KanjiInfoPanel: React.FC<KanjiInfoPanelProps> = ({ kanji, userProgress }) 
   );
 };
 
-export default KanjiInfoPanel;
+// export default KanjiInfoPanel;

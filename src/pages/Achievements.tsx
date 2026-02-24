@@ -2,10 +2,10 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Trophy } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import Navigation from '@/components/Navigation';
+import { Navigation } from '@/components/Navigation';
 import { AchievementBadge, achievements } from '@/components/StreakBadge';
 
-const Achievements = () => {
+export const Achievements = () => {
   // Simulate unlocked achievements (first 3 are unlocked)
   const unlockedIds = ['first-lesson', 'week-streak'];
 
@@ -104,4 +104,4 @@ const Achievements = () => {
   );
 };
 
-export default Achievements;
+// export default Achievements;
