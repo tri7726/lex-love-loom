@@ -171,7 +171,7 @@ const KanjiNetworkVisualization: React.FC<KanjiNetworkProps> = ({
         d3.select(this).select('circle')
           .transition()
           .duration(200)
-          .attr('r', (data) => (data.isCurrent ? 40 : 30));
+          .attr('r', (data: any) => (data.isCurrent ? 40 : 30));
       })
       .on('mouseleave', function (event, d) {
         setHoveredNode(null);
