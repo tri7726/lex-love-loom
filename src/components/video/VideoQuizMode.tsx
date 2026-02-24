@@ -13,6 +13,42 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useTTS } from '@/hooks/useTTS';
 
+const renderTextWithFurigana = (text: string, vocabulary: any[], show: boolean) => {
+  if (!show || !vocabulary || vocabulary.length === 0) return text;
+  
+  const vocab = [...vocabulary].sort((a, b) => b.word.length - a.word.length);
+  let parts: Array<{ text: string, furigana?: string }> = [{ text }];
+  
+  vocab.forEach(v => {
+    const newParts: typeof parts = [];
+    parts.forEach(part => {
+      if (part.furigana) {
+        newParts.push(part);
+        return;
+      }
+      const subParts = part.text.split(v.word);
+      subParts.forEach((subPart, i) => {
+        if (subPart) newParts.push({ text: subPart });
+        if (i < subParts.length - 1) {
+          newParts.push({ text: v.word, furigana: v.reading });
+        }
+      });
+    });
+    parts = newParts;
+  });
+
+  return parts.map((part, i) => (
+    <span key={i} className="inline-block">
+      {part.furigana ? (
+        <ruby>
+          {part.text}
+          <rt className="text-[10px] opacity-70">{part.furigana}</rt>
+        </ruby>
+      ) : part.text}
+    </span>
+  ));
+};
+
 interface Question {
   id: string;
   question_text: string;
@@ -25,12 +61,18 @@ interface VideoQuizModeProps {
   questions: Question[];
   onComplete: (score: number, total: number) => void;
   onGenerateQuiz?: () => void;
+  showFurigana?: boolean;
+  showTranslation?: boolean;
+  allVocabulary?: Array<{ word: string; reading: string; meaning: string }>;
 }
 
 export const VideoQuizMode: React.FC<VideoQuizModeProps> = ({
   questions,
   onComplete,
   onGenerateQuiz,
+  showFurigana = false,
+  showTranslation = true,
+  allVocabulary = [],
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -167,9 +209,9 @@ export const VideoQuizMode: React.FC<VideoQuizModeProps> = ({
               <Volume2 className="h-4 w-4" />
             </Button>
           )}
-          <p className="font-jp text-lg leading-relaxed">
-            {currentQuestion.question_text}
-          </p>
+          <div className="font-jp text-lg leading-relaxed flex flex-wrap gap-1">
+            {renderTextWithFurigana(currentQuestion.question_text, allVocabulary, showFurigana)}
+          </div>
         </div>
 
         {/* Options */}
@@ -217,7 +259,9 @@ export const VideoQuizMode: React.FC<VideoQuizModeProps> = ({
                     index + 1
                   )}
                 </span>
-                <span className="font-jp flex-1">{option}</span>
+                <span className="font-jp flex-1">
+                  {renderTextWithFurigana(option, allVocabulary, showFurigana)}
+                </span>
               </motion.button>
             );
           })}
@@ -233,7 +277,7 @@ export const VideoQuizMode: React.FC<VideoQuizModeProps> = ({
               className="p-4 bg-muted rounded-lg"
             >
               <p className="text-sm text-muted-foreground">
-                💡 {currentQuestion.explanation}
+                {showTranslation ? `💡 ${currentQuestion.explanation}` : '💡 (Giải thích đã bị ẩn)'}
               </p>
             </motion.div>
           )}

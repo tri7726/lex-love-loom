@@ -5,11 +5,48 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 
+const renderTextWithFurigana = (text: string, vocabulary: any[], show: boolean) => {
+  if (!show || !vocabulary || vocabulary.length === 0) return text;
+  
+  const vocab = [...vocabulary].sort((a, b) => b.word.length - a.word.length);
+  let parts: Array<{ text: string, furigana?: string }> = [{ text }];
+  
+  vocab.forEach(v => {
+    const newParts: typeof parts = [];
+    parts.forEach(part => {
+      if (part.furigana) {
+        newParts.push(part);
+        return;
+      }
+      const subParts = part.text.split(v.word);
+      subParts.forEach((subPart, i) => {
+        if (subPart) newParts.push({ text: subPart });
+        if (i < subParts.length - 1) {
+          newParts.push({ text: v.word, furigana: v.reading });
+        }
+      });
+    });
+    parts = newParts;
+  });
+
+  return parts.map((part, i) => (
+    <span key={i} className="inline-block">
+      {part.furigana ? (
+        <ruby>
+          {part.text}
+          <rt className="text-[10px] opacity-70">{part.furigana}</rt>
+        </ruby>
+      ) : part.text}
+    </span>
+  ));
+};
+
 interface Segment {
   id: string;
   segment_index: number;
   japanese_text: string;
   vietnamese_text: string | null;
+  vocabulary: Array<{ word: string; reading: string; meaning: string }>;
 }
 
 interface SummaryModeProps {
@@ -17,6 +54,8 @@ interface SummaryModeProps {
   completedSegments: Set<number>;
   segmentScores: Map<number, number>;
   quizScore?: { correct: number; total: number };
+  showFurigana?: boolean;
+  showTranslation?: boolean;
 }
 
 export const SummaryMode: React.FC<SummaryModeProps> = ({
@@ -24,6 +63,8 @@ export const SummaryMode: React.FC<SummaryModeProps> = ({
   completedSegments,
   segmentScores,
   quizScore,
+  showFurigana = false,
+  showTranslation = true,
 }) => {
   const totalSegments = segments.length;
   const completedCount = completedSegments.size;
@@ -120,10 +161,16 @@ export const SummaryMode: React.FC<SummaryModeProps> = ({
                   )}
                 </div>
                 
+                
                 <div className="flex-1 min-w-0">
-                  <p className="font-jp text-sm truncate">
-                    {segment.japanese_text}
-                  </p>
+                  <div className="font-jp text-sm">
+                    {renderTextWithFurigana(segment.japanese_text, segment.vocabulary, showFurigana)}
+                  </div>
+                  {showTranslation && segment.vietnamese_text && (
+                    <p className="text-xs text-muted-foreground mt-0.5 italic line-clamp-1">
+                      {segment.vietnamese_text}
+                    </p>
+                  )}
                 </div>
                 
                 {score !== undefined && (

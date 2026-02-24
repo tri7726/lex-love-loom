@@ -12,12 +12,12 @@ import { Vocabulary } from "./pages/Vocabulary";
 import { LeaderboardPage } from "./pages/LeaderboardPage";
 import { NotFound } from "./pages/NotFound";
 import { Reading } from "./pages/Reading";
+import { Flashcards } from "./pages/Flashcards";
 import { SpeakingPractice } from "./pages/SpeakingPractice";
 import { Achievements } from "./pages/Achievements";
 import { UserGuide } from "./pages/UserGuide";
 import { VideoLearning } from "./pages/VideoLearning";
 import { Auth } from "./pages/Auth";
-import { SavedVocabulary } from "./pages/SavedVocabulary";
 import { ModuleManager } from "./pages/ModuleManager";
 import { FolderManager } from "./pages/FolderManager";
 import { KanjiDetail } from "./pages/KanjiDetail";
@@ -43,11 +43,11 @@ function App() {
                 <Route path="/vocabulary" element={<Vocabulary />} />
                 <Route path="/leaderboard" element={<LeaderboardPage />} />
                 <Route path="/reading" element={<Reading />} />
+                <Route path="/flashcards" element={<Flashcards />} />
                 <Route path="/speaking-practice" element={<SpeakingPractice />} />
                 <Route path="/achievements" element={<Achievements />} />
                 <Route path="/guide" element={<UserGuide />} />
                 <Route path="/video-learning" element={<VideoLearning />} />
-                <Route path="/saved-vocabulary" element={<SavedVocabulary />} />
                 <Route path="/module-manager" element={<ModuleManager />} />
                 <Route path="/folder-manager" element={<FolderManager />} />
                 <Route path="/kanji/:character" element={<KanjiDetail />} />

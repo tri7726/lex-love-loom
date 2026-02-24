@@ -83,6 +83,10 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
   const [structuredAnalysis, setStructuredAnalysis] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  
+  // Display settings
+  const [showFurigana, setShowFurigana] = useState(false);
+  const [showTranslation, setShowTranslation] = useState(true);
 
   const timeUpdateRef = useRef<NodeJS.Timeout | null>(null);
   const { user } = useAuth();
@@ -344,6 +348,16 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
       origin: window.location.origin,
     },
   };
+  
+  // Calculate global vocabulary for modes that need it (like Quiz)
+  const allVocabulary = segments.reduce((acc, seg) => {
+    seg.vocabulary.forEach(v => {
+      if (!acc.some(existing => existing.word === v.word)) {
+        acc.push(v);
+      }
+    });
+    return acc;
+  }, [] as Array<{ word: string; reading: string; meaning: string }>);
 
   // Render content based on active tab
   const renderTabContent = () => {
@@ -359,6 +373,10 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
             onPrev={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
             onNext={() => setCurrentIndex(prev => Math.min(segments.length - 1, prev + 1))}
             onShowAnalysis={() => handleAnalyzeSegment(currentIndex)}
+            showFurigana={showFurigana}
+            showTranslation={showTranslation}
+            onToggleFurigana={() => setShowFurigana(!showFurigana)}
+            onToggleTranslation={() => setShowTranslation(!showTranslation)}
           />
         );
       
@@ -372,6 +390,8 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
             onPlaySegment={playCurrentSegment}
             onComplete={handleDictationComplete}
             playerReady={playerReady}
+            showFurigana={showFurigana}
+            showTranslation={showTranslation}
           />
         );
       
@@ -385,6 +405,8 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
             onPlaySegment={playCurrentSegment}
             onComplete={handleSpeakingComplete}
             playerReady={playerReady}
+            showFurigana={showFurigana}
+            showTranslation={showTranslation}
           />
         );
       
@@ -394,6 +416,9 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
             questions={questions}
             onComplete={handleQuizComplete}
             onGenerateQuiz={handleGenerateQuiz}
+            showFurigana={showFurigana}
+            showTranslation={showTranslation}
+            allVocabulary={allVocabulary}
           />
         );
       
@@ -404,6 +429,8 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
             completedSegments={completedSegments}
             segmentScores={segmentScores}
             quizScore={quizScore}
+            showFurigana={showFurigana}
+            showTranslation={showTranslation}
           />
         );
       
@@ -449,24 +476,47 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
                 <span>{Math.round(progress)}%</span>
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowSubtitlePanel(!showSubtitlePanel)}
-              className="hidden md:flex gap-1"
-            >
-              {showSubtitlePanel ? (
-                <>
-                  <PanelRightClose className="h-4 w-4" />
-                  Ẩn phụ đề
-                </>
-              ) : (
-                <>
-                  <PanelRightOpen className="h-4 w-4" />
-                  Hiện phụ đề
-                </>
-              )}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={showFurigana ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowFurigana(!showFurigana)}
+                className={`flex gap-1 h-9 ${showFurigana ? 'bg-sakura hover:bg-sakura/90' : ''}`}
+                title="Bật/Tắt Furigana"
+              >
+                <span className="font-jp font-bold">A</span>
+                <span className="text-[10px] mt-1">あ</span>
+              </Button>
+
+              <Button
+                variant={showTranslation ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowTranslation(!showTranslation)}
+                className={`flex gap-1 h-9 ${showTranslation ? 'bg-gold hover:bg-gold/90 border-gold/50' : ''}`}
+                title="Bật/Tắt Dịch"
+              >
+                <span className="font-bold text-xs">VN</span>
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowSubtitlePanel(!showSubtitlePanel)}
+                className="hidden md:flex gap-1 h-9"
+              >
+                {showSubtitlePanel ? (
+                  <>
+                    <PanelRightClose className="h-4 w-4" />
+                    Ẩn phụ đề
+                  </>
+                ) : (
+                  <>
+                    <PanelRightOpen className="h-4 w-4" />
+                    Hiện phụ đề
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
 
           {/* Video Player */}
@@ -526,6 +576,8 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
                 onSegmentClick={handleSegmentClick}
                 onExplain={handleAnalyzeSegment}
                 onClose={() => setShowSubtitlePanel(false)}
+                showFurigana={showFurigana}
+                showTranslation={showTranslation}
               />
             </motion.div>
           )}

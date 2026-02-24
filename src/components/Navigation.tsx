@@ -16,6 +16,7 @@ import {
   User,
   Gamepad2,
   Video,
+  Book,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -31,20 +32,18 @@ import { StreakBadge } from './StreakBadge';
 import { useAuth } from '@/hooks/useAuth';
 
 const navItems = [
-  { path: '/', icon: Home, label: 'Home' },
-  { path: '/vocabulary', icon: BookOpen, label: 'Vocabulary' },
-  { path: '/video-learning', icon: Video, label: 'Video Learning' },
-  // Flashcards đã tích hợp vào Vocabulary → ẩn khỏi menu
-  { path: '/speaking-practice', icon: Mic, label: 'Speaking' },
+  { path: '/', icon: Home, label: 'Trang chủ' },
+  { path: '/vocabulary', icon: BookOpen, label: 'Từ vựng' },
+  { path: '/reading', icon: Book, label: 'Luyện đọc' },
+  { path: '/video-learning', icon: Video, label: 'Học qua Video' },
+  { path: '/speaking-practice', icon: Mic, label: 'Luyện nói' },
   { path: '/ai-tutor', icon: Brain, label: 'AI Tutor' },
 ];
 
-
 const moreMenuItems = [
-  { path: '/saved-vocabulary', icon: BookMarked, label: 'Saved Vocabulary' },
-  { path: '/achievements', icon: Trophy, label: 'Achievements' },
-  { path: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
-  { path: '/guide', icon: HelpCircle, label: 'User Guide' },
+  { path: '/achievements', icon: Trophy, label: 'Thành tích' },
+  { path: '/leaderboard', icon: Trophy, label: 'Bảng xếp hạng' },
+  { path: '/guide', icon: HelpCircle, label: 'Hướng dẫn' },
 ];
 
 interface NavigationProps {

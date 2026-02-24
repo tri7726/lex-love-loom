@@ -17,3 +17,18 @@ verify_jwt = false
 
 [functions.japanese-analysis]
 verify_jwt = false
+
+[functions.japanese-grammar]
+verify_jwt = false
+
+[functions.kanji-details]
+verify_jwt = false
+
+[functions.kanji-related]
+verify_jwt = false
+
+[functions.kanji-search]
+verify_jwt = false
+
+[functions.generate-video-quiz]
+verify_jwt = false

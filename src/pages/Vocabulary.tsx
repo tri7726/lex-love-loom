@@ -42,9 +42,12 @@ import { SpeedGame } from '@/components/games/SpeedGame';
 import { ListeningGame } from '@/components/games/ListeningGame';
 import { WriteGame } from '@/components/games/WriteGame';
 import { KanjiReview } from '@/components/vocabulary/KanjiReview';
+import { useWordHistory } from '@/hooks/useWordHistory';
+import { useAuth } from '@/hooks/useAuth';
+import { MINNA_N5_VOCAB } from '@/data/minna-n5';
 
 // ==================== TYPES ====================
-interface VocabWord {
+export interface VocabWord {
   id: string;
   word: string;
   reading: string | null;
@@ -107,80 +110,10 @@ const defaultFolders: CustomFolder[] = [
 ];
 
 // ==================== MOCK DATA ====================
-const minaN5Words: VocabWord[][] = [
-  [
-    { id: 'm1-1', word: 'わたし', reading: null, hanviet: null, meaning: 'tôi', mastery_level: null },
-    { id: 'm1-2', word: 'あなた', reading: null, hanviet: null, meaning: 'anh/ chị/ ông/ bà', mastery_level: null },
-    { id: 'm1-3', word: 'あの人', reading: 'あのひと', hanviet: 'NHÂN', meaning: 'người kia, người đó', mastery_level: null },
-    { id: 'm1-4', word: '皆さん', reading: 'みなさん', hanviet: 'GIAI', meaning: 'mọi người', mastery_level: null },
-    { id: 'm1-5', word: '先生', reading: 'せんせい', hanviet: 'TIÊN SINH', meaning: 'giáo viên, thầy/cô', mastery_level: null },
-    { id: 'm1-6', word: '学生', reading: 'がくせい', hanviet: 'HỌC SINH', meaning: 'học sinh, sinh viên', mastery_level: null },
-    { id: 'm1-7', word: '会社員', reading: 'かいしゃいん', hanviet: 'HỘI XÃ VIÊN', meaning: 'nhân viên công ty', mastery_level: null },
-    { id: 'm1-8', word: '社員', reading: 'しゃいん', hanviet: 'XÃ VIÊN', meaning: 'nhân viên', mastery_level: null },
-    { id: 'm1-9', word: '銀行員', reading: 'ぎんこういん', hanviet: 'NGÂN HÀNG VIÊN', meaning: 'nhân viên ngân hàng', mastery_level: null },
-    { id: 'm1-10', word: '医者', reading: 'いしゃ', hanviet: 'Y GIẢ', meaning: 'bác sĩ', mastery_level: null },
-    { id: 'm1-11', word: '研究者', reading: 'けんきゅうしゃ', hanviet: 'NGHIÊN CỨU GIẢ', meaning: 'nghiên cứu sinh', mastery_level: null },
-    { id: 'm1-12', word: 'エンジニア', reading: null, hanviet: null, meaning: 'kỹ sư', mastery_level: null },
-    { id: 'm1-13', word: '大学', reading: 'だいがく', hanviet: 'ĐẠI HỌC', meaning: 'đại học', mastery_level: null },
-    { id: 'm1-14', word: '病院', reading: 'びょういん', hanviet: 'BỆNH VIỆN', meaning: 'bệnh viện', mastery_level: null },
-    { id: 'm1-15', word: '電気', reading: 'でんき', hanviet: 'ĐIỆN KHÍ', meaning: 'điện', mastery_level: null },
-    { id: 'm1-16', word: '誰', reading: 'だれ', hanviet: 'THÙY', meaning: 'ai', mastery_level: null },
-    { id: 'm1-17', word: '何歳', reading: 'なんさい', hanviet: 'HÀ TUẾ', meaning: 'bao nhiêu tuổi', mastery_level: null },
-    { id: 'm1-18', word: 'はい', reading: null, hanviet: null, meaning: 'vâng', mastery_level: null },
-    { id: 'm1-19', word: 'いいえ', reading: null, hanviet: null, meaning: 'không', mastery_level: null },
-    { id: 'm1-20', word: '失礼ですが', reading: 'しつれいですが', hanviet: 'THẤT LỄ', meaning: 'xin lỗi (nhưng cho hỏi)', mastery_level: null },
-  ],
-  [
-    { id: 'm2-1', word: 'これ', reading: null, hanviet: null, meaning: 'cái này', mastery_level: null },
-    { id: 'm2-2', word: 'それ', reading: null, hanviet: null, meaning: 'cái đó', mastery_level: null },
-    { id: 'm2-3', word: 'あれ', reading: null, hanviet: null, meaning: 'cái kia', mastery_level: null },
-    { id: 'm2-4', word: '本', reading: 'ほん', hanviet: 'BẢN', meaning: 'sách', mastery_level: null },
-    { id: 'm2-5', word: '辞書', reading: 'じしょ', hanviet: 'TỪ THƯ', meaning: 'từ điển', mastery_level: null },
-    { id: 'm2-6', word: '雑誌', reading: 'ざっし', hanviet: 'TẠP CHÍ', meaning: 'tạp chí', mastery_level: null },
-    { id: 'm2-7', word: '新聞', reading: 'しんぶん', hanviet: 'TÂN VĂN', meaning: 'báo', mastery_level: null },
-    { id: 'm2-8', word: 'ノート', reading: null, hanviet: null, meaning: 'vở, sổ tay', mastery_level: null },
-    { id: 'm2-9', word: '手帳', reading: 'てちょう', hanviet: 'THỦ TRƯỚNG', meaning: 'sổ tay nhỏ', mastery_level: null },
-    { id: 'm2-10', word: '名刺', reading: 'めいし', hanviet: 'DANH THÍCH', meaning: 'danh thiếp', mastery_level: null },
-    { id: 'm2-11', word: 'カード', reading: null, hanviet: null, meaning: 'thẻ', mastery_level: null },
-    { id: 'm2-12', word: '鉛筆', reading: 'えんぴつ', hanviet: 'DIÊN BÚT', meaning: 'bút chì', mastery_level: null },
-    { id: 'm2-13', word: 'ボールペン', reading: null, hanviet: null, meaning: 'bút bi', mastery_level: null },
-    { id: 'm2-14', word: 'シャープペンシル', reading: null, hanviet: null, meaning: 'bút chì bấm', mastery_level: null },
-    { id: 'm2-15', word: '鍵', reading: 'かぎ', hanviet: 'KIỆN', meaning: 'chìa khóa', mastery_level: null },
-    { id: 'm2-16', word: '時計', reading: 'とけい', hanviet: 'THỜI KẾ', meaning: 'đồng hồ', mastery_level: null },
-    { id: 'm2-17', word: '傘', reading: 'かさ', hanviet: 'TẢN', meaning: 'ô, dù', mastery_level: null },
-    { id: 'm2-18', word: 'かばん', reading: null, hanviet: null, meaning: 'cặp, túi', mastery_level: null },
-  ],
-  [
-    { id: 'm3-1', word: 'ここ', reading: null, hanviet: null, meaning: 'ở đây', mastery_level: null },
-    { id: 'm3-2', word: 'そこ', reading: null, hanviet: null, meaning: 'ở đó', mastery_level: null },
-    { id: 'm3-3', word: 'あそこ', reading: null, hanviet: null, meaning: 'ở kia', mastery_level: null },
-    { id: 'm3-4', word: '教室', reading: 'きょうしつ', hanviet: 'GIÁO THẤT', meaning: 'phòng học', mastery_level: null },
-    { id: 'm3-5', word: '食堂', reading: 'しょくどう', hanviet: 'THỰC ĐƯỜNG', meaning: 'nhà ăn', mastery_level: null },
-    { id: 'm3-6', word: '事務所', reading: 'じむしょ', hanviet: 'SỰ VỤ SỞ', meaning: 'văn phòng', mastery_level: null },
-    { id: 'm3-7', word: '会議室', reading: 'かいぎしつ', hanviet: 'HỘI NGHỊ THẤT', meaning: 'phòng họp', mastery_level: null },
-    { id: 'm3-8', word: '受付', reading: 'うけつけ', hanviet: 'THỤ PHÓ', meaning: 'quầy lễ tân', mastery_level: null },
-    { id: 'm3-9', word: 'ロビー', reading: null, hanviet: null, meaning: 'sảnh', mastery_level: null },
-    { id: 'm3-10', word: '部屋', reading: 'へや', hanviet: 'BỘ ỐC', meaning: 'phòng', mastery_level: null },
-    { id: 'm3-11', word: 'トイレ', reading: null, hanviet: null, meaning: 'nhà vệ sinh', mastery_level: null },
-    { id: 'm3-12', word: '階段', reading: 'かいだん', hanviet: 'GIAI ĐOẠN', meaning: 'cầu thang', mastery_level: null },
-    { id: 'm3-13', word: 'エレベーター', reading: null, hanviet: null, meaning: 'thang máy', mastery_level: null },
-    { id: 'm3-14', word: 'エスカレーター', reading: null, hanviet: null, meaning: 'thang cuốn', mastery_level: null },
-    { id: 'm3-15', word: 'お手洗い', reading: 'おてあらい', hanviet: 'THỦ TẨY', meaning: 'nhà vệ sinh (lịch sự)', mastery_level: null },
-  ],
-];
-
 const generateMinaLessons = (): Lesson[] => {
-  const defaultWordCounts = [20, 18, 15, 16, 14, 17, 13, 12, 15, 11, 14, 13, 12, 16, 10, 18, 15, 10, 12, 11, 14, 13, 10, 8, 9];
   return Array.from({ length: 25 }, (_, i) => {
-    const customWords = minaN5Words[i];
-    if (customWords) return { id: `mina-n5-${i + 1}`, name: `Bài ${i + 1}`, words: customWords };
-    const count = defaultWordCounts[i] || 10;
-    return {
-      id: `mina-n5-${i + 1}`, name: `Bài ${i + 1}`,
-      words: Array.from({ length: count }, (_, j) => ({
-        id: `mn5-${i + 1}-${j + 1}`, word: `単語${j + 1}`, reading: `たんご${j + 1}`, hanviet: null, meaning: `Nghĩa từ ${j + 1}`, mastery_level: null,
-      })),
-    };
+    const words = MINNA_N5_VOCAB[i] || [];
+    return { id: `mina-n5-${i + 1}`, name: `Bài ${i + 1}`, words };
   });
 };
 
@@ -240,6 +173,8 @@ const levelAccents: Record<string, { ring: string; badge: string; text: string }
 
 // ==================== COMPONENT ====================
 export const Vocabulary = () => {
+  const { user } = useAuth();
+  const { history: savedHistory, isLoading: historyLoading } = useWordHistory();
   const [view, setView] = useState<ViewState>('series');
   const [selectedSeries, setSelectedSeries] = useState<TextbookSeries | null>(null);
   const [selectedLevel, setSelectedLevel] = useState<JLPTLevel | null>(null);
@@ -651,6 +586,54 @@ export const Vocabulary = () => {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {/* Default Saved Words Folder */}
+          {user && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35 }}
+              whileHover={{ scale: 1.04, y: -6 }}
+              whileTap={{ scale: 0.96 }}
+            >
+              <Card
+                className="cursor-pointer group relative overflow-hidden border-2 border-amber-200 hover:border-amber-400 shadow-md hover:shadow-xl transition-all duration-300"
+                onClick={() => {
+                  const savedFolder: CustomFolder = {
+                    id: 'supabase-saved',
+                    name: 'Mục đã lưu từ hệ thống',
+                    emoji: '⭐',
+                    words: savedHistory.map(w => ({
+                      id: w.id,
+                      word: w.word,
+                      reading: w.reading,
+                      meaning: w.meaning,
+                      hanviet: null,
+                      mastery_level: w.mastery_level
+                    })),
+                    createdAt: new Date().toISOString()
+                  };
+                  setSelectedCustomFolder(savedFolder);
+                  setFlashcardIndex(0);
+                  setIsFlipped(false);
+                  setShuffled(false);
+                  setShowReviewPanel(false);
+                  setActiveGame(null);
+                  setView('custom-detail');
+                }}
+              >
+                <div className="h-2 bg-gradient-to-r from-amber-300 via-yellow-300 to-amber-400" />
+                <CardContent className="p-5 text-center space-y-2 relative">
+                  <div className="absolute inset-0 bg-gradient-to-b from-amber-50/40 to-transparent" />
+                  <div className="relative z-10">
+                    <span className="text-4xl text-amber-500">⭐</span>
+                    <p className="text-sm font-bold mt-2 truncate text-amber-800">Mục đã lưu</p>
+                    <p className="text-xs text-amber-600 font-medium">{savedHistory.length} từ</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
           {customFolders.map((folder, idx) => (
             <motion.div
               key={folder.id}
@@ -680,7 +663,7 @@ export const Vocabulary = () => {
                     <p className="text-sm font-bold mt-2 truncate">{folder.name}</p>
                     <p className="text-xs text-muted-foreground">{folder.words.length} từ</p>
                   </div>
-                  {folder.id !== 'sample-folder' && (
+                  {folder.id !== 'sample-folder' && folder.id !== 'supabase-saved' && (
                     <button
                       className="absolute top-3 right-3 w-6 h-6 rounded-full bg-red-100 text-red-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-200 hover:text-red-600 z-20"
                       onClick={(e) => { e.stopPropagation(); deleteFolder(folder.id); }}

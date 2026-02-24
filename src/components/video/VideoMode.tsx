@@ -29,6 +29,9 @@ interface VideoModeProps {
   onNext: () => void;
   onShowAnalysis?: () => void;
   showFurigana?: boolean;
+  showTranslation?: boolean;
+  onToggleFurigana?: () => void;
+  onToggleTranslation?: () => void;
 }
 
 export const VideoMode: React.FC<VideoModeProps> = ({
@@ -40,7 +43,10 @@ export const VideoMode: React.FC<VideoModeProps> = ({
   onPrev,
   onNext,
   onShowAnalysis,
-  showFurigana = true,
+  showFurigana = false,
+  showTranslation = true,
+  onToggleFurigana,
+  onToggleTranslation,
 }) => {
   const { speak, isSpeaking, stop, isSupported } = useTTS({ lang: 'ja-JP' });
 
@@ -51,28 +57,80 @@ export const VideoMode: React.FC<VideoModeProps> = ({
       {/* Current subtitle display */}
       <Card className="bg-gradient-to-br from-background to-muted/30 border-2">
         <CardContent className="p-6 text-center">
-          {/* Japanese with furigana */}
+          {/* Japanese with optional furigana */}
           <motion.div
             key={currentSegment.id}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="space-y-3"
+            className="space-y-4"
           >
-            <p className="font-jp text-2xl leading-relaxed">
-              {currentSegment.japanese_text.split('').map((char, i) => (
-                <span
-                  key={i}
-                  className="inline-block hover:text-sakura transition-colors cursor-pointer"
-                  onClick={() => speak(char)}
-                >
-                  {char}
-                </span>
-              ))}
-            </p>
+            <div className="font-jp text-3xl leading-relaxed flex flex-wrap justify-center gap-1">
+              {(() => {
+                const text = currentSegment.japanese_text;
+                const vocab = (currentSegment.vocabulary || []).sort((a, b) => b.word.length - a.word.length);
+                
+                if (!showFurigana || vocab.length === 0) {
+                  return text.split('').map((char, i) => (
+                    <span
+                      key={i}
+                      className="inline-block hover:text-sakura transition-colors cursor-pointer"
+                      onClick={() => speak(char)}
+                    >
+                      {char}
+                    </span>
+                  ));
+                }
+
+                // Simple regex-based replacement for furigana injection
+                let parts: Array<{ text: string, furigana?: string }> = [{ text }];
+                
+                vocab.forEach(v => {
+                  const newParts: typeof parts = [];
+                  parts.forEach(part => {
+                    if (part.furigana) {
+                      newParts.push(part);
+                      return;
+                    }
+                    
+                    const subParts = part.text.split(v.word);
+                    subParts.forEach((subPart, i) => {
+                      if (subPart) newParts.push({ text: subPart });
+                      if (i < subParts.length - 1) {
+                        newParts.push({ text: v.word, furigana: v.reading });
+                      }
+                    });
+                  });
+                  parts = newParts;
+                });
+
+                return parts.map((part, i) => (
+                  <span key={i} className="inline-block">
+                    {part.furigana ? (
+                      <ruby className="hover:text-sakura transition-colors cursor-pointer" onClick={() => speak(part.text)}>
+                        {part.text}
+                        <rt className="text-xs text-sakura opacity-80 select-none">
+                          {part.furigana}
+                        </rt>
+                      </ruby>
+                    ) : (
+                      part.text.split('').map((char, j) => (
+                        <span
+                          key={j}
+                          className="hover:text-sakura transition-colors cursor-pointer"
+                          onClick={() => speak(char)}
+                        >
+                          {char}
+                        </span>
+                      ))
+                    )}
+                  </span>
+                ));
+              })()}
+            </div>
             
             {/* Translation */}
-            {currentSegment.vietnamese_text && (
-              <p className="text-muted-foreground">
+            {showTranslation && currentSegment.vietnamese_text && (
+              <p className="text-muted-foreground text-lg italic border-t pt-3 border-border/40">
                 {currentSegment.vietnamese_text}
               </p>
             )}
@@ -122,11 +180,21 @@ export const VideoMode: React.FC<VideoModeProps> = ({
 
       {/* Quick toggle buttons */}
       <div className="flex items-center justify-center gap-2">
-        <Button variant="outline" size="sm" className="gap-1">
-          Phụ đề
+        <Button 
+          variant={showFurigana ? "default" : "outline"} 
+          size="sm" 
+          className={`gap-1 ${showFurigana ? 'bg-sakura hover:bg-sakura/90' : ''}`}
+          onClick={onToggleFurigana}
+        >
+          Furigana
         </Button>
-        <Button variant="outline" size="sm" className="gap-1">
-          Bản dịch
+        <Button 
+          variant={showTranslation ? "default" : "outline"} 
+          size="sm" 
+          className={`gap-1 ${showTranslation ? 'bg-gold hover:bg-gold/90 border-gold/50' : ''}`}
+          onClick={onToggleTranslation}
+        >
+          Dịch
         </Button>
         <Button 
           variant="outline" 

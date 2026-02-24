@@ -19,13 +19,13 @@ const guides = [
   },
   {
     icon: <Layers className="h-6 w-6 text-matcha" />,
-    title: 'Flashcards',
-    description: 'Review vocabulary with spaced repetition',
+    title: 'Flashcards (integrated)',
+    description: 'Review vocabulary inside the Vocabulary page',
     tips: [
+      'Access your custom folders in the Vocabulary section',
       'Click cards to flip between word and meaning',
       'Use "I Know This" or "Review Again" to track progress',
       'Listen to pronunciation with the speaker button',
-      'Complete all cards to earn XP',
     ],
   },
   {

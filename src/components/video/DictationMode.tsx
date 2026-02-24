@@ -23,6 +23,42 @@ import { useKanaInput, KanaMode } from '@/hooks/useKanaInput';
 import { useKanjiLookup } from '@/hooks/useKanjiLookup';
 import { compareStrings, calculateScore, DiffResult } from '@/lib/stringComparison';
 
+const renderTextWithFurigana = (text: string, vocabulary: any[], show: boolean) => {
+  if (!show || !vocabulary || vocabulary.length === 0) return text;
+  
+  const vocab = [...vocabulary].sort((a, b) => b.word.length - a.word.length);
+  let parts: Array<{ text: string, furigana?: string }> = [{ text }];
+  
+  vocab.forEach(v => {
+    const newParts: typeof parts = [];
+    parts.forEach(part => {
+      if (part.furigana) {
+        newParts.push(part);
+        return;
+      }
+      const subParts = part.text.split(v.word);
+      subParts.forEach((subPart, i) => {
+        if (subPart) newParts.push({ text: subPart });
+        if (i < subParts.length - 1) {
+          newParts.push({ text: v.word, furigana: v.reading });
+        }
+      });
+    });
+    parts = newParts;
+  });
+
+  return parts.map((part, i) => (
+    <span key={i} className="inline-block">
+      {part.furigana ? (
+        <ruby>
+          {part.text}
+          <rt className="text-[10px] opacity-70">{part.furigana}</rt>
+        </ruby>
+      ) : part.text}
+    </span>
+  ));
+};
+
 interface Segment {
   id: string;
   segment_index: number;
@@ -30,6 +66,7 @@ interface Segment {
   end_time: number;
   japanese_text: string;
   vietnamese_text: string | null;
+  vocabulary: Array<{ word: string; reading: string; meaning: string }>;
 }
 
 interface DictationModeProps {
@@ -40,6 +77,8 @@ interface DictationModeProps {
   onPlaySegment: () => void;
   onComplete: (score: number) => void;
   playerReady: boolean;
+  showFurigana?: boolean;
+  showTranslation?: boolean;
 }
 
 interface KanjiSuggestion {
@@ -57,6 +96,8 @@ export const DictationMode: React.FC<DictationModeProps> = ({
   onPlaySegment,
   onComplete,
   playerReady,
+  showFurigana = false,
+  showTranslation = true,
 }) => {
   const [userInput, setUserInput] = useState('');
   const [hasChecked, setHasChecked] = useState(false);
@@ -371,7 +412,7 @@ export const DictationMode: React.FC<DictationModeProps> = ({
 
         {/* Hints */}
         <AnimatePresence>
-          {showHint && currentSegment.vietnamese_text && (
+          {showHint && showTranslation && currentSegment.vietnamese_text && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -389,7 +430,9 @@ export const DictationMode: React.FC<DictationModeProps> = ({
               exit={{ opacity: 0, y: -10 }}
               className="p-3 bg-muted rounded-lg text-center"
             >
-              <p className="font-jp text-lg">{currentSegment.japanese_text}</p>
+              <div className="font-jp text-lg flex flex-wrap justify-center gap-1">
+                {renderTextWithFurigana(currentSegment.japanese_text, currentSegment.vocabulary, showFurigana)}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -442,8 +485,10 @@ export const DictationMode: React.FC<DictationModeProps> = ({
               {/* Correct Answer */}
               <div className="p-4 bg-primary/5 rounded-lg text-center">
                 <p className="text-sm text-muted-foreground mb-2">Đáp án đúng:</p>
-                <p className="font-jp text-lg text-primary font-medium">{currentSegment.japanese_text}</p>
-                {currentSegment.vietnamese_text && (
+                <div className="font-jp text-lg text-primary font-medium flex flex-wrap justify-center gap-1">
+                  {renderTextWithFurigana(currentSegment.japanese_text, currentSegment.vocabulary, showFurigana)}
+                </div>
+                {showTranslation && currentSegment.vietnamese_text && (
                   <p className="text-sm text-muted-foreground mt-1">
                     {currentSegment.vietnamese_text}
                   </p>

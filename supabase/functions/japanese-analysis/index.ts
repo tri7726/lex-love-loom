@@ -63,6 +63,26 @@ interface AnalysisResponse {
   cultural_notes: string[];
 }
 
+interface GrammarResponse {
+  isCorrect: boolean;
+  corrected: string;
+  explanation: string;
+  rules: string[];
+  suggestions: string[];
+}
+
+const GRAMMAR_SYSTEM_PROMPT = `あなたは日本語の文法チェッカーです。
+ユーザーが入力した日本語の文法をチェックし、以下のJSON形式で返答してください。
+修正内容や解説はベトナム語で行ってください。
+
+{
+  "isCorrect": boolean,
+  "corrected": "string",
+  "explanation": "string (in Vietnamese)",
+  "rules": ["string (in Japanese)"],
+  "suggestions": ["string (in Japanese)"]
+}`;
+
 // ==========================================
 // Enhanced System Prompt for Structured Analysis
 // ==========================================
@@ -172,9 +192,63 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, content, image, isImageAnalysis } = await req.json();
+    const { prompt, content, image, isImageAnalysis, isGrammar } = await req.json();
     
-    // Check if it's an image analysis request
+    // 0. Grammar Check Mode (New)
+    if (isGrammar) {
+      const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+      const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+      
+      console.log("Grammar check requested via analysis function...");
+      
+      const useGemini = !!GEMINI_API_KEY && (content?.length > 100 || req.headers.get("x-ai-engine") === "gemini");
+      let resultText = "";
+      
+      if (useGemini) {
+        const geminiResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: GRAMMAR_SYSTEM_PROMPT }, { text: content }] }],
+            generationConfig: { response_mime_type: "application/json" }
+          }),
+        });
+        if (geminiResp.ok) {
+          const d = await geminiResp.json();
+          resultText = d.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        }
+      }
+      
+      if (!resultText && GROQ_API_KEY) {
+        const groqResp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: [{ role: "system", content: GRAMMAR_SYSTEM_PROMPT }, { role: "user", content: content }],
+            response_format: { type: "json_object" }
+          }),
+        });
+        if (groqResp.ok) {
+          const d = await groqResp.json();
+          resultText = d.choices?.[0]?.message?.content || "";
+        }
+      }
+
+      const cleaned = resultText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      const raw = JSON.parse(cleaned || "{}");
+      
+      // Map to the format GrammarCheckInput expects
+      return new Response(JSON.stringify({
+        isCorrect: raw.isCorrect ?? true,
+        corrected: raw.corrected || content,
+        explanation: raw.explanation || "",
+        rules: raw.rules || [],
+        suggestions: raw.suggestions || []
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // 1. Image Analysis Logic... (unchanged)
     if (isImageAnalysis && image) {
       if (!GEMINI_API_KEY) {
         throw new Error("GEMINI_API_KEY is not configured");

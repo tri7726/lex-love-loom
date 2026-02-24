@@ -1,4 +1,4 @@
--- =====================================================
+ -- =====================================================
 -- Flashcard Management System with SRS
 -- 3-Tier Structure: Course Modules → Folders → Flashcards
 -- Created: 2026-02-07

@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Clock,
   Sparkles,
+  Book,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,7 @@ import { cn } from '@/lib/utils';
 
 interface DailyTask {
   id: string;
-  type: 'vocabulary' | 'kanji' | 'quiz' | 'pronunciation' | 'review';
+  type: 'vocabulary' | 'kanji' | 'quiz' | 'pronunciation' | 'review' | 'reading';
   title: string;
   description: string;
   progress: number;
@@ -54,6 +55,8 @@ export const DailyPractice: React.FC<DailyPracticeProps> = ({
         return <Mic className="h-5 w-5" />;
       case 'review':
         return <Target className="h-5 w-5" />;
+      case 'reading':
+        return <Book className="h-5 w-5" />;
     }
   };
 
@@ -69,6 +72,8 @@ export const DailyPractice: React.FC<DailyPracticeProps> = ({
         return 'bg-gold/10 text-gold border-gold/30';
       case 'review':
         return 'bg-primary/10 text-primary border-primary/30';
+      case 'reading':
+        return 'bg-indigo-500/10 text-indigo-500 border-indigo-500/30';
     }
   };
 

@@ -26,6 +26,42 @@ import { cn } from '@/lib/utils';
 import { useSpeechToText } from '@/hooks/useSpeechToText';
 import { analyzePronunciation, PronunciationScore } from '@/components/PronunciationAnalysis';
 
+const renderTextWithFurigana = (text: string, vocabulary: any[], show: boolean) => {
+  if (!show || !vocabulary || vocabulary.length === 0) return text;
+  
+  const vocab = [...vocabulary].sort((a, b) => b.word.length - a.word.length);
+  let parts: Array<{ text: string, furigana?: string }> = [{ text }];
+  
+  vocab.forEach(v => {
+    const newParts: typeof parts = [];
+    parts.forEach(part => {
+      if (part.furigana) {
+        newParts.push(part);
+        return;
+      }
+      const subParts = part.text.split(v.word);
+      subParts.forEach((subPart, i) => {
+        if (subPart) newParts.push({ text: subPart });
+        if (i < subParts.length - 1) {
+          newParts.push({ text: v.word, furigana: v.reading });
+        }
+      });
+    });
+    parts = newParts;
+  });
+
+  return parts.map((part, i) => (
+    <span key={i} className="inline-block">
+      {part.furigana ? (
+        <ruby>
+          {part.text}
+          <rt className="text-[10px] opacity-70">{part.furigana}</rt>
+        </ruby>
+      ) : part.text}
+    </span>
+  ));
+};
+
 interface Segment {
   id: string;
   segment_index: number;
@@ -33,6 +69,7 @@ interface Segment {
   end_time: number;
   japanese_text: string;
   vietnamese_text: string | null;
+  vocabulary: Array<{ word: string; reading: string; meaning: string }>;
 }
 
 interface SpeakingModeProps {
@@ -43,6 +80,8 @@ interface SpeakingModeProps {
   onPlaySegment: () => void;
   onComplete: (score: number) => void;
   playerReady: boolean;
+  showFurigana?: boolean;
+  showTranslation?: boolean;
 }
 
 export const SpeakingMode: React.FC<SpeakingModeProps> = ({
@@ -53,6 +92,8 @@ export const SpeakingMode: React.FC<SpeakingModeProps> = ({
   onPlaySegment,
   onComplete,
   playerReady,
+  showFurigana = false,
+  showTranslation = true,
 }) => {
   // State
   const [hideText, setHideText] = useState(false);
@@ -321,9 +362,11 @@ export const SpeakingMode: React.FC<SpeakingModeProps> = ({
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                   >
-                    <p className="font-jp text-2xl">{currentSegment.japanese_text}</p>
-                    {showPhonetic && currentSegment.vietnamese_text && (
-                      <p className="text-sm text-muted-foreground mt-2">
+                    <div className="font-jp text-3xl flex flex-wrap justify-center gap-1">
+                      {renderTextWithFurigana(currentSegment.japanese_text, currentSegment.vocabulary, showFurigana)}
+                    </div>
+                    {showTranslation && currentSegment.vietnamese_text && (
+                      <p className="text-sm text-muted-foreground mt-2 italic shadow-sm bg-muted/20 p-2 rounded">
                         {currentSegment.vietnamese_text}
                       </p>
                     )}

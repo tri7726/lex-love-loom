@@ -114,12 +114,25 @@ serve(async (req) => {
 
       if (response.ok) {
         const data = await response.json();
-        resultText = data.choices?.[0]?.message?.content || "{}";
+        resultText = data.choices?.[0]?.message?.content || "";
       } else {
         const errorText = await response.text();
         console.error("Groq API error:", response.status, errorText);
-        throw new Error(`AI API error: ${response.status}`);
       }
+    }
+
+    // Fallback if both AI engines fail or are not available
+    if (!resultText || resultText === "{}") {
+      return new Response(JSON.stringify({
+        isCorrect: true,
+        corrected: text,
+        explanation: "AI không phản hồi hoặc thiếu API Key. Vui lòng kiểm tra cấu hình dự án.",
+        rules: [],
+        suggestions: [],
+        engine: "none"
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Clean and parse JSON
@@ -128,7 +141,13 @@ serve(async (req) => {
       .replace(/```\n?/g, "")
       .trim();
     
-    const result = JSON.parse(cleanedText);
+    let result;
+    try {
+      result = JSON.parse(cleanedText);
+    } catch (e) {
+      console.error("Parse failed for:", resultText);
+      throw new Error("AI returned invalid JSON");
+    }
     
     const validatedResult = {
       isCorrect: typeof result.isCorrect === 'boolean' ? result.isCorrect : true,
