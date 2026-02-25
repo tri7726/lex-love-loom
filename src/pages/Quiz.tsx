@@ -14,8 +14,14 @@ import { Input } from '@/components/ui/input';
 import { Navigation } from '@/components/Navigation';
 import { useTTS } from '@/hooks/useTTS';
 import { cn } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
+import { MINNA_N5_VOCAB } from '@/data/minna-n5';
+import { VocabWord } from './Vocabulary';
 
 type QuizMode = 'classic' | 'speed' | 'listening' | 'writing';
+type DeepMemoryLevel = 1 | 2 | 3 | 4;
 
 interface QuizQuestion {
   id: string;
@@ -25,82 +31,81 @@ interface QuizQuestion {
   correctAnswer: number;
   category: 'vocabulary' | 'grammar' | 'kanji' | 'culture';
   difficulty: 'easy' | 'medium' | 'hard';
+  wordId?: string; // Reference to original vocab word
 }
 
-const sampleQuestions: QuizQuestion[] = [
-  {
-    id: '1',
-    question: '"おはようございます" nghĩa là gì?',
-    questionJp: 'おはようございます',
-    options: ['Chào buổi tối', 'Chào buổi sáng', 'Chúc ngủ ngon', 'Xin chào'],
-    correctAnswer: 1,
-    category: 'vocabulary',
-    difficulty: 'easy',
-  },
-  {
-    id: '2',
-    question: 'Làm sao nói "Cảm ơn" trong tiếng Nhật?',
-    questionJp: 'ありがとう',
-    options: ['すみません', 'ありがとう', 'ごめんなさい', 'おねがいします'],
-    correctAnswer: 1,
-    category: 'vocabulary',
-    difficulty: 'easy',
-  },
-  {
-    id: '3',
-    question: '"食べる" (taberu) có nghĩa là gì?',
-    questionJp: '食べる',
-    options: ['Uống', 'Ngủ', 'Ăn', 'Đi bộ'],
-    correctAnswer: 2,
-    category: 'vocabulary',
-    difficulty: 'medium',
-  },
-  {
-    id: '4',
-    question: 'Trợ từ nào dùng để đánh dấu chủ đề câu?',
-    questionJp: 'は',
-    options: ['を', 'に', 'は', 'で'],
-    correctAnswer: 2,
-    category: 'grammar',
-    difficulty: 'medium',
-  },
-  {
-    id: '5',
-    question: '"大きい" (ookii) có nghĩa là gì?',
-    questionJp: '大きい',
-    options: ['Nhỏ', 'Lớn', 'Nhanh', 'Chậm'],
-    correctAnswer: 1,
-    category: 'kanji',
-    difficulty: 'easy',
-  },
-  {
-    id: '6',
-    question: 'Động từ nào ở thể て (te-form) là "行って"?',
-    questionJp: '行って',
-    options: ['見る', '食べる', '行く', '来る'],
-    correctAnswer: 2,
-    category: 'grammar',
-    difficulty: 'hard',
-  },
-  {
-    id: '7',
-    question: '"毎日" đọc là gì?',
-    questionJp: '毎日',
-    options: ['まいにち', 'まいじつ', 'きょう', 'あした'],
-    correctAnswer: 0,
-    category: 'kanji',
-    difficulty: 'medium',
-  },
-  {
-    id: '8',
-    question: 'Câu nào đúng ngữ pháp?',
-    questionJp: '本を読みます',
-    options: ['本を読みます', '本が読みます', '本に読みます', '本で読みます'],
-    correctAnswer: 0,
-    category: 'grammar',
-    difficulty: 'hard',
-  },
-];
+const generateDynamicQuestions = (
+  lessonRange: [number, number],
+  mode: QuizMode,
+  isDeepMemory: boolean,
+  intensity: DeepMemoryLevel,
+  count: number = 10
+): QuizQuestion[] => {
+  // Flatten all words within range
+  const allWordsInRange = MINNA_N5_VOCAB.slice(lessonRange[0] - 1, lessonRange[1])
+    .flat() as VocabWord[];
+
+  if (allWordsInRange.length === 0) return [];
+
+  let selectedWords: VocabWord[] = [];
+
+  if (isDeepMemory) {
+    // Basic SRS Logic: 
+    // Intensity defines split between "weak/old" and "new"
+    const settings = {
+      1: { old: 10, new: 5 },
+      2: { old: 20, new: 10 },
+      3: { old: 35, new: 15 },
+      4: { old: 50, new: 20 }, // Level 4 is "Super"
+    }[intensity];
+
+    // For now, "old" are words with mastery_level < 3 or null
+    // "new" are just random words from the range
+    const weakWords = [...allWordsInRange]
+      .filter(w => (w.mastery_level || 0) < 3)
+      .sort(() => Math.random() - 0.5)
+      .slice(0, settings.old);
+    
+    const otherWords = [...allWordsInRange]
+      .filter(w => !weakWords.find(ww => ww.id === w.id))
+      .sort(() => Math.random() - 0.5)
+      .slice(0, settings.new);
+
+    selectedWords = [...weakWords, ...otherWords].sort(() => Math.random() - 0.5);
+  } else {
+    // Normal Mode: Just random words
+    selectedWords = [...allWordsInRange]
+      .sort(() => Math.random() - 0.5)
+      .slice(0, count);
+  }
+
+  return selectedWords.map((word, idx) => {
+    // Generate 3 distractors
+    const distractors = allWordsInRange
+      .filter(w => w.id !== word.id)
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 3)
+      .map(w => w.meaning);
+
+    const options = [word.meaning, ...distractors].sort(() => Math.random() - 0.5);
+    const correctAnswer = options.indexOf(word.meaning);
+
+    // Question type based on mode
+    let questionText = `"${word.word}" nghĩa là gì?`;
+    if (mode === 'writing') questionText = `Dịch từ này sang tiếng Việt:`;
+
+    return {
+      id: `dynamic-${idx}`,
+      wordId: word.id,
+      question: questionText,
+      questionJp: word.word,
+      options,
+      correctAnswer,
+      category: 'vocabulary',
+      difficulty: word.word.length > 3 ? 'medium' : 'easy',
+    };
+  });
+};
 
 const modeConfig = {
   classic: { icon: Target, label: 'Cổ điển', color: 'text-primary', description: 'Trả lời không giới hạn thời gian' },
@@ -136,6 +141,10 @@ export const Quiz = () => {
   const [totalXP, setTotalXP] = useState(0);
   const [writtenAnswer, setWrittenAnswer] = useState('');
   const [isStarted, setIsStarted] = useState(false);
+  const [lessonRange, setLessonRange] = useState<[number, number]>([1, 5]);
+  const [isDeepMemory, setIsDeepMemory] = useState(false);
+  const [intensity, setIntensity] = useState<DeepMemoryLevel>(2);
+  const [questionCount, setQuestionCount] = useState(10);
   const [shuffledQuestions, setShuffledQuestions] = useState<QuizQuestion[]>([]);
 
   const { speak, isSpeaking, isSupported: ttsSupported } = useTTS({ lang: 'ja-JP' });
@@ -147,8 +156,15 @@ export const Quiz = () => {
 
   // Shuffle questions when starting
   const startQuiz = () => {
-    const shuffled = [...sampleQuestions].sort(() => Math.random() - 0.5);
-    setShuffledQuestions(shuffled);
+    const dynamicQuestions = generateDynamicQuestions(
+      lessonRange,
+      mode,
+      isDeepMemory,
+      intensity,
+      questionCount
+    );
+    
+    setShuffledQuestions(dynamicQuestions);
     setIsStarted(true);
     setCurrentQuestion(0);
     setScore(0);
@@ -306,21 +322,127 @@ export const Quiz = () => {
                 })}
               </CardContent>
             </Card>
+            {/* Quiz Settings */}
+            <Card className="shadow-elevated border-none bg-gradient-to-br from-card to-primary/5">
+              <CardHeader className="pb-3 text-center">
+                <CardTitle className="text-xl">Cấu hình bài kiểm tra</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Lesson Range */}
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <Label className="text-sm font-medium">Phạm vi bài học (Minna N5)</Label>
+                    <Badge variant="secondary" className="bg-primary/10 text-primary">
+                      Bài {lessonRange[0]} - {lessonRange[1]}
+                    </Badge>
+                  </div>
+                  <Slider
+                    defaultValue={[1, 5]}
+                    max={25}
+                    min={1}
+                    step={1}
+                    value={lessonRange as any}
+                    onValueChange={(v) => setLessonRange(v as [number, number])}
+                    className="py-4"
+                  />
+                  <div className="flex justify-between text-[10px] text-muted-foreground px-1">
+                    <span>Bài 1</span>
+                    <span>Bài 25</span>
+                  </div>
+                </div>
+
+                {/* Deep Memory Mode */}
+                <div className="flex items-center justify-between p-4 rounded-xl bg-primary/5 border border-primary/10">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="deep-memory" className="font-semibold cursor-pointer">Deep Memory (SRS)</Label>
+                      <Badge className="bg-gold text-gold-foreground text-[10px] px-1.5 h-4">PRO</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Tối ưu hóa ghi nhớ bằng phương pháp lặp lại ngắt quãng</p>
+                  </div>
+                  <Switch
+                    id="deep-memory"
+                    checked={isDeepMemory}
+                    onCheckedChange={setIsDeepMemory}
+                  />
+                </div>
+
+                {/* Intensity Levels - Only show if Deep Memory is ON */}
+                <AnimatePresence>
+                  {isDeepMemory && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="space-y-3 overflow-hidden"
+                    >
+                      <Label className="text-sm font-medium">Cường độ học tập (4 mức độ)</Label>
+                      <div className="grid grid-cols-4 gap-2">
+                        {[1, 2, 3, 4].map((l) => (
+                          <Button
+                            key={l}
+                            variant={intensity === l ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setIntensity(l as DeepMemoryLevel)}
+                            className={cn(
+                              "h-10 text-xs font-bold",
+                              intensity === l && "bg-sakura hover:bg-sakura/90 border-sakura shadow-sm"
+                            )}
+                          >
+                            Mức {l}
+                          </Button>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-center text-muted-foreground pt-1">
+                        {intensity === 1 && "Nhẹ nhàng: 10 từ cũ + 5 từ mới"}
+                        {intensity === 2 && "Trung bình: 20 từ cũ + 10 từ mới"}
+                        {intensity === 3 && "Chuyên sâu: 35 từ cũ + 15 từ mới"}
+                        {intensity === 4 && "Siêu cấp: Toàn bộ từ đến hạn + 20 từ mới"}
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Question Count (Normal Mode) */}
+                {!isDeepMemory && (
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">Số lượng câu hỏi: {questionCount}</Label>
+                    <div className="flex gap-2">
+                      {[10, 20, 50].map((c) => (
+                        <Button
+                          key={c}
+                          variant={questionCount === c ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setQuestionCount(c)}
+                          className="flex-1"
+                        >
+                          {c} câu
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Stats Preview */}
             <Card>
               <CardContent className="p-4 flex items-center justify-between text-sm">
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">{sampleQuestions.length}</p>
-                  <p className="text-muted-foreground">Câu hỏi</p>
+                  <p className="text-2xl font-bold text-primary">
+                    {MINNA_N5_VOCAB.slice(lessonRange[0] - 1, lessonRange[1]).flat().length}
+                  </p>
+                  <p className="text-muted-foreground">Từ có sẵn</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-gold">4</p>
-                  <p className="text-muted-foreground">Chủ đề</p>
+                  <p className="text-2xl font-bold text-gold">
+                    {lessonRange[1] - lessonRange[0] + 1}
+                  </p>
+                  <p className="text-muted-foreground">Bài học</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-matcha">N5-N4</p>
-                  <p className="text-muted-foreground">Level</p>
+                  <p className="text-2xl font-bold text-matcha">N5</p>
+                  <p className="text-muted-foreground">Cấp độ</p>
                 </div>
               </CardContent>
             </Card>
@@ -419,9 +541,61 @@ export const Quiz = () => {
                   <p className="font-semibold text-lg">+{totalXP} XP kiếm được!</p>
                 </motion.div>
 
+                {/* Review Section */}
+                <div className="space-y-4">
+                  <h3 className="font-bold text-lg flex items-center gap-2">
+                    <Shuffle className="h-5 w-5 text-primary" />
+                    Xem lại kết quả
+                  </h3>
+                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                    {shuffledQuestions.map((q, idx) => {
+                      const userAnswer = answers[idx];
+                      const isCorrect = mode === 'writing' 
+                        ? userAnswer === q.options[q.correctAnswer]
+                        : userAnswer === q.correctAnswer;
+                      
+                      return (
+                        <div 
+                          key={idx} 
+                          className={cn(
+                            "p-3 rounded-lg border-l-4",
+                            isCorrect ? "bg-matcha/5 border-matcha" : "bg-destructive/5 border-destructive"
+                          )}
+                        >
+                          <div className="flex justify-between items-start gap-2">
+                            <div>
+                              <p className="font-jp text-lg font-bold">{q.questionJp}</p>
+                              <p className="text-sm text-muted-foreground">{q.question}</p>
+                            </div>
+                            {isCorrect ? (
+                              <CheckCircle className="h-5 w-5 text-matcha shrink-0" />
+                            ) : (
+                              <XCircle className="h-5 w-5 text-destructive shrink-0" />
+                            )}
+                          </div>
+                          <div className="mt-2 text-sm">
+                            <p>
+                              <span className="text-muted-foreground">Đáp án: </span>
+                              <span className="font-bold text-matcha">{q.options[q.correctAnswer]}</span>
+                            </p>
+                            {!isCorrect && (
+                              <p>
+                                <span className="text-muted-foreground">Bạn chọn: </span>
+                                <span className="font-bold text-destructive">
+                                  {typeof userAnswer === 'number' ? q.options[userAnswer as number] || 'Bỏ trống' : userAnswer || 'Bỏ trống'}
+                                </span>
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <Button onClick={handleRestart} size="lg" className="w-full gap-2">
                   <RotateCcw className="h-5 w-5" />
-                  Chơi lại
+                  Quay lại màn hình chính
                 </Button>
               </CardContent>
             </Card>

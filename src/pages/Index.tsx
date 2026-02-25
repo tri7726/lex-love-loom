@@ -2,15 +2,20 @@ import React, { useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   BookOpen,
-  Brain,
-  Mic,
+  Brain, // Keeping Brain as it can be used for general learning/AI tutor
+  Mic, // Keeping Mic as pronunciation might still be a feature or part of AI tutor
   Trophy,
-  Sparkles,
+  Sparkles, // Can be used for AI Tutor
   TrendingUp,
   ChevronRight,
   Loader2,
   Layers,
   Book,
+  Video, // Added for Video Learning
+  Search, // Added as per user's partial edit
+  Bell, // Added as per user's partial edit
+  Settings,
+  Zap,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,6 +29,8 @@ import { useProfile } from '@/hooks/useProfile';
 import { useWordHistory } from '@/hooks/useWordHistory';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+
+import { MINNA_N5_VOCAB } from '@/data/minna-n5';
 
 // Sample daily tasks (could be fetched from a DB later)
 const dailyTasks = [
@@ -84,13 +91,36 @@ const dailyTasks = [
   },
 ];
 
-const wordOfTheDay = {
-  word: '頑張る',
-  furigana: 'がんばる',
-  meaning: 'to do one\'s best, to persevere',
-  example: '毎日頑張っています。',
-  exampleMeaning: 'I\'m doing my best every day.',
+// Get Word of the Day dynamic based on date
+const getWordOfTheDay = () => {
+  const allWords = MINNA_N5_VOCAB.flat();
+  if (allWords.length === 0) {
+    return {
+      word: '頑張る',
+      furigana: 'がんばる',
+      meaning: 'to do one\'s best, to persevere',
+      example: '毎日頑張っています。',
+      exampleMeaning: 'I\'m doing my best every day.',
+    };
+  }
+  
+  // Use current date as a seed for consistent daily selection
+  const today = new Date();
+  const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000);
+  const wordIndex = dayOfYear % allWords.length;
+  const word = allWords[wordIndex];
+  
+  return {
+    word: word.word,
+    furigana: word.reading || '',
+    meaning: word.meaning,
+    // For now, most words don't have examples in the data
+    example: word.example || null,
+    exampleMeaning: word.exampleMeaning || null,
+  };
 };
+
+const wordOfTheDay = getWordOfTheDay();
 
 export const Index = () => {
   const navigate = useNavigate();
@@ -164,13 +194,13 @@ export const Index = () => {
         navigate('/vocabulary');
         break;
       case 'kanji':
-        navigate('/flashcards');
+        navigate('/vocabulary');
         break;
       case 'quiz':
         navigate('/quiz');
         break;
       case 'pronunciation':
-        navigate('/pronunciation');
+        navigate('/vocabulary');
         break;
       case 'reading':
         navigate('/reading');
@@ -266,13 +296,15 @@ export const Index = () => {
                   />
                   <p className="text-lg font-medium">{wordOfTheDay.meaning}</p>
                 </div>
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <p className="text-sm text-muted-foreground mb-1">Ví dụ:</p>
-                  <p className="font-jp text-lg">{wordOfTheDay.example}</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {wordOfTheDay.exampleMeaning}
-                  </p>
-                </div>
+                {wordOfTheDay.example && (
+                  <div className="p-4 rounded-lg bg-muted/50">
+                    <p className="text-sm text-muted-foreground mb-1">Ví dụ:</p>
+                    <p className="font-jp text-lg">{wordOfTheDay.example}</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {wordOfTheDay.exampleMeaning}
+                    </p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -332,26 +364,50 @@ export const Index = () => {
                 <CardTitle className="text-lg">Luyện tập nhanh</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <Link to="/reading">
+                <Link to="/vocabulary">
                   <Button
                     variant="outline"
                     className="w-full justify-between h-auto py-3"
                   >
                     <span className="flex items-center gap-2">
                       <BookOpen className="h-4 w-4 text-sakura" />
-                      Luyện đọc
+                      Từ vựng
                     </span>
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </Link>
-                <Link to="/flashcards">
+                <Link to="/reading">
                   <Button
                     variant="outline"
                     className="w-full justify-between h-auto py-3"
                   >
                     <span className="flex items-center gap-2">
-                      <Layers className="h-4 w-4 text-indigo-500" />
-                      Thẻ nhớ
+                      <Book className="h-4 w-4 text-indigo-500" />
+                      Luyện đọc
+                    </span>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+                <Link to="/video-learning">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between h-auto py-3"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Video className="h-4 w-4 text-sky-500" />
+                      Học qua Video
+                    </span>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+                <Link to="/ai-tutor">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between h-auto py-3"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Brain className="h-4 w-4 text-matcha" />
+                      AI Tutor
                     </span>
                     <ChevronRight className="h-4 w-4" />
                   </Button>
@@ -362,20 +418,8 @@ export const Index = () => {
                     className="w-full justify-between h-auto py-3"
                   >
                     <span className="flex items-center gap-2">
-                      <Brain className="h-4 w-4 text-matcha" />
+                      <Zap className="h-4 w-4 text-gold" />
                       Kiểm tra nhanh
-                    </span>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </Link>
-                <Link to="/pronunciation">
-                  <Button
-                    variant="outline"
-                    className="w-full justify-between h-auto py-3"
-                  >
-                    <span className="flex items-center gap-2">
-                      <Mic className="h-4 w-4 text-gold" />
-                      Phát âm
                     </span>
                     <ChevronRight className="h-4 w-4" />
                   </Button>

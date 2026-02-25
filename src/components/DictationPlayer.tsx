@@ -274,32 +274,63 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
     if (!video || questions.length > 0) return;
     
     setLoading(true);
+    const fullText = segments.map(s => s.japanese_text).join('\n');
+    
+    if (!fullText.trim()) {
+      toast({ 
+        title: 'Thiếu dữ liệu', 
+        description: 'Video này chưa có nội dung phụ đề để tạo bài tập. Hãy kiểm tra lại phần xử lý video.', 
+        variant: 'destructive' 
+      });
+      setLoading(false);
+      return;
+    }
+
     try {
-      const fullText = segments.map(s => s.japanese_text).join('\n');
+      console.log('Invoking generate-video-quiz for video:', video.id);
       const { data, error } = await supabase.functions.invoke('generate-video-quiz', {
         body: { 
           video_id: video.id, 
           title: video.title,
-          full_text: fullText
+          full_text: fullText.substring(0, 10000)
         }
       });
 
       if (error) {
-        console.error('Invoke error:', error);
+        console.error('Supabase function invocation error:', error);
         throw new Error(error.message || 'Lỗi kết nối tới server');
       }
 
+      console.log('Function response data:', data);
+
+      if (data.success === false) {
+        console.error('AI Processing error details:', data.error);
+        throw new Error(data.error || 'Server xử lý thất bại');
+      }
+
       if (data.error) {
-        throw new Error(data.error);
+        console.error('Server returned error:', data.error);
+        throw new Error(`AI: ${data.error}`);
       }
 
       if (data.success) {
+        if (data.count === 0) {
+          toast({ 
+            title: 'Không có câu hỏi', 
+            description: 'AI đã phân tích nhưng không thể tạo được câu hỏi phù hợp. Hãy thử lại với video khác.',
+            variant: 'default'
+          });
+          return;
+        }
+
         // Fetch questions again
-        const { data: qData } = await supabase
+        const { data: qData, error: fetchQError } = await supabase
           .from('video_questions')
           .select('*')
           .eq('video_id', video.id);
         
+        if (fetchQError) throw fetchQError;
+
         if (qData) {
           setQuestions(qData.map(q => ({
             id: q.id,
@@ -312,13 +343,20 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
         
         toast({ title: 'Thành công', description: `Đã tạo ${data.count} câu hỏi bài tập!` });
       } else {
-        throw new Error('Không nhận được phản hồi thành công từ server');
+        throw new Error('Server không phản hồi thành công');
       }
     } catch (error: any) {
       console.error('Error generating quiz:', error);
+      let errorMessage = error.message || 'Lỗi không xác định';
+      
+      // If it's a Supabase error object, try to extract more info
+      if (error.status) {
+        errorMessage = `(Lỗi ${error.status}) ${errorMessage}`;
+      }
+      
       toast({ 
         title: 'Lỗi tạo bài tập', 
-        description: error.message || 'Đã có lỗi xảy ra. Hãy thử lại sau hoặc kiểm tra console.', 
+        description: `Chi tiết: ${errorMessage}. Vui lòng thử lại sau.`, 
         variant: 'destructive' 
       });
     } finally {

@@ -10,6 +10,7 @@ import {
   Shuffle,
   Target,
   Zap,
+  Mic,
   Headphones,
   PenTool,
   ChevronLeft,
@@ -35,16 +36,20 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
 import { Navigation } from '@/components/Navigation';
 import { cn } from '@/lib/utils';
 import { MultipleChoiceGame } from '@/components/games/MultipleChoiceGame';
 import { SpeedGame } from '@/components/games/SpeedGame';
 import { ListeningGame } from '@/components/games/ListeningGame';
 import { WriteGame } from '@/components/games/WriteGame';
+import { PronunciationGame } from '@/components/games/PronunciationGame';
 import { KanjiReview } from '@/components/vocabulary/KanjiReview';
 import { useWordHistory } from '@/hooks/useWordHistory';
 import { useAuth } from '@/hooks/useAuth';
 import { MINNA_N5_VOCAB } from '@/data/minna-n5';
+import { MINNA_N4_VOCAB } from '@/data/minna-n4';
 
 // ==================== TYPES ====================
 export interface VocabWord {
@@ -54,6 +59,8 @@ export interface VocabWord {
   hanviet: string | null;
   meaning: string;
   mastery_level: number | null;
+  example?: string;
+  exampleMeaning?: string;
 }
 
 interface Lesson {
@@ -77,7 +84,7 @@ interface TextbookSeries {
   levels: JLPTLevel[];
 }
 
-type GameMode = 'classic' | 'speed' | 'listening' | 'writing';
+type GameMode = 'classic' | 'speed' | 'listening' | 'writing' | 'pronunciation';
 type ViewState = 'series' | 'lessons' | 'detail' | 'custom-detail';
 
 interface CustomFolder {
@@ -145,10 +152,8 @@ const textbookSeries: TextbookSeries[] = [
       {
         level: 'N4', totalWords: 1500, description: 'Tiếng Nhật sơ cấp II',
         lessons: Array.from({ length: 25 }, (_, i) => ({
-          id: `mina-n4-${i + 1}`, name: `Bài ${i + 26}`,
-          words: Array.from({ length: 12 + (i % 8) }, (_, j) => ({
-            id: `mn4-${i + 1}-${j + 1}`, word: `語彙${j + 1}`, reading: `ごい${j + 1}`, hanviet: null, meaning: `Nghĩa ${j + 1}`, mastery_level: null,
-          })),
+          id: `mina-n4-${i + 26}`, name: `Bài ${i + 26}`,
+          words: MINNA_N4_VOCAB[i] || [],
         })),
       },
     ],
@@ -189,6 +194,7 @@ export const Vocabulary = () => {
   const [displayWords, setDisplayWords] = useState<VocabWord[]>([]);
   const [autoSpeak, setAutoSpeak] = useState(false);
   const [reversedCard, setReversedCard] = useState(false);
+  const [lessonRange, setLessonRange] = useState<[number, number]>([1, 5]);
 
   // Custom folders
   const [customFolders, setCustomFolders] = useState<CustomFolder[]>(() => {
@@ -277,6 +283,9 @@ export const Vocabulary = () => {
   const navigateToLessons = (series: TextbookSeries, level: JLPTLevel) => {
     setSelectedSeries(series);
     setSelectedLevel(level);
+    if (series.id === 'mina') {
+      setLessonRange(level.level === 'N5' ? [1, 5] : [26, 30]);
+    }
     setView('lessons');
   };
 
@@ -285,6 +294,27 @@ export const Vocabulary = () => {
     setFlashcardIndex(0);
     setIsFlipped(false);
     setShuffled(false);
+    setView('detail');
+  };
+
+  const handleStudyRange = () => {
+    if (!selectedLevel) return;
+    
+    const [start, end] = lessonRange;
+    // For Minna, N5 uses 1-25, N4 uses 26-50
+    const offset = selectedLevel.level === 'N4' ? 26 : 1;
+    const lessonsInRange = selectedLevel.lessons.slice(start - offset, end - (offset - 1));
+    const aggregatedWords = lessonsInRange.flatMap(l => l.words);
+    
+    if (aggregatedWords.length === 0) return;
+
+    setSelectedLesson({
+      id: `range-${start}-${end}`,
+      name: `Bài ${start} - ${end}`,
+      words: aggregatedWords
+    });
+    setFlashcardIndex(0);
+    setIsFlipped(false);
     setView('detail');
   };
 
@@ -788,7 +818,7 @@ export const Vocabulary = () => {
         <Card className="border-0 shadow-lg overflow-hidden">
           <div className={cn('h-2 bg-gradient-to-r', grad)} />
           <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div className="flex items-center gap-4">
                 <div className={cn('w-14 h-14 rounded-2xl bg-gradient-to-br flex items-center justify-center text-white text-2xl font-black shadow-lg', grad)}>
                   {selectedLevel.level}
@@ -798,7 +828,35 @@ export const Vocabulary = () => {
                   <p className="text-muted-foreground">{selectedLevel.description}</p>
                 </div>
               </div>
-              <div className="text-right hidden md:block">
+
+              {/* Lesson Range Selector - For Minna N5 & N4 */}
+              {selectedSeries.id === 'mina' && (selectedLevel.level === 'N5' || selectedLevel.level === 'N4') && (
+                <div className="flex-1 max-w-sm space-y-3 bg-muted/30 p-4 rounded-2xl border border-muted-foreground/10">
+                  <div className="flex justify-between items-center">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Chọn phạm vi học</Label>
+                    <Badge variant="secondary" className={cn("text-white border-0", grad)}>
+                      Bài {lessonRange[0]} - {lessonRange[1]}
+                    </Badge>
+                  </div>
+                  <Slider
+                    defaultValue={selectedLevel.level === 'N4' ? [26, 30] : [1, 5]}
+                    max={selectedLevel.level === 'N4' ? 50 : 25}
+                    min={selectedLevel.level === 'N4' ? 26 : 1}
+                    step={1}
+                    value={lessonRange as any}
+                    onValueChange={(v) => setLessonRange(v as [number, number])}
+                  />
+                  <Button 
+                    size="sm" 
+                    className={cn("w-full text-xs font-bold text-white shadow-md hover:shadow-lg transition-all", grad)}
+                    onClick={handleStudyRange}
+                  >
+                    Học {lessonRange[1] - lessonRange[0] + 1} bài đã chọn
+                  </Button>
+                </div>
+              )}
+
+              <div className="text-right hidden lg:block">
                 <p className="text-2xl font-bold">{selectedLevel.lessons.length}</p>
                 <p className="text-xs text-muted-foreground">bài học</p>
               </div>
@@ -863,6 +921,7 @@ export const Vocabulary = () => {
           {activeGame === 'speed' && <SpeedGame vocabulary={words} onComplete={() => setActiveGame(null)} onUpdateMastery={() => {}} onBack={() => setActiveGame(null)} />}
           {activeGame === 'listening' && <ListeningGame vocabulary={words} onComplete={() => setActiveGame(null)} onUpdateMastery={() => {}} onBack={() => setActiveGame(null)} />}
           {activeGame === 'writing' && <WriteGame vocabulary={words} onComplete={() => setActiveGame(null)} onUpdateMastery={() => {}} onBack={() => setActiveGame(null)} />}
+          {activeGame === 'pronunciation' && <PronunciationGame words={words} onFinish={() => setActiveGame(null)} />}
         </motion.div>
       );
     }
@@ -1095,6 +1154,7 @@ export const Vocabulary = () => {
                       { mode: 'speed' as GameMode, icon: Zap, label: 'Tốc độ', desc: '10 giây mỗi câu', gradient: 'from-pink-50 to-rose-50', border: 'border-pink-200 hover:border-pink-400', iconColor: 'text-pink-500', shadow: 'hover:shadow-pink-100' },
                       { mode: 'listening' as GameMode, icon: Headphones, label: 'Nghe', desc: 'Nghe và chọn đáp án', gradient: 'from-rose-50 to-pink-50', border: 'border-rose-200 hover:border-rose-400', iconColor: 'text-rose-400', shadow: 'hover:shadow-rose-100' },
                       { mode: 'writing' as GameMode, icon: PenTool, label: 'Viết', desc: 'Tự gõ đáp án', gradient: 'from-pink-50 to-rose-50', border: 'border-pink-200 hover:border-pink-400', iconColor: 'text-pink-400', shadow: 'hover:shadow-pink-100' },
+                      { mode: 'pronunciation' as GameMode, icon: Mic, label: 'Phát âm', desc: 'Luyện nói từ vựng', gradient: 'from-rose-50 to-pink-50', border: 'border-sakura/20 hover:border-sakura', iconColor: 'text-sakura', shadow: 'hover:shadow-sakura/10' },
                     ].map(({ mode, icon: Icon, label, desc, gradient, border, iconColor, shadow }) => (
                       <motion.div key={mode} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
                         <Card

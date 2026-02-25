@@ -32,53 +32,117 @@ interface QuizQuestion {
 
 const BATCH_SIZE = 15;
 
-const SYSTEM_PROMPT = `Bạn là chuyên gia giáo dục tiếng Nhật. Hãy phân tích nội dung video và tạo dữ liệu học tập chi tiết.
+const SYSTEM_PROMPT = `
+Bạn là chuyên gia thiết kế đề thi JLPT (N5–N3).
 
-YÊU CẦU CHO SEGMENTS:
-Phân tích từng đoạn phụ đề, dịch sang tiếng Việt và trích xuất từ vựng/ngữ pháp (N5-N3).
-Giữ nguyên segment_index và thời gian.
+NHIỆM VỤ:
+Tạo một đề thi hoàn chỉnh dựa hoàn toàn trên nội dung video được cung cấp.
+Đề thi phải chia thành 3 phần giống cấu trúc JLPT thật: A – B – C.
 
-YÊU CẦU CHO QUIZ (Chỉ tạo khi được yêu cầu):
-Tạo 10-15 câu hỏi trắc nghiệm khách quan dựa trên nội dung video.
-Mỗi câu hỏi có 4 lựa chọn, chỉ 1 đáp án đúng.
-Giải thích đáp án bằng tiếng Việt.
+========================
+CẤU TRÚC ĐỀ THI
+========================
 
-Định dạng JSON trả về:
+PHẦN A: TỪ VỰNG (Vocabulary)
+- 5–8 câu
+- Kiểm tra nghĩa từ, cách đọc, cách dùng từ trong ngữ cảnh
+- Trình độ trải từ N5–N3
+
+PHẦN B: NGỮ PHÁP (Grammar)
+- 5–8 câu
+- Điền vào chỗ trống / chọn mẫu câu đúng
+- Kiểm tra chia động từ, trợ từ, cấu trúc câu xuất hiện trong video
+
+PHẦN C: ĐỌC HIỂU & NỘI DUNG (Reading & Comprehension)
+- 5–10 câu
+- Kiểm tra ý chính, chi tiết, suy luận nhẹ dựa trên nội dung video
+- Không hỏi ngoài nội dung được cung cấp
+
+========================
+YÊU CẦU CHẤT LƯỢNG
+========================
+
+1. Tổng số câu: 15–25 câu.
+2. Mỗi câu có đúng 4 lựa chọn.
+3. Câu hỏi (\`question_text\`) và các lựa chọn (\`options\`) PHẢI viết bằng tiếng Nhật.
+4. Chỉ 1 đáp án đúng.
+5. Đáp án sai phải hợp lý, không quá dễ đoán.
+6. Không lặp lại cùng dạng câu hỏi quá 2 lần.
+7. Không tạo câu hỏi ngoài nội dung video.
+8. Không thêm nội dung ngoài JSON.
+9. correct_answer là số từ 0–3 (index của options).
+10. explanation viết bằng tiếng Việt, giải thích vì sao đúng và vì sao các đáp án khác sai.
+11. Phân bổ độ khó:
+   - ~40% N5
+   - ~35% N4
+   - ~25% N3
+
+========================
+ĐỊNH DẠNG JSON TRẢ VỀ
+========================
+
 {
-  "segments": [
-    {
-      "segment_index": 0,
-      "start_time": 0.0,
-      "end_time": 3.5,
-      "japanese_text": "...",
-      "vietnamese_text": "...",
-      "grammar_notes": [{"point": "...", "explanation": "..."}],
-      "vocabulary": [{"word": "...", "reading": "...", "meaning": "..."}]
-    }
-  ],
-  "questions": [
-    {
-      "question_text": "...",
-      "options": ["...", "...", "...", "..."],
-      "correct_answer": 0,
-      "explanation": "..."
-    }
-  ]
-}`;
+  "exam_title": "JLPT Practice Test Based on Video",
+  "total_questions": 20,
+  "sections": {
+    "A_vocabulary": [
+      {
+        "question_text": "...",
+        "jlpt_level": "N5 | N4 | N3",
+        "options": ["A", "B", "C", "D"],
+        "correct_answer": 0,
+        "explanation": "..."
+      }
+    ],
+    "B_grammar": [
+      {
+        "question_text": "...",
+        "jlpt_level": "N5 | N4 | N3",
+        "options": ["A", "B", "C", "D"],
+        "correct_answer": 0,
+        "explanation": "..."
+      }
+    ],
+    "C_reading": [
+      {
+        "question_text": "...",
+        "jlpt_level": "N5 | N4 | N3",
+        "options": ["A", "B", "C", "D"],
+        "correct_answer": 0,
+        "explanation": "..."
+      }
+    ]
+  }
+}
+
+Không dùng markdown.
+Không thêm bất kỳ văn bản nào ngoài JSON.
+`;
 
 async function callGemini(apiKey: string, prompt: string, title: string, isQuizBatch: boolean = false) {
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+  const body = {
+    contents: [{
+      parts: [{
+        text: `${SYSTEM_PROMPT}\n\nVideo: ${title}\n\nDữ liệu: ${prompt}\n\n${isQuizBatch ? "HÃY TẠO ĐỀ THI JLPT (PHẢI TRẢ VỀ DẠNG JSON) DỰA TRÊN TOÀN BỘ NỘI DUNG TRÊN." : "HÃY XỬ LÝ CÁC SEGMENTS NÀY."}`
+      }]
+    }],
+    generationConfig: { response_mime_type: "application/json" }
+  };
+
+  let response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{
-        parts: [{
-          text: `${SYSTEM_PROMPT}\n\nVideo: ${title}\n\nDữ liệu: ${prompt}\n\n${isQuizBatch ? "HÃY TẠO 10-15 CÂU HỎI QUIZ DỰA TRÊN TOÀN BỘ NỘI DUNG TRÊN." : "HÃY XỬ LÝ CÁC SEGMENTS NÀY."}`
-        }]
-      }],
-      generationConfig: { response_mime_type: "application/json" }
-    }),
+    body: JSON.stringify(body),
   });
+
+  if (!response.ok) {
+    console.warn("Gemini 2.0-flash failed in process-video, trying 1.5-flash...");
+    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -87,7 +151,38 @@ async function callGemini(apiKey: string, prompt: string, title: string, isQuizB
 
   const data = await response.json();
   const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  return JSON.parse(resultText);
+  if (!resultText) throw new Error("AI không trả về nội dung");
+  
+  let cleanJson = resultText.trim();
+  const jsonMatch = resultText.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    cleanJson = jsonMatch[0];
+  }
+
+  try {
+    const parsed = JSON.parse(cleanJson);
+    if (isQuizBatch && parsed.sections) {
+      const questions = [];
+      const sectionMapping = {
+        'A_vocabulary': 'vocabulary',
+        'B_grammar': 'grammar',
+        'C_reading': 'comprehension'
+      };
+
+      for (const [sectionKey, type] of Object.entries(sectionMapping)) {
+        if (parsed.sections[sectionKey] && Array.isArray(parsed.sections[sectionKey])) {
+          parsed.sections[sectionKey].forEach(q => {
+            questions.push({ ...q, question_type: type });
+          });
+        }
+      }
+      return { questions };
+    }
+    return parsed;
+  } catch (e) {
+    console.error("JSON parse error in process-video:", e);
+    throw e;
+  }
 }
 
 async function processVideoInBackground(
