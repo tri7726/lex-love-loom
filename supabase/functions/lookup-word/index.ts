@@ -7,18 +7,34 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface WordData {
+  word: string;
+  reading: string;
+  meaning: string;
+  word_type?: string;
+  examples?: Array<{ japanese: string; vietnamese: string }>;
+  notes?: string;
+  source?: string;
+}
+
 // Try to get word from Jisho API (free)
-async function lookupJisho(word: string) {
+async function lookupJisho(word: string): Promise<WordData | null> {
   try {
     console.log('Trying Jisho API for:', word);
     const response = await fetch(`https://jisho.org/api/v1/search/words?keyword=${encodeURIComponent(word)}`);
+    
     if (!response.ok) return null;
+    
     const data = await response.json();
     const result = data.data?.[0];
+    
     if (!result) return null;
+    
     const japanese = result.japanese?.[0];
     const senses = result.senses?.[0];
+    
     if (!senses) return null;
+    
     return {
       word: japanese?.word || word,
       reading: japanese?.reading || '',
@@ -34,23 +50,20 @@ async function lookupJisho(word: string) {
   }
 }
 
-// Call Lovable AI for Vietnamese translation and examples
-async function lookupAI(word: string, context: string | null, apiKey: string) {
+// Call AI for Vietnamese translation and examples
+async function lookupAI(word: string, context: string | null, apiKey: string): Promise<WordData | null> {
   try {
-    console.log('Calling Lovable AI for:', word);
+    console.log('Calling Gemini for:', word);
     
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "user",
-            content: `Bạn là từ điển Nhật-Việt. Tra từ "${word}" ${context ? `trong ngữ cảnh: "${context}"` : ''}.
+        contents: [{
+          parts: [{
+            text: `Bạn là từ điển Nhật-Việt. Tra từ "${word}" ${context ? `trong ngữ cảnh: "${context}"` : ''}.
 Trả về JSON:
 {
   "word": "từ kanji",
@@ -61,25 +74,28 @@ Trả về JSON:
   "notes": "ghi chú"
 }
 Chỉ trả về JSON, không kèm theo bất kỳ văn bản nào khác.`
-          }
-        ],
-        temperature: 0.3,
+          }]
+        }],
+        generationConfig: {
+          response_mime_type: "application/json",
+        }
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
+      console.error('Gemini API error:', response.status, errorText);
       return null;
     }
 
     const data = await response.json();
-    const resultText = data.choices?.[0]?.message?.content;
+    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    
     if (!resultText) return null;
     
-    const cleaned = resultText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    const wordData = JSON.parse(cleaned);
+    const wordData = JSON.parse(resultText);
     wordData.source = 'ai';
+    
     return wordData;
   } catch (e) {
     console.error('AI lookup error:', e);
@@ -109,6 +125,7 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Step 1: Check cache first
+    console.log('Step 1: Checking cache...');
     const { data: cached } = await supabase
       .from('word_cache')
       .select('*')
@@ -119,22 +136,29 @@ serve(async (req) => {
       console.log('Cache hit! Source:', cached.source);
       return new Response(
         JSON.stringify({
-          word: cached.word, reading: cached.reading, meaning: cached.meaning,
-          word_type: cached.word_type, examples: cached.examples || [],
-          notes: cached.notes, source: cached.source, cached: true
+          word: cached.word,
+          reading: cached.reading,
+          meaning: cached.meaning,
+          word_type: cached.word_type,
+          examples: cached.examples || [],
+          notes: cached.notes,
+          source: cached.source,
+          cached: true
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    console.log('Cache miss, trying other sources...');
+
     // Step 2: Try Jisho API (free)
     let wordData = await lookupJisho(word);
 
-    // Step 3: If Jisho failed, use Lovable AI
+    // Step 3: If Jisho failed or we need Vietnamese, use AI
     if (!wordData) {
-      const apiKey = Deno.env.get('LOVABLE_API_KEY');
+      const apiKey = Deno.env.get('GEMINI_API_KEY');
       if (!apiKey) {
-        throw new Error('LOVABLE_API_KEY not configured');
+        throw new Error('GEMINI_API_KEY not configured');
       }
       wordData = await lookupAI(word, context, apiKey);
     }
@@ -147,11 +171,18 @@ serve(async (req) => {
     }
 
     // Step 4: Save to cache
-    await supabase.from('word_cache').upsert({
-      word: wordData.word, reading: wordData.reading, meaning: wordData.meaning,
-      word_type: wordData.word_type, examples: wordData.examples || [],
-      notes: wordData.notes, source: wordData.source
-    }, { onConflict: 'word' });
+    console.log('Saving to cache...');
+    await supabase
+      .from('word_cache')
+      .upsert({
+        word: wordData.word,
+        reading: wordData.reading,
+        meaning: wordData.meaning,
+        word_type: wordData.word_type,
+        examples: wordData.examples || [],
+        notes: wordData.notes,
+        source: wordData.source
+      }, { onConflict: 'word' });
 
     return new Response(
       JSON.stringify({ ...wordData, cached: false }),

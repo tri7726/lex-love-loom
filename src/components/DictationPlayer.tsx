@@ -46,6 +46,8 @@ interface Question {
   options: string[];
   correct_answer: number;
   explanation?: string;
+  question_type?: string;
+  difficulty?: string;
 }
 
 interface DictationPlayerProps {
@@ -140,6 +142,8 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
             options: Array.isArray(q.options) ? q.options as string[] : [],
             correct_answer: q.correct_answer,
             explanation: q.explanation || undefined,
+            question_type: q.question_type || 'comprehension',
+            difficulty: q.difficulty || 'medium',
           }));
           setQuestions(transformedQuestions);
         }
@@ -338,6 +342,8 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
             options: Array.isArray(q.options) ? q.options as string[] : [],
             correct_answer: q.correct_answer,
             explanation: q.explanation || undefined,
+            question_type: q.question_type || 'comprehension',
+            difficulty: q.difficulty || 'medium',
           })));
         }
         

@@ -56,55 +56,90 @@ serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+
+    // Smart routing: Use Gemini for longer texts or if Groq is likely to struggle
+    const isLongText = text.length > 100;
+    const useGemini = !!GEMINI_API_KEY && (isLongText || req.headers.get("x-ai-engine") === "gemini");
+
+    let resultText = "";
+    let engine = "groq";
+
+    if (useGemini) {
+      engine = "gemini";
+      console.log("Routing grammar check to Gemini...");
+      const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_API_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: SYSTEM_PROMPT },
+              { text: `Check this Japanese text:\n\n${text}` }
+            ]
+          }],
+          generationConfig: { response_mime_type: "application/json" }
+        }),
+      });
+
+      if (geminiResponse.ok) {
+        const geminiData = await geminiResponse.json();
+        resultText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+      } else {
+        console.error("Gemini API failed, falling back to Groq...");
+        engine = "groq";
+      }
     }
 
-    console.log("Routing grammar check to Lovable AI...");
-    
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: `Check this Japanese text:\n\n${text}` },
-        ],
-        temperature: 0.1,
-      }),
-    });
+    if (!resultText && GROQ_API_KEY) {
+      console.log("Routing grammar check to Groq...");
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${GROQ_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: text },
+          ],
+          temperature: 0.1,
+          max_tokens: 2048,
+          response_format: { type: "json_object" },
+        }),
+      });
 
-    if (response.status === 429) {
-      return new Response(JSON.stringify({
-        isCorrect: true, corrected: text,
-        explanation: "Hệ thống AI đang quá tải. Vui lòng thử lại sau.",
-        rules: [], suggestions: [], engine: "rate-limited"
-      }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (response.ok) {
+        const data = await response.json();
+        resultText = data.choices?.[0]?.message?.content || "";
+      } else {
+        const errorText = await response.text();
+        console.error("Groq API error:", response.status, errorText);
+      }
     }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI Gateway error:", response.status, errorText);
-      throw new Error(`AI Gateway error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const resultText = data.choices?.[0]?.message?.content || "";
-
+    // Fallback if both AI engines fail or are not available
     if (!resultText || resultText === "{}") {
       return new Response(JSON.stringify({
-        isCorrect: true, corrected: text,
-        explanation: "AI không phản hồi. Vui lòng thử lại.",
-        rules: [], suggestions: [], engine: "none"
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        isCorrect: true,
+        corrected: text,
+        explanation: "AI không phản hồi hoặc thiếu API Key. Vui lòng kiểm tra cấu hình dự án.",
+        rules: [],
+        suggestions: [],
+        engine: "none"
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    const cleanedText = resultText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    // Clean and parse JSON
+    const cleanedText = resultText
+      .replace(/```json\n?/g, "")
+      .replace(/```\n?/g, "")
+      .trim();
     
     let result;
     try {
@@ -120,7 +155,7 @@ serve(async (req) => {
       explanation: result.explanation || "Không có giải thích.",
       rules: Array.isArray(result.rules) ? result.rules : [],
       suggestions: Array.isArray(result.suggestions) ? result.suggestions : [],
-      engine: "lovable-ai"
+      engine
     };
 
     return new Response(JSON.stringify(validatedResult), {
@@ -133,7 +168,7 @@ serve(async (req) => {
       JSON.stringify({ 
         error: error instanceof Error ? error.message : "Internal Server Error",
         isCorrect: true,
-        corrected: "",
+        corrected: text || "",
         explanation: "Hệ thống AI đang quá tải. Vui lòng thử lại sau giây lát.",
         rules: [],
         suggestions: []

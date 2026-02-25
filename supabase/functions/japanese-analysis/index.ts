@@ -6,6 +6,71 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ==========================================
+// TypeScript Interfaces for Response Schema
+// ==========================================
+
+interface WordBreakdown {
+  word: string;
+  reading: string;
+  hanviet?: string;
+  meaning: string;
+  word_type: string;
+  jlpt_level?: string;
+}
+
+interface GrammarPattern {
+  pattern: string;
+  meaning: string;
+  usage: string;
+}
+
+interface SentenceAnalysis {
+  japanese: string;
+  vietnamese: string;
+  breakdown: {
+    words: WordBreakdown[];
+    grammar_patterns: GrammarPattern[];
+  };
+}
+
+interface SuggestedFlashcard {
+  word: string;
+  reading: string;
+  hanviet?: string;
+  meaning: string;
+  example_sentence: string;
+  example_translation: string;
+  jlpt_level?: string;
+  word_type?: string;
+  notes?: string;
+}
+
+interface AnalysisResponse {
+  overall_analysis: {
+    jlpt_level: string;
+    politeness_level: string;
+    text_type: string;
+    summary: string;
+  };
+  sentences: SentenceAnalysis[];
+  suggested_flashcards: SuggestedFlashcard[];
+  grammar_summary: {
+    particles_used: string[];
+    verb_forms: string[];
+    key_patterns: string[];
+  };
+  cultural_notes: string[];
+}
+
+interface GrammarResponse {
+  isCorrect: boolean;
+  corrected: string;
+  explanation: string;
+  rules: string[];
+  suggestions: string[];
+}
+
 const GRAMMAR_SYSTEM_PROMPT = `あなたは日本語の文法チェッカーです。
 ユーザーが入力した日本語の文法をチェックし、以下のJSON形式で返答してください。
 修正内容や解説はベトナム語で行ってください。
@@ -17,6 +82,10 @@ const GRAMMAR_SYSTEM_PROMPT = `あなたは日本語の文法チェッカーで�
   "rules": ["string (in Japanese)"],
   "suggestions": ["string (in Japanese)"]
 }`;
+
+// ==========================================
+// Enhanced System Prompt for Structured Analysis
+// ==========================================
 
 const ENHANCED_SYSTEM_PROMPT = `You are an expert Japanese language analyzer specialized in Vietnamese learners.
 
@@ -87,6 +156,12 @@ CRITICAL INSTRUCTIONS:
 - Grammar patterns should explain WHY and WHEN to use them, not just WHAT they mean
 - Be encouraging and educational in tone`;
 
+// ==========================================
+// Edge Function Handler
+// ==========================================
+
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+
 const VISION_SYSTEM_PROMPT = `You are an expert Japanese tutor. 
 Analyze the image provided and identify the main object or scene.
 Return a JSON response with the following structure:
@@ -111,71 +186,6 @@ Return a JSON response with the following structure:
 }
 Return ONLY valid JSON.`;
 
-async function callLovableAI(apiKey: string, systemPrompt: string, userContent: string, model = "google/gemini-2.5-flash") {
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ],
-      temperature: 0.3,
-    }),
-  });
-
-  if (response.status === 429) {
-    throw new Error("Rate limits exceeded, please try again later.");
-  }
-  if (response.status === 402) {
-    throw new Error("Payment required, please add funds to your Lovable AI workspace.");
-  }
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("AI Gateway error:", response.status, errorText);
-    throw new Error(`AI Gateway error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || "";
-}
-
-async function callLovableAIWithImage(apiKey: string, systemPrompt: string, imageBase64: string) {
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        { role: "system", content: systemPrompt },
-        {
-          role: "user",
-          content: [
-            { type: "text", text: "Analyze this image." },
-            { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageBase64}` } }
-          ]
-        },
-      ],
-      temperature: 0.3,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`AI Gateway error: ${response.status} ${errorText}`);
-  }
-
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || "";
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -184,19 +194,51 @@ serve(async (req) => {
   try {
     const { prompt, content, image, isImageAnalysis, isGrammar } = await req.json();
     
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
-
-    // 0. Grammar Check Mode
+    // 0. Grammar Check Mode (New)
     if (isGrammar) {
+      const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+      const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+      
       console.log("Grammar check requested via analysis function...");
       
-      const resultText = await callLovableAI(LOVABLE_API_KEY, GRAMMAR_SYSTEM_PROMPT, content);
+      const useGemini = !!GEMINI_API_KEY && (content?.length > 100 || req.headers.get("x-ai-engine") === "gemini");
+      let resultText = "";
+      
+      if (useGemini) {
+        const geminiResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: GRAMMAR_SYSTEM_PROMPT }, { text: content }] }],
+            generationConfig: { response_mime_type: "application/json" }
+          }),
+        });
+        if (geminiResp.ok) {
+          const d = await geminiResp.json();
+          resultText = d.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        }
+      }
+      
+      if (!resultText && GROQ_API_KEY) {
+        const groqResp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: [{ role: "system", content: GRAMMAR_SYSTEM_PROMPT }, { role: "user", content: content }],
+            response_format: { type: "json_object" }
+          }),
+        });
+        if (groqResp.ok) {
+          const d = await groqResp.json();
+          resultText = d.choices?.[0]?.message?.content || "";
+        }
+      }
+
       const cleaned = resultText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       const raw = JSON.parse(cleaned || "{}");
       
+      // Map to the format GrammarCheckInput expects
       return new Response(JSON.stringify({
         isCorrect: raw.isCorrect ?? true,
         corrected: raw.corrected || content,
@@ -206,45 +248,153 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // 1. Image Analysis
+    // 1. Image Analysis Logic... (unchanged)
     if (isImageAnalysis && image) {
-      console.log("Sending request to Lovable AI Vision...");
+      if (!GEMINI_API_KEY) {
+        throw new Error("GEMINI_API_KEY is not configured");
+      }
+
+      console.log("Sending request to Gemini Vision API...");
       
-      const resultText = await callLovableAIWithImage(LOVABLE_API_KEY, VISION_SYSTEM_PROMPT, image);
-      const cleaned = resultText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      const result = JSON.parse(cleaned);
+      const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                { text: VISION_SYSTEM_PROMPT },
+                {
+                  inline_data: {
+                    mime_type: "image/jpeg",
+                    data: image // base64 string
+                  }
+                }
+              ]
+            }
+          ],
+          generationConfig: {
+            response_mime_type: "application/json"
+          }
+        }),
+      });
+
+      if (!geminiResponse.ok) {
+        const errorText = await geminiResponse.text();
+        console.error("Gemini API error:", geminiResponse.status, errorText);
+        throw new Error(`Gemini API error: ${geminiResponse.status}`);
+      }
+
+      const geminiData = await geminiResponse.json();
+      const result = JSON.parse(geminiData.candidates[0].content.parts[0].text);
 
       return new Response(JSON.stringify({ format: 'vision', result }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // 2. Text analysis
-    console.log("Routing to Lovable AI for text analysis...");
-    
-    const userContent = prompt 
-      ? `Analyze this Japanese text and answer the question.\n\nText: ${content}\n\nQuestion: ${prompt}`
-      : `Analyze this Japanese text in detail:\n\n${content}`;
+    // Default: Text analysis
+    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+    if (!GROQ_API_KEY) {
+      throw new Error("GROQ_API_KEY is not configured");
+    }
 
-    const resultText = await callLovableAI(LOVABLE_API_KEY, ENHANCED_SYSTEM_PROMPT, userContent, "google/gemini-2.5-flash");
+    // Smart Routing Logic
+    const complexKeywords = ["why", "explain", "culture", "difference", "honne", "tatemae", "nuance", "history", "social", "context", "tại sao", "giải thích", "văn hóa", "khác biệt", "sắc thái", "lịch sử"];
+    const isComplex = (prompt || "").toLowerCase().split(" ").some(word => complexKeywords.includes(word)) || (content || "").length > 500;
+    
+    // Explicit override or smart check
+    const useGemini = req.headers.get("x-ai-engine") === "gemini" || isComplex;
+
+    console.log(`Routing to ${useGemini ? 'Gemini' : 'Groq'}... (Complex: ${isComplex})`);
+
+    if (useGemini && GEMINI_API_KEY) {
+      const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_API_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: ENHANCED_SYSTEM_PROMPT },
+              { text: prompt 
+                ? `Analyze this Japanese text and answer the question.\n\nText: ${content}\n\nQuestion: ${prompt}`
+                : `Analyze this Japanese text in detail:\n\n${content}` 
+              }
+            ]
+          }],
+          generationConfig: { response_mime_type: "application/json" }
+        }),
+      });
+
+      if (geminiResponse.ok) {
+        const geminiData = await geminiResponse.json();
+        const result = JSON.parse(geminiData.candidates[0].content.parts[0].text);
+        return new Response(JSON.stringify({ format: 'structured', analysis: result, engine: 'gemini' }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      console.error("Gemini fallback failed, trying Groq...");
+    }
+
+    // Groq execution (Fallback or default)
+    const analysisMessages = [
+      { role: "user", content: ENHANCED_SYSTEM_PROMPT },
+      { 
+        role: "user", 
+        content: prompt 
+          ? `Analyze this Japanese text and answer the question.\n\nText: ${content}\n\nQuestion: ${prompt}`
+          : `Analyze this Japanese text in detail:\n\n${content}`
+      }
+    ];
+
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${GROQ_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: analysisMessages,
+        temperature: 0.3,
+        max_tokens: 4096,
+        response_format: { type: "json_object" }
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Groq API error:", response.status, errorText);
+      throw new Error(`Groq API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const resultText = data.choices?.[0]?.message?.content || "No response generated.";
 
     let parsedResponse = null;
     let isStructured = false;
 
     try {
-      const cleanedText = resultText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      const cleanedText = resultText
+        .replace(/```json\n?/g, '')
+        .replace(/```\n?/g, '')
+        .trim();
+      
       parsedResponse = JSON.parse(cleanedText);
       isStructured = true;
     } catch (parseError) {
       console.warn("Failed to parse JSON, returning as markdown text:", parseError);
+      isStructured = false;
     }
 
     if (isStructured && parsedResponse) {
-      return new Response(JSON.stringify({ format: 'structured', analysis: parsedResponse, engine: 'lovable-ai' }), {
+      return new Response(JSON.stringify({ format: 'structured', analysis: parsedResponse, engine: 'groq' }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     } else {
-      return new Response(JSON.stringify({ format: 'text', response: resultText, engine: 'lovable-ai' }), {
+      return new Response(JSON.stringify({ format: 'text', response: resultText, engine: 'groq' }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -260,3 +410,5 @@ serve(async (req) => {
     );
   }
 });
+
+

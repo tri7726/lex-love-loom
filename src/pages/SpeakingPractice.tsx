@@ -656,119 +656,126 @@ export const SpeakingPractice = () => {
     );
   }
 
-  // Audio Visualizer Component
   const AudioVisualizer = () => (
-    <div className="flex items-center gap-1 h-8">
-      {[...Array(5)].map((_, i) => (
+    <div className="flex items-center gap-1.5 h-10">
+      {[...Array(8)].map((_, i) => (
         <motion.div
           key={i}
-          animate={{ height: [8, 24, 8] }}
+          animate={{ 
+            height: [12, 32, 16, 28, 12],
+            backgroundColor: ["#ffffff", "#ef4444", "#ffffff"]
+          }}
           transition={{ 
             repeat: Infinity, 
-            duration: 0.5,
+            duration: 0.8,
             delay: i * 0.1,
             ease: "easeInOut"
           }}
-          className="w-1.5 bg-white rounded-full"
+          className="w-1.5 rounded-full bg-white opacity-80"
         />
       ))}
     </div>
   );
 
-  // Score Display Component
   const ScoreDisplay = ({ result }: { result: ScoreResult }) => (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-4 p-4 bg-muted rounded-xl"
+      className="space-y-8 p-10 bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-800 rounded-[2.5rem] shadow-inner"
     >
-      {/* Overall Score */}
-      <div className="text-center">
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: "spring", delay: 0.2 }}
-          className={cn(
-            "inline-flex items-center justify-center w-20 h-20 rounded-full text-3xl font-bold",
-            result.overall >= 90 ? "bg-matcha/20 text-matcha" :
-            result.overall >= 70 ? "bg-sakura/20 text-sakura" :
-            result.overall >= 50 ? "bg-amber-500/20 text-amber-500" :
-            "bg-destructive/20 text-destructive"
-          )}
-        >
-          {result.overall}
-        </motion.div>
-        <p className="mt-2 text-lg font-medium">{result.feedback}</p>
-      </div>
+      <div className="flex flex-col md:flex-row items-center gap-8">
+        {/* Overall Score Circle */}
+        <div className="relative">
+          <svg className="w-32 h-32 transform -rotate-90">
+            <circle
+              cx="64"
+              cy="64"
+              r="60"
+              stroke="currentColor"
+              strokeWidth="8"
+              fill="transparent"
+              className="text-slate-200 dark:text-slate-800"
+            />
+            <motion.circle
+              cx="64"
+              cy="64"
+              r="60"
+              stroke="currentColor"
+              strokeWidth="8"
+              fill="transparent"
+              strokeDasharray={377}
+              initial={{ strokeDashoffset: 377 }}
+              animate={{ strokeDashoffset: 377 - (377 * result.overall) / 100 }}
+              transition={{ duration: 1, ease: "easeOut" }}
+              className={cn(
+                result.overall >= 90 ? "text-matcha" :
+                result.overall >= 70 ? "text-indigo-500" :
+                result.overall >= 50 ? "text-amber-500" :
+                "text-red-500"
+              )}
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-4xl font-black">{result.overall}</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">Score</span>
+          </div>
+        </div>
 
-      {/* Detailed Scores */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Target className="h-4 w-4" />
-            <span>Độ chính xác</span>
-          </div>
-          <Progress value={result.accuracy} className="h-2" />
-          <span className="text-sm font-medium">{result.accuracy}%</span>
-        </div>
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Clock className="h-4 w-4" />
-            <span>Trường âm</span>
-          </div>
-          <Progress value={result.duration} className="h-2" />
-          <span className="text-sm font-medium">{result.duration}%</span>
-        </div>
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Music className="h-4 w-4" />
-            <span>Nhịp điệu</span>
-          </div>
-          <Progress value={result.rhythm} className="h-2" />
-          <span className="text-sm font-medium">{result.rhythm}%</span>
-        </div>
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Zap className="h-4 w-4" />
-            <span>Độ trôi chảy</span>
-          </div>
-          <Progress value={result.fluency} className="h-2" />
-          <span className="text-sm font-medium">{result.fluency}%</span>
+        <div className="flex-1 space-y-2 text-center md:text-left">
+           <Badge variant="outline" className="border-indigo-600/30 text-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30 font-bold mb-2">
+            ĐÁNH GIÁ TỪ SENSEI
+          </Badge>
+          <p className="text-2xl font-black text-slate-900 dark:text-white leading-tight">{result.feedback}</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Kết quả phân tích dựa trên độ chính xác và nhịp điệu phát âm của bạn.</p>
         </div>
       </div>
 
-      {/* Word Analysis */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+        {[
+          { label: "Chính xác", val: result.accuracy, icon: Target, color: "text-indigo-500" },
+          { label: "Trường âm", val: result.duration, icon: Clock, color: "text-amber-500" },
+          { label: "Nhịp điệu", val: result.rhythm, icon: Music, color: "text-indigo-500" },
+          { label: "Trôi chảy", val: result.fluency, icon: Zap, color: "text-indigo-600" }
+        ].map((stat, i) => (
+          <div key={i} className="space-y-3 p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+            <div className="flex items-center gap-2">
+              <stat.icon className={cn("h-4 w-4", stat.color)} />
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</span>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-end justify-between">
+                <span className="text-xl font-black">{stat.val}%</span>
+              </div>
+              <Progress value={stat.val} className="h-1.5" />
+            </div>
+          </div>
+        ))}
+      </div>
+
       {result.details.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-sm font-medium">Phân tích từng từ:</p>
+        <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex items-center justify-between">
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chi tiết từng từ</h4>
+          </div>
           <div className="flex flex-wrap gap-2">
             {result.details.map((detail, idx) => (
               <Badge
                 key={idx}
                 variant="outline"
                 className={cn(
-                  "font-jp text-base",
-                  detail.status === 'correct' && "border-matcha text-matcha bg-matcha/10",
-                  detail.status === 'incorrect' && "border-destructive text-destructive bg-destructive/10",
-                  detail.status === 'missing' && "border-amber-500 text-amber-500 bg-amber-500/10",
-                  detail.status === 'extra' && "border-muted-foreground text-muted-foreground line-through"
+                  "font-jp text-lg px-4 py-1.5 rounded-xl transition-all border-2 shadow-sm",
+                  detail.status === 'correct' && "border-green-500/20 text-green-600 bg-green-50/50 dark:bg-green-900/20",
+                  detail.status === 'incorrect' && "border-red-500/20 text-red-600 bg-red-50/50 dark:bg-red-900/20",
+                  detail.status === 'missing' && "border-amber-500/20 text-amber-600 bg-amber-50/50 dark:bg-amber-900/20",
+                  detail.status === 'extra' && "border-slate-300 text-slate-400 line-through opacity-50 bg-slate-50"
                 )}
               >
-                {detail.status === 'correct' && <CheckCircle2 className="h-3 w-3 mr-1" />}
-                {detail.status === 'incorrect' && <XCircle className="h-3 w-3 mr-1" />}
-                {detail.status === 'missing' && <AlertCircle className="h-3 w-3 mr-1" />}
                 {detail.word}
                 {detail.expected && (
-                  <span className="ml-1 text-xs opacity-70">→ {detail.expected}</span>
+                  <span className="ml-2 text-sm opacity-50 font-medium">({detail.expected})</span>
                 )}
               </Badge>
             ))}
-          </div>
-          <div className="flex gap-4 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-matcha" /> Đúng</span>
-            <span className="flex items-center gap-1"><XCircle className="h-3 w-3 text-destructive" /> Sai</span>
-            <span className="flex items-center gap-1"><AlertCircle className="h-3 w-3 text-amber-500" /> Thiếu</span>
-            <span className="flex items-center gap-1 line-through">Thừa</span>
           </div>
         </div>
       )}
@@ -776,10 +783,27 @@ export const SpeakingPractice = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0">
+    <div className="min-h-screen bg-background pb-20 md:pb-0 relative overflow-hidden">
+      {/* Clean Minimalist Background (Matches AITutor/Vocabulary) */}
+      <div className="absolute inset-0 bg-slate-50/50 dark:bg-slate-950/50 pointer-events-none z-0" />
+
       <Navigation />
 
-      <main className="container py-6 space-y-6">
+      <main className="max-w-6xl mx-auto py-8 px-4 md:px-6 space-y-8 relative z-10">
+        <div className="flex items-center justify-between pb-6 border-b">
+          <div className="flex items-center gap-3">
+             <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full text-[11px] font-bold text-slate-600 dark:text-slate-300 shadow-sm">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                Vocal Analysis Active
+             </div>
+             <Badge variant="outline" className="border-indigo-500/30 text-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30 font-bold px-3 py-1 rounded-full text-[10px] uppercase tracking-wider">
+               Speaking Pro
+             </Badge>
+          </div>
+          <div className="hidden md:block">
+            <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Giao diện Phân tích VIP</p>
+          </div>
+        </div>
         {/* Header with Stats */}
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="space-y-1">
@@ -848,53 +872,88 @@ export const SpeakingPractice = () => {
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Target Sentence */}
-                <div className="text-center space-y-2">
-                  <p className="text-3xl font-jp">{currentSentence.japanese}</p>
-                  {currentSentence.reading && (
-                    <p className="text-muted-foreground">{currentSentence.reading}</p>
-                  )}
-                  <p className="text-sm text-muted-foreground">{currentSentence.vietnamese}</p>
-                  
-                  {/* Listen Button */}
-                  <Button
-                    variant="outline"
-                    onClick={() => speak(currentSentence.japanese)}
-                    disabled={isSpeaking}
-                    className="gap-2"
-                  >
-                    <Volume2 className={cn("h-4 w-4", isSpeaking && "animate-pulse")} />
-                    {isSpeaking ? 'Đang phát...' : 'Nghe mẫu'}
-                  </Button>
+                {/* Target Sentence Area */}
+                <div className="relative group overflow-hidden rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40 backdrop-blur-sm p-10 text-center transition-all">
+                  <div className="space-y-4">
+                    <p className="text-4xl md:text-5xl font-jp font-black text-slate-900 dark:text-white leading-tight">
+                      {currentSentence.japanese}
+                    </p>
+                    {currentSentence.reading && (
+                      <p className="text-xl font-mono text-slate-400 font-bold uppercase tracking-widest">{currentSentence.reading}</p>
+                    )}
+                    <div className="h-px w-12 bg-slate-200 dark:bg-slate-800 mx-auto my-4" />
+                    <p className="text-lg text-slate-500 dark:text-slate-400 font-medium">"{currentSentence.vietnamese}"</p>
+                    
+                    <div className="flex justify-center pt-4">
+                      {/* Listen Button */}
+                      <Button
+                        variant="secondary"
+                        onClick={() => speak(currentSentence.japanese)}
+                        disabled={isSpeaking}
+                        className="gap-2 h-12 px-8 rounded-full bg-white dark:bg-slate-800 shadow-md hover:shadow-lg transition-all border border-slate-200 dark:border-slate-700"
+                      >
+                        <Volume2 className={cn("h-5 w-5", isSpeaking && "animate-pulse")} />
+                        <span className="font-bold">{isSpeaking ? 'Đang phát...' : 'Nghe mẫu'}</span>
+                      </Button>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Recording Area */}
-                <div className="flex flex-col items-center gap-4">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={isRecording ? stopRecording : startRecording}
-                    disabled={isAnalyzing}
-                    className={cn(
-                      "w-24 h-24 rounded-full flex items-center justify-center transition-all",
-                      isRecording 
-                        ? "bg-destructive text-destructive-foreground" 
-                        : "bg-gradient-to-br from-matcha to-matcha-dark text-white",
-                      isAnalyzing && "opacity-50"
-                    )}
-                  >
-                    {isAnalyzing ? (
-                      <Loader2 className="h-10 w-10 animate-spin" />
-                    ) : isRecording ? (
-                      <AudioVisualizer />
-                    ) : (
-                      <Mic className="h-10 w-10" />
-                    )}
-                  </motion.button>
+                <div className="relative flex flex-col items-center gap-6 py-4">
+                  <div className="relative">
+                    <AnimatePresence>
+                      {isRecording && (
+                        <>
+                          <motion.div
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1.5, opacity: 0.1 }}
+                            exit={{ scale: 2, opacity: 0 }}
+                            transition={{ repeat: Infinity, duration: 1.5 }}
+                            className="absolute inset-0 rounded-full bg-red-500 z-0"
+                          />
+                          <motion.div
+                            initial={{ scale: 1, opacity: 0 }}
+                            animate={{ scale: 1.8, opacity: 0.05 }}
+                            exit={{ scale: 1, opacity: 0 }}
+                            transition={{ repeat: Infinity, duration: 2, delay: 0.5 }}
+                            className="absolute inset-0 rounded-full bg-red-400 z-0"
+                          />
+                        </>
+                      )}
+                    </AnimatePresence>
+                    
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={isRecording ? stopRecording : startRecording}
+                      disabled={isAnalyzing}
+                      className={cn(
+                        "relative z-10 w-28 h-28 rounded-full flex items-center justify-center transition-all shadow-xl",
+                        isRecording 
+                          ? "bg-red-500 text-white" 
+                          : "bg-gradient-to-br from-indigo-600 to-violet-700 text-white",
+                        isAnalyzing && "opacity-50"
+                      )}
+                    >
+                      {isAnalyzing ? (
+                        <Loader2 className="h-10 w-10 animate-spin" />
+                      ) : isRecording ? (
+                        <AudioVisualizer />
+                      ) : (
+                        <div className="flex flex-col items-center">
+                          <Mic className="h-10 w-10 mb-1" />
+                          <span className="text-[10px] font-black uppercase tracking-widest">Nói ngay</span>
+                        </div>
+                      )}
+                    </motion.button>
+                  </div>
                   
-                  <p className="text-sm text-muted-foreground">
-                    {isRecording ? 'Đang ghi âm... Nhấn để dừng' : 'Nhấn để bắt đầu nói'}
-                  </p>
+                  <Badge variant="secondary" className={cn(
+                    "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] transition-all",
+                    isRecording ? "bg-red-500 text-white animate-pulse" : "bg-slate-100 text-slate-400"
+                  )}>
+                    {isRecording ? 'Hệ thống đang nghe...' : 'Sẵn sàng ghi âm'}
+                  </Badge>
                 </div>
 
                 {/* Recognized Text */}
@@ -954,42 +1013,86 @@ export const SpeakingPractice = () => {
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Question */}
-                <div className="text-center space-y-2 p-4 bg-muted rounded-lg">
-                  <p className="text-2xl font-jp">{currentQuestion.japanese}</p>
-                  <p className="text-muted-foreground">{currentQuestion.vietnamese}</p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => speak(currentQuestion.japanese)}
-                    disabled={isSpeaking}
-                  >
-                    <Volume2 className="h-4 w-4 mr-2" />
-                    Nghe
-                  </Button>
+                <div className="relative group overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 backdrop-blur-sm p-8 text-center transition-all hover:border-indigo-500/30">
+                  <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <MessageSquare className="h-20 w-20 rotate-12" />
+                  </div>
+                  
+                  <div className="relative z-10 space-y-4">
+                    <Badge variant="outline" className="border-indigo-500/30 text-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30 font-bold px-3 py-1 scale-90">
+                      CÂU HỎI TỪ SENSEI
+                    </Badge>
+                    <p className="text-3xl md:text-4xl font-jp font-black text-slate-900 dark:text-white leading-tight">
+                      {currentQuestion.japanese}
+                    </p>
+                    <p className="text-slate-500 dark:text-slate-400 font-medium italic">
+                      "{currentQuestion.vietnamese}"
+                    </p>
+                    
+                    <div className="flex justify-center pt-2">
+                       <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => speak(currentQuestion.japanese)}
+                        disabled={isSpeaking}
+                        className="rounded-full px-6 bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-700 hover:bg-slate-50"
+                      >
+                        <Volume2 className={cn("h-4 w-4 mr-2", isSpeaking && "animate-play")} />
+                        Nghe câu hỏi
+                      </Button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Recording Area */}
-                <div className="flex flex-col items-center gap-4">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={isRecording ? stopRecording : startRecording}
-                    disabled={isAnalyzing}
-                    className={cn(
-                      "w-24 h-24 rounded-full flex items-center justify-center transition-all",
-                      isRecording 
-                        ? "bg-destructive text-destructive-foreground" 
-                        : "bg-gradient-to-br from-sakura to-sakura-dark text-white"
-                    )}
-                  >
-                    {isAnalyzing ? (
-                      <Loader2 className="h-10 w-10 animate-spin" />
-                    ) : isRecording ? (
-                      <AudioVisualizer />
-                    ) : (
-                      <Mic className="h-10 w-10" />
-                    )}
-                  </motion.button>
+                <div className="relative flex flex-col items-center gap-6 py-4">
+                  <div className="relative">
+                    <AnimatePresence>
+                      {isRecording && (
+                        <>
+                          <motion.div
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1.5, opacity: 0.1 }}
+                            exit={{ scale: 2, opacity: 0 }}
+                            transition={{ repeat: Infinity, duration: 1.5 }}
+                            className="absolute inset-0 rounded-full bg-red-500 z-0"
+                          />
+                        </>
+                      )}
+                    </AnimatePresence>
+                    
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={isRecording ? stopRecording : startRecording}
+                      disabled={isAnalyzing}
+                      className={cn(
+                        "relative z-10 w-28 h-28 rounded-full flex items-center justify-center transition-all shadow-xl",
+                        isRecording 
+                          ? "bg-red-500 text-white" 
+                          : "bg-gradient-to-br from-indigo-600 to-violet-700 text-white",
+                        isAnalyzing && "opacity-50"
+                      )}
+                    >
+                      {isAnalyzing ? (
+                        <Loader2 className="h-10 w-10 animate-spin" />
+                      ) : isRecording ? (
+                        <AudioVisualizer />
+                      ) : (
+                        <div className="flex flex-col items-center">
+                          <Mic className="h-10 w-10 mb-1" />
+                          <span className="text-[10px] font-black uppercase tracking-widest">Trả lời</span>
+                        </div>
+                      )}
+                    </motion.button>
+                  </div>
+                  
+                  <Badge variant="secondary" className={cn(
+                    "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] transition-all",
+                    isRecording ? "bg-red-500 text-white animate-pulse" : "bg-slate-100 text-slate-400"
+                  )}>
+                    {isRecording ? 'Hệ thống đang nghe...' : 'Sẵn sàng ghi âm'}
+                  </Badge>
                 </div>
 
                 {/* Recognized Text */}

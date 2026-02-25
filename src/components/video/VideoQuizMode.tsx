@@ -55,6 +55,8 @@ interface Question {
   options: string[];
   correct_answer: number;
   explanation?: string;
+  question_type?: string;
+  difficulty?: string;
 }
 
 interface VideoQuizModeProps {
@@ -85,8 +87,16 @@ export const VideoQuizMode: React.FC<VideoQuizModeProps> = ({
 
   // Shuffle questions on mount
   useEffect(() => {
-    const shuffled = [...questions].sort(() => Math.random() - 0.5);
-    setShuffledQuestions(shuffled);
+    // Sort by type (A -> B -> C) then shuffle within types
+    const sorted = [...questions].sort((a, b) => {
+      const typeOrder: Record<string, number> = { 'vocabulary': 1, 'grammar': 2, 'comprehension': 3 };
+      const orderA = typeOrder[a.question_type || 'comprehension'] || 4;
+      const orderB = typeOrder[b.question_type || 'comprehension'] || 4;
+      
+      if (orderA !== orderB) return orderA - orderB;
+      return Math.random() - 0.5;
+    });
+    setShuffledQuestions(sorted);
   }, [questions]);
 
   const currentQuestion = shuffledQuestions[currentIndex];
@@ -181,7 +191,21 @@ export const VideoQuizMode: React.FC<VideoQuizModeProps> = ({
       {/* Header */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-sm">
-          <span className="font-semibold">Quiz Master</span>
+          <div className="flex items-center gap-2">
+            <span className="font-semibold">Quiz Master</span>
+            {currentQuestion.question_type && (
+              <Badge className="bg-primary/10 text-primary border-primary/20">
+                {currentQuestion.question_type === 'vocabulary' ? 'Phần A: Từ vựng' : 
+                 currentQuestion.question_type === 'grammar' ? 'Phần B: Ngữ pháp' : 
+                 'Phần C: Đọc hiểu'}
+              </Badge>
+            )}
+            {currentQuestion.difficulty && (
+              <Badge variant="outline" className="text-sakura border-sakura/30">
+                {currentQuestion.difficulty}
+              </Badge>
+            )}
+          </div>
           <Button variant="ghost" size="sm" onClick={handleReshuffle} className="gap-1">
             <Shuffle className="h-4 w-4" />
           </Button>

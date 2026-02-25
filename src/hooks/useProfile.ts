@@ -5,32 +5,13 @@ import { useToast } from './use-toast';
 
 export interface Profile {
   id: string;
-  user_id: string;
-  display_name: string | null;
-  avatar_url: string | null;
-  total_xp: number;
-  current_streak: number;
-  longest_streak: number;
-  jlpt_level: string | null;
-  created_at: string;
-  updated_at: string;
-  // Computed aliases for convenience
   username: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
   xp: number;
   streak: number;
   level: string;
   last_active_at: string | null;
-}
-
-function mapDbToProfile(data: any): Profile {
-  return {
-    ...data,
-    username: data.display_name,
-    xp: data.total_xp || 0,
-    streak: data.current_streak || 0,
-    level: data.jlpt_level || 'N5',
-    last_active_at: data.updated_at,
-  };
 }
 
 export const useProfile = () => {
@@ -47,17 +28,18 @@ export const useProfile = () => {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('id', user.id)
         .single();
 
       if (error) {
         if (error.code === 'PGRST116') {
+          // Profile not found, wait for trigger or manually create
           console.log('Profile not found, might be still creating...');
         } else {
           throw error;
         }
       } else {
-        setProfile(mapDbToProfile(data));
+        setProfile(data as Profile);
       }
     } catch (error: any) {
       console.error('Error fetching profile:', error);
@@ -70,6 +52,7 @@ export const useProfile = () => {
     if (user) {
       fetchProfile();
       
+      // Subscribe to profile changes
       const channel = supabase
         .channel(`profile:${user.id}`)
         .on(
@@ -78,11 +61,11 @@ export const useProfile = () => {
             event: '*', 
             schema: 'public', 
             table: 'profiles', 
-            filter: `user_id=eq.${user.id}` 
+            filter: `id=eq.${user.id}` 
           },
           (payload: any) => {
             if (payload.new) {
-              setProfile(mapDbToProfile(payload.new));
+              setProfile(payload.new as Profile);
             }
           }
         )
@@ -101,11 +84,11 @@ export const useProfile = () => {
     if (!user || !profile) return;
 
     try {
-      const newXp = (profile.total_xp || 0) + amount;
+      const newXp = profile.xp + amount;
       const { error } = await supabase
         .from('profiles')
-        .update({ total_xp: newXp })
-        .eq('user_id', user.id);
+        .update({ xp: newXp })
+        .eq('id', user.id);
 
       if (error) throw error;
       
@@ -126,42 +109,52 @@ export const useProfile = () => {
   const updateStreak = async () => {
     if (!user || !profile) return;
 
-    const lastActive = profile.updated_at ? new Date(profile.updated_at) : null;
+    const lastActive = profile.last_active_at ? new Date(profile.last_active_at) : null;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    try {
-      if (lastActive) {
-        const lastDate = new Date(lastActive);
-        lastDate.setHours(0, 0, 0, 0);
+    if (lastActive) {
+      const lastDate = new Date(lastActive);
+      lastDate.setHours(0, 0, 0, 0);
 
-        const diffDays = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+      const diffDays = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
 
-        if (diffDays === 1) {
-          const newStreak = (profile.current_streak || 0) + 1;
-          const { error } = await supabase
-            .from('profiles')
-            .update({ 
-              current_streak: newStreak,
-              longest_streak: Math.max(newStreak, profile.longest_streak || 0),
-            })
-            .eq('user_id', user.id);
-          if (error) throw error;
-        } else if (diffDays > 1) {
-          const { error } = await supabase
-            .from('profiles')
-            .update({ current_streak: 1 })
-            .eq('user_id', user.id);
-          if (error) throw error;
-        }
-      } else {
+      if (diffDays === 1) {
+        // Daily streak continued
+        const { error } = await supabase
+          .from('profiles')
+          .update({ 
+            streak: profile.streak + 1,
+            last_active_at: new Date().toISOString()
+          })
+          .eq('id', user.id);
+        if (error) throw error;
+      } else if (diffDays > 1) {
+        // Streak broken
+        const { error } = await supabase
+          .from('profiles')
+          .update({ 
+            streak: 1,
+            last_active_at: new Date().toISOString()
+          })
+          .eq('id', user.id);
+        if (error) throw error;
+      } else if (diffDays === 0) {
+        // Already updated today, just update last_active_at if needed
         await supabase
           .from('profiles')
-          .update({ current_streak: 1 })
-          .eq('user_id', user.id);
+          .update({ last_active_at: new Date().toISOString() })
+          .eq('id', user.id);
       }
-    } catch (error: any) {
-      console.error('Error updating streak:', error);
+    } else {
+      // First time active
+      await supabase
+        .from('profiles')
+        .update({ 
+          streak: 1,
+          last_active_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
     }
   };
 

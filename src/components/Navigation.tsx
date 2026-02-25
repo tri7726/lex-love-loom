@@ -17,6 +17,9 @@ import {
   Gamepad2,
   Video,
   Book,
+  Map as MapIcon,
+  Search,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -33,12 +36,44 @@ import { useAuth } from '@/hooks/useAuth';
 
 const navItems = [
   { path: '/', icon: Home, label: 'Trang chủ' },
-  { path: '/vocabulary', icon: BookOpen, label: 'Từ vựng' },
-  { path: '/reading', icon: Book, label: 'Luyện đọc' },
-  { path: '/video-learning', icon: Video, label: 'Học qua Video' },
-  { path: '/speaking-practice', icon: Mic, label: 'Luyện nói' },
+  { path: '/learning-path', icon: MapIcon, label: 'Lộ trình' },
   { path: '/ai-tutor', icon: Brain, label: 'AI Tutor' },
 ];
+
+const studyGroups = {
+  learning: {
+    label: 'Học tập',
+    icon: BookOpen,
+    items: [
+      { path: '/vocabulary', icon: BookOpen, label: 'Từ vựng' },
+      { path: '/reading', icon: Book, label: 'Luyện đọc' },
+      { path: '/video-learning', icon: Video, label: 'Học qua Video' },
+    ]
+  },
+  practice: {
+     label: 'Luyện tập',
+     icon: Gamepad2,
+     items: [
+       { path: '/speaking-practice', icon: Mic, label: 'Luyện nói' },
+       { path: '/quiz', icon: Zap, label: 'Kiểm tra' },
+     ]
+  },
+  lookup: {
+    label: 'Tra cứu',
+    icon: Search,
+    items: [
+      { path: '/vocabulary', icon: Layers, label: 'Kanji' },
+      { path: '/grammar', icon: BookMarked, label: 'Ngữ pháp' },
+    ]
+  },
+  utilities: {
+    label: 'Tiện ích',
+    icon: Zap,
+    items: [
+      { path: '/kanji-worksheet', icon: BookOpen, label: 'Tạo Worksheet Kanji' },
+    ]
+  }
+};
 
 const moreMenuItems = [
   { path: '/achievements', icon: Trophy, label: 'Thành tích' },
@@ -115,12 +150,33 @@ export const Navigation: React.FC<NavigationProps> = ({
               );
             })}
 
+            {Object.entries(studyGroups).map(([key, group]) => (
+              <DropdownMenu key={key}>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="gap-2 text-muted-foreground hover:text-foreground">
+                    <group.icon className="h-4 w-4" />
+                    {group.label}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  {group.items.map((item) => (
+                    <DropdownMenuItem key={item.path} asChild>
+                      <Link to={item.path} className="flex items-center gap-2">
+                        <item.icon className="h-4 w-4" />
+                        {item.label}
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ))}
+
             {/* More Menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="gap-2 text-muted-foreground hover:text-foreground">
                   <Menu className="h-4 w-4" />
-                  More
+                  Tiện ích
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
@@ -178,10 +234,16 @@ export const Navigation: React.FC<NavigationProps> = ({
         {/* Mobile navigation */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background border-t px-2 py-2">
           <div className="flex justify-around">
-            {navItems.slice(0, 5).map((item) => {
-              const isActive = location.pathname === item.path;
+            {[
+              { path: '/', icon: Home, label: 'Home' },
+              { path: '/learning-path', icon: MapIcon, label: 'Lộ trình' },
+              { path: '/vocabulary', icon: BookOpen, label: 'Học' },
+              { path: '/ai-tutor', icon: Brain, label: 'AI' },
+              { path: '/leaderboard', icon: Trophy, label: 'Bảng' },
+            ].map((mItem) => {
+              const isActive = location.pathname === mItem.path;
               return (
-                <Link key={item.path} to={item.path}>
+                <Link key={mItem.path} to={mItem.path}>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -192,8 +254,8 @@ export const Navigation: React.FC<NavigationProps> = ({
                         : 'text-muted-foreground'
                     )}
                   >
-                    <item.icon className="h-5 w-5" />
-                    <span className="text-xs">{item.label}</span>
+                    <mItem.icon className="h-5 w-5" />
+                    <span className="text-xs">{mItem.label}</span>
                   </Button>
                 </Link>
               );
@@ -204,5 +266,3 @@ export const Navigation: React.FC<NavigationProps> = ({
     </>
   );
 };
-
-// export default Navigation;

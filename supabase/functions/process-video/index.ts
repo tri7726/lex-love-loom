@@ -7,9 +7,32 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+interface SubtitleSegment {
+  start: number;
+  end: number;
+  text: string;
+}
+
+interface ProcessedSegment {
+  segment_index: number;
+  start_time: number;
+  end_time: number;
+  japanese_text: string;
+  vietnamese_text: string;
+  grammar_notes: Array<{ point: string; explanation: string }>;
+  vocabulary: Array<{ word: string; reading: string; meaning: string }>;
+}
+
+interface QuizQuestion {
+  question_text: string;
+  options: string[];
+  correct_answer: number;
+  explanation: string;
+}
+
 const BATCH_SIZE = 15;
 
-const SYSTEM_PROMPT = `
+const QUIZ_SYSTEM_PROMPT = `
 Bạn là chuyên gia thiết kế đề thi JLPT (N5–N3).
 
 NHIỆM VỤ:
@@ -96,41 +119,55 @@ Không dùng markdown.
 Không thêm bất kỳ văn bản nào ngoài JSON.
 `;
 
-<<<<<<< HEAD
+const SEGMENT_SYSTEM_PROMPT = `
+Bạn là chuyên gia ngôn ngữ Nhật Bản, chuyên phân tích video bài giảng.
+
+NHIỆM VỤ:
+Phân tích và dịch các đoạn hội thoại/văn bản tiếng Nhật sau đây sang tiếng Việt.
+Xuất dữ liệu dưới dạng JSON có cấu trúc chính xác.
+
+YÊU CẦU DỮ LIỆU:
+1. "japanese_text": Câu tiếng Nhật gốc.
+2. "vietnamese_text": Bản dịch tiếng Việt tự nhiên, chính xác.
+3. "grammar_notes": Danh sách các điểm ngữ pháp quan trọng trong câu (point và explanation bằng tiếng Việt).
+4. "vocabulary": Danh sách từ vựng quan trọng (word, reading, meaning bằng tiếng Việt).
+
+ĐÁP ÁN TRẢ VỀ PHẢI LÀ JSON HỢP LỆ.
+Định dạng:
+{
+  "segments": [
+    {
+      "segment_index": number,
+      "japanese_text": "...",
+      "vietnamese_text": "...",
+      "grammar_notes": [{"point": "...", "explanation": "..."}],
+      "vocabulary": [{"word": "...", "reading": "...", "meaning": "..."}]
+    }
+  ]
+}
+`;
+
 async function callGemini(apiKey: string, prompt: string, title: string, isQuizBatch: boolean = false) {
+  const currentSystemPrompt = isQuizBatch ? QUIZ_SYSTEM_PROMPT : SEGMENT_SYSTEM_PROMPT;
+  
   const body = {
     contents: [{
+      role: "user",
       parts: [{
-        text: `${SYSTEM_PROMPT}\n\nVideo: ${title}\n\nDữ liệu: ${prompt}\n\n${isQuizBatch ? "HÃY TẠO ĐỀ THI JLPT (PHẢI TRẢ VỀ DẠNG JSON) DỰA TRÊN TOÀN BỘ NỘI DUNG TRÊN." : "HÃY XỬ LÝ CÁC SEGMENTS NÀY."}`
+        text: `${currentSystemPrompt}\n\nVideo: ${title}\n\n${isQuizBatch ? "Nội dung video" : "Dữ liệu segments"}:\n${prompt}\n\n${isQuizBatch ? "HÃY TẠO ĐỀ THI JLPT (PHẢI TRẢ VỀ DẠNG JSON) DỰA TRÊN TOÀN BỘ NỘI DUNG TRÊN." : "HÃY PHÂN TÍCH VÀ TRẢ VỀ JSON CHO CÁC SEGMENTS NÀY."}`
       }]
     }],
-    generationConfig: { response_mime_type: "application/json" }
+    generationConfig: { 
+      response_mime_type: "application/json",
+      temperature: 0.7,
+      topP: 0.95
+    }
   };
 
   let response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-=======
-async function callLovableAI(apiKey: string, prompt: string, title: string, isQuizBatch: boolean = false) {
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: `Video: ${title}\n\nDữ liệu: ${prompt}\n\n${isQuizBatch ? "HÃY TẠO 10-15 CÂU HỎI QUIZ DỰA TRÊN TOÀN BỘ NỘI DUNG TRÊN." : "HÃY XỬ LÝ CÁC SEGMENTS NÀY."}`
-        }
-      ],
-      temperature: 0.3,
-    }),
->>>>>>> e9c9650e9d597620c15788c8c8d8749bd92fcd4f
   });
 
   if (!response.ok) {
@@ -144,11 +181,10 @@ async function callLovableAI(apiKey: string, prompt: string, title: string, isQu
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`AI Gateway error: ${response.status} ${errorText}`);
+    throw new Error(`Gemini API error: ${response.status} ${errorText}`);
   }
 
   const data = await response.json();
-<<<<<<< HEAD
   const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!resultText) throw new Error("AI không trả về nội dung");
   
@@ -171,7 +207,11 @@ async function callLovableAI(apiKey: string, prompt: string, title: string, isQu
       for (const [sectionKey, type] of Object.entries(sectionMapping)) {
         if (parsed.sections[sectionKey] && Array.isArray(parsed.sections[sectionKey])) {
           parsed.sections[sectionKey].forEach(q => {
-            questions.push({ ...q, question_type: type });
+            questions.push({ 
+              ...q, 
+              question_type: type,
+              jlpt_level: q.jlpt_level || null
+            });
           });
         }
       }
@@ -182,41 +222,45 @@ async function callLovableAI(apiKey: string, prompt: string, title: string, isQu
     console.error("JSON parse error in process-video:", e);
     throw e;
   }
-=======
-  const resultText = data.choices?.[0]?.message?.content;
-  const cleaned = resultText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-  return JSON.parse(cleaned);
->>>>>>> e9c9650e9d597620c15788c8c8d8749bd92fcd4f
 }
 
-async function processVideoInBackground(supabase: SupabaseClient, videoId: string, title: string, subtitles: any[], apiKey: string) {
+async function processVideoInBackground(
+  supabase: SupabaseClient,
+  videoId: string,
+  title: string,
+  subtitles: SubtitleSegment[],
+  apiKey: string
+) {
   console.log(`Background: Processing ${subtitles.length} segments`);
   
-  const allSegments: any[] = [];
-  const fullText = subtitles.map((s: any) => s.text).join(" ");
+  const allSegments: ProcessedSegment[] = [];
+  const fullText = subtitles.map(s => s.text).join(" ");
   
+  // 1. Process segments in batches
   for (let i = 0; i < subtitles.length; i += BATCH_SIZE) {
     const batch = subtitles.slice(i, i + BATCH_SIZE);
-    const prompt = batch.map((s: any, idx: number) => `[${i + idx}] ${s.text}`).join("\n");
+    const prompt = batch.map((s, idx) => `[${i + idx}] ${s.text}`).join("\n");
     try {
-      const result = await callLovableAI(apiKey, prompt, title);
+      const result = await callGemini(apiKey, prompt, title);
       if (result.segments) allSegments.push(...result.segments);
     } catch (error) {
       console.error(`Error processing segments batch ${i}:`, error);
     }
   }
 
-  let quizQuestions: any[] = [];
+  // 2. Generate Quiz (using the sample of context if too long)
+  let quizQuestions: QuizQuestion[] = [];
   try {
-    const quizResult = await callLovableAI(apiKey, fullText.substring(0, 10000), title, true);
+    const quizResult = await callGemini(apiKey, fullText.substring(0, 10000), title, true);
     if (quizResult.questions) quizQuestions = quizResult.questions;
   } catch (error) {
     console.error("Error generating quiz:", error);
   }
   
+  // 3. Insert results
   if (allSegments.length > 0) {
     const { error: segError } = await supabase.from("video_segments").insert(
-      allSegments.map((seg: any) => ({
+      allSegments.map(seg => ({
         video_id: videoId,
         segment_index: seg.segment_index,
         start_time: subtitles[seg.segment_index]?.start || 0,
@@ -232,13 +276,14 @@ async function processVideoInBackground(supabase: SupabaseClient, videoId: strin
 
   if (quizQuestions.length > 0) {
     const { error: quizError } = await supabase.from("video_questions").insert(
-      quizQuestions.map((q: any) => ({
+      quizQuestions.map(q => ({
         video_id: videoId,
         question_text: q.question_text,
         options: q.options,
-        correct_answer: q.correct_answer,
+        correct_answer: typeof q.correct_answer === 'number' ? q.correct_answer : parseInt(String(q.correct_answer)) || 0,
         explanation: q.explanation,
-        question_type: 'comprehension'
+        question_type: q.question_type || 'comprehension',
+        difficulty: q.jlpt_level || 'medium'
       }))
     );
     if (quizError) console.error("Error inserting quiz:", quizError);
@@ -253,23 +298,26 @@ serve(async (req) => {
 
   try {
     const { youtube_id, title, subtitles } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
+    // Check existing
     const { data: existing } = await supabase.from("video_sources").select("id, processed").eq("youtube_id", youtube_id).single();
     if (existing?.processed) return new Response(JSON.stringify({ success: true, video_id: existing.id, already_processed: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
+    // Create entry
     const { data: videoSource, error: vError } = await supabase.from("video_sources").upsert({
       youtube_id, title, thumbnail_url: `https://img.youtube.com/vi/${youtube_id}/hqdefault.jpg`, processed: false
     }, { onConflict: "youtube_id" }).select().single();
 
     if (vError) throw new Error(vError.message);
 
+    // Process in background
     // @ts-ignore
-    EdgeRuntime.waitUntil(processVideoInBackground(supabase, videoSource.id, title, subtitles, LOVABLE_API_KEY));
+    EdgeRuntime.waitUntil(processVideoInBackground(supabase, videoSource.id, title, subtitles, GEMINI_API_KEY));
 
     return new Response(JSON.stringify({ success: true, video_id: videoSource.id, processing: true }), { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 

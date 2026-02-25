@@ -24,16 +24,25 @@ serve(async (req) => {
 
     console.log('Generating reading analysis for level:', level);
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
+    const apiKey = Deno.env.get('GEMINI_API_KEY');
+    if (!apiKey) {
+      throw new Error('GEMINI_API_KEY not configured');
     }
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const userPrompt = `Bạn là giáo viên tiếng Nhật. Phân tích đoạn văn sau:
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{
+              text: `Bạn là giáo viên tiếng Nhật. Phân tích đoạn văn sau:
 "${content}"
 
 Level người học: ${level || 'N5'}
@@ -59,44 +68,31 @@ Yêu cầu:
 1. Thêm furigana cho TẤT CẢ Kanji trong "content_with_furigana".
 2. "vocabulary_list": Chọn 5-10 từ quan trọng.
 3. "preloaded_vocabulary": TẤT CẢ từ vựng quan trọng xuất hiện trong bài kèm ví dụ và ghi chú.
-4. CHỈ trả về JSON.`;
-
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "user", content: userPrompt }
+4. CHỈ trả về JSON.`
+            }]
+          }
         ],
-        temperature: 0.3,
+        generationConfig: {
+          response_mime_type: "application/json",
+        }
       }),
     });
 
-    if (response.status === 429) {
-      return new Response(JSON.stringify({ error: "Rate limits exceeded, please try again later." }), {
-        status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI Gateway error:', errorText);
-      throw new Error(`AI Gateway error: ${response.status}`);
+      console.error('API error:', errorText);
+      throw new Error(`API error: ${response.status}`);
     }
 
     const data = await response.json();
-    const resultText = data.choices?.[0]?.message?.content;
+    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!resultText) {
       throw new Error('No response from AI');
     }
 
-    const cleanedText = resultText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    const analysisData = JSON.parse(cleanedText);
+    // Parse JSON from response
+    const analysisData = JSON.parse(resultText);
 
     console.log('Reading analysis result - vocabulary count:', analysisData.preloaded_vocabulary?.length || 0);
 
@@ -114,6 +110,7 @@ Yêu cầu:
         source: 'preload'
       }));
 
+      // Upsert to avoid duplicates
       const { error: cacheError } = await supabase
         .from('word_cache')
         .upsert(wordsToCache, { onConflict: 'word', ignoreDuplicates: true });

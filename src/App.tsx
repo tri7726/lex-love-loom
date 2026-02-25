@@ -20,6 +20,13 @@ import { ModuleManager } from "./pages/ModuleManager";
 import { FolderManager } from "./pages/FolderManager";
 import { KanjiDetail } from "./pages/KanjiDetail";
 import { AITutor } from "./pages/AITutor";
+import { JLPTPortal } from "./pages/JLPTPortal";
+import { JLPTLevelDetail } from "./pages/JLPTLevelDetail";
+import { GrammarWiki } from "./pages/GrammarWiki";
+import { MockTestCenter } from "./pages/MockTestCenter";
+import { UnitContent } from "./pages/UnitContent";
+import { JLPTMockExam } from "./pages/JLPTMockExam";
+import { KanjiWorksheet } from "./pages/KanjiWorksheet";
 
 
 const queryClient = new QueryClient();
@@ -48,6 +55,13 @@ function App() {
                 <Route path="/folder-manager" element={<FolderManager />} />
                 <Route path="/kanji/:character" element={<KanjiDetail />} />
                 <Route path="/ai-tutor" element={<AITutor />} />
+                <Route path="/learning-path" element={<JLPTPortal />} />
+                <Route path="/learning-path/:level" element={<JLPTLevelDetail />} />
+                <Route path="/grammar" element={<GrammarWiki />} />
+                <Route path="/mock-tests" element={<MockTestCenter />} />
+                <Route path="/learning-path/:level/unit/:unitId" element={<UnitContent />} />
+                <Route path="/mock-exam/:examId" element={<JLPTMockExam />} />
+                                <Route path="/kanji-worksheet" element={<KanjiWorksheet />} />
 
                 <Route path="*" element={<NotFound />} />
               </Routes>

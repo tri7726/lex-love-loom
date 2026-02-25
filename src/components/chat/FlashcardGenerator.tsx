@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Brain, Sparkles, Plus, Loader2, BookOpen, Save, FolderOpen, Check } from 'lucide-react';
+import { Brain, Sparkles, Plus, Loader2, BookOpen, Save, FolderOpen, Check, Volume2, Crown, Zap, Trash2, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useTTS } from '@/hooks/useTTS';
+import { useProfile } from '@/hooks/useProfile';
+import { cn } from '@/lib/utils';
 
 interface SuggestedFlashcard {
   word: string;
@@ -50,8 +53,11 @@ const JLPT_COLORS: Record<string, string> = {
 export const FlashcardGenerator = () => {
   const [inputText, setInputText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [flashcards, setFlashcards] = useState<SuggestedFlashcard[]>([]);
   const { toast } = useToast();
+  const { speak, isSpeaking } = useTTS();
+  const { profile } = useProfile();
 
   // Folder selection
   const [folders, setFolders] = useState<CustomFolder[]>([]);
@@ -88,10 +94,15 @@ export const FlashcardGenerator = () => {
     setAddedCards(new Set());
 
     try {
+      const userContext = profile ? 
+        `User Level: ${profile.level}, name ${profile.full_name || 'Gakusei'}.` : 
+        "User is learning Japanese.";
+
       const { data, error } = await supabase.functions.invoke('japanese-analysis', {
         body: {
-          prompt: "Please extract key vocabulary and suggest flashcards from this text. Focus on common words and useful expressions.",
-          content: inputText
+          prompt: `[Context: ${userContext}] Please extract key vocabulary and suggest high-quality flashcards from this text. Focus on common words and useful expressions.`,
+          content: inputText,
+          isVip: true
         }
       });
 
@@ -99,6 +110,10 @@ export const FlashcardGenerator = () => {
 
       if (data.format === 'structured' && data.analysis?.suggested_flashcards) {
         setFlashcards(data.analysis.suggested_flashcards);
+        toast({
+          title: 'Trích xuất VIP hoàn tất',
+          description: `Sensei đã tìm thấy ${data.analysis.suggested_flashcards.length} từ vựng quan trọng!`,
+        });
       } else {
         toast({
           title: 'Kết quả không mong muốn',
@@ -109,11 +124,12 @@ export const FlashcardGenerator = () => {
     } catch (err) {
       console.error(err);
       toast({
-        title: 'Lỗi AI',
-        description: 'Không thể kết nối với AI. Hãy thử lại sau.',
+        title: 'Lỗi AI Sensei',
+        description: 'Sensei hiện đang bận pha trà, hãy thử lại sau nhé!',
         variant: 'destructive',
       });
     } finally {
+      setIsLoading(false);
       setIsGenerating(false);
     }
   };
@@ -188,74 +204,93 @@ export const FlashcardGenerator = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <Card className="shadow-card border-sakura/20 bg-gradient-to-br from-background to-sakura/5">
-        <CardContent className="pt-6 space-y-4">
-          <div className="space-y-2">
-            <h3 className="font-semibold text-lg flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-sakura" />
+    <div className="space-y-8">
+      {/* VIP Generator Card */}
+      <Card className="border-0 bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl rounded-[2.5rem] shadow-elevated overflow-hidden relative">
+        <div className="absolute top-0 right-0 p-8 opacity-5">
+           <Zap className="h-32 w-32" />
+        </div>
+        
+        <CardContent className="p-8 md:p-10 space-y-6 relative z-10">
+          <div className="space-y-2 text-center">
+            <Badge variant="outline" className="border-indigo-600/30 text-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30 font-bold tracking-widest text-[10px] px-3 py-0.5">
+              AI VOCABULARY EXTRACTOR
+            </Badge>
+            <h3 className="font-black text-2xl md:text-3xl text-slate-900 dark:text-white">
               Tạo thẻ từ nội dung bất kỳ
             </h3>
-            <p className="text-sm text-muted-foreground">
-              Dán văn bản tiếng Nhật (bài báo, lời bài hát, đoạn chat...) → AI trích xuất từ vựng → Lưu vào <strong>Sổ tay của tôi</strong> trong Vocabulary.
+            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xl mx-auto font-medium">
+              Dán văn bản tiếng Nhật và Sensei sẽ trích xuất những từ vựng quan trọng nhất cho bạn.
             </p>
           </div>
 
-          <Textarea
-            placeholder="Dán văn bản tiếng Nhật vào đây..."
-            className="min-h-[150px] font-jp text-lg leading-relaxed focus:ring-sakura"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-          />
+          <div className="group relative">
+            <Textarea
+              placeholder="Dán văn bản tiếng Nhật vào đây..."
+              className="min-h-[200px] font-jp text-lg leading-relaxed bg-white/70 dark:bg-slate-950/70 backdrop-blur-md border-sakura/10 dark:border-slate-800 transition-all rounded-3xl p-6 shadow-soft focus-visible:ring-sakura/30"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+            />
+          </div>
 
           <Button
-            className="w-full h-12 gap-2 text-md bg-sakura hover:bg-sakura/90 text-white shadow-lg"
+            className="w-full h-14 rounded-2xl text-sm font-black uppercase tracking-widest bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-lg transition-all hover:shadow-xl active:scale-[0.98]"
             onClick={handleGenerate}
             disabled={isGenerating || !inputText.trim()}
           >
             {isGenerating ? (
-              <>
+              <div className="flex items-center gap-3">
                 <Loader2 className="h-5 w-5 animate-spin" />
-                Đang trích xuất từ vựng...
-              </>
+                <span>Đang trích xuất...</span>
+              </div>
             ) : (
-              <>
-                <Brain className="h-5 w-5" />
-                Bắt đầu trích xuất (AI)
-              </>
+              <div className="flex items-center gap-3">
+                <Sparkles className="h-5 w-5" />
+                <span>BẮT ĐẦU TRÍCH XUẬT VIP</span>
+              </div>
             )}
           </Button>
         </CardContent>
       </Card>
 
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {flashcards.length > 0 && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            className="space-y-4"
+            className="space-y-10"
           >
-            <div className="flex items-center justify-between">
-              <h4 className="font-bold text-lg flex items-center gap-2">
-                <BookOpen className="h-5 w-5 text-matcha" />
-                Kết quả: {flashcards.length} thẻ gợi ý
-              </h4>
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6 px-4">
+              <div className="space-y-1 text-center md:text-left">
+                <h4 className="font-black text-2xl flex items-center justify-center md:justify-start gap-4">
+                   <div className="h-10 w-10 rounded-xl bg-sakura/10 flex items-center justify-center">
+                     <BookOpen className="h-6 w-6 text-sakura" />
+                   </div>
+                   Tìm thấy {flashcards.length} đề xuất
+                </h4>
+                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium italic">Chọn các thẻ bạn muốn lưu vào Sổ tay để bắt đầu luyện tập.</p>
+              </div>
+              
               <Button
-                variant="outline"
-                size="sm"
-                className="gap-2 border-matcha/50 text-matcha hover:bg-matcha/5"
                 onClick={handleAddAll}
                 disabled={addedCards.size === flashcards.length}
+                variant="outline"
+                className={cn(
+                  "h-12 px-8 rounded-2xl font-black transition-all gap-3 text-xs uppercase tracking-widest shadow-sm",
+                  addedCards.size === flashcards.length 
+                    ? "bg-green-500/10 text-green-600 border-green-200" 
+                    : "border-sakura/20 text-sakura hover:bg-sakura/10"
+                )}
               >
                 {addedCards.size === flashcards.length ? (
                   <><Check className="h-4 w-4" /> Đã lưu tất cả</>
                 ) : (
-                  <><Plus className="h-4 w-4" /> Lưu tất cả vào Sổ tay</>
+                  <><PlusCircle className="h-4 w-4" /> Lưu tất cả thẻ</>
                 )}
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {flashcards.map((card, idx) => (
                 <motion.div
                   key={idx}
@@ -263,52 +298,76 @@ export const FlashcardGenerator = () => {
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: idx * 0.05 }}
                 >
-                  <Card className={`hover:border-sakura transition-all shadow-sm group relative overflow-hidden ${addedCards.has(idx) ? 'border-green-300 bg-green-50/30' : ''}`}>
-                    <CardContent className="pt-5 flex flex-col h-full">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <div className="text-xl font-bold font-jp text-foreground">{card.word}</div>
-                          <div className="text-sm text-muted-foreground font-jp">{card.reading}</div>
-                          {card.hanviet && (
-                            <div className="text-xs text-sakura/70 font-display font-medium">Hán Việt: {card.hanviet}</div>
-                          )}
+                  <Card 
+                    className={cn(
+                      "group relative overflow-hidden transition-all duration-300 cursor-pointer rounded-[2.5rem] border-0 shadow-soft",
+                      addedCards.has(idx) 
+                        ? 'bg-green-50/40 dark:bg-green-950/20 border-2 border-green-200' 
+                        : 'bg-white/80 dark:bg-slate-900/80 backdrop-blur-md hover:border-2 hover:border-sakura/30'
+                    )}
+                    onClick={() => speak(card.word)}
+                  >
+                    <CardContent className="p-10 space-y-6">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-2">
+                           <div className="flex items-center gap-3">
+                             <div className="text-3xl font-jp font-black text-slate-900 dark:text-white group-hover:text-sakura transition-colors">{card.word}</div>
+                             <div className="h-8 w-8 rounded-full bg-sakura/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
+                                <Volume2 className="h-4 w-4 text-sakura" />
+                             </div>
+                           </div>
+                           <p className="text-lg font-mono text-sakura/60 font-bold tracking-tight">【{card.reading}】</p>
+                           {card.hanviet && (
+                             <Badge variant="outline" className="text-[10px] uppercase font-black tracking-widest bg-white dark:bg-slate-800 text-amber-600 border-amber-200 shadow-sm px-3">
+                               Hán Việt: {card.hanviet}
+                             </Badge>
+                           )}
                         </div>
-                        <div className="flex flex-col gap-1 items-end">
+                        <div className="flex flex-col gap-2 items-end">
                           {card.jlpt_level && (
-                            <Badge className={`${JLPT_COLORS[card.jlpt_level]} border-none`}>
+                            <Badge className={cn("px-4 py-1.5 border-0 shadow-sm rounded-full font-black text-[10px]", JLPT_COLORS[card.jlpt_level])}>
                               {card.jlpt_level}
                             </Badge>
                           )}
-                          <Badge variant="outline" className="text-[10px] py-0">{card.word_type}</Badge>
+                          <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest border-sakura/20 text-sakura/60 h-6">
+                             {card.word_type}
+                          </Badge>
                         </div>
                       </div>
 
-                      <div className="flex-1 space-y-3">
-                        <div className="text-md border-l-2 border-sakura/30 pl-3 py-1 bg-sakura/5 rounded-r">
-                          {card.meaning}
+                      <div className="space-y-5">
+                        <div className="p-4 rounded-2xl bg-white/50 dark:bg-slate-800/50 border border-white/20 shadow-inner-soft">
+                           <p className="font-bold text-lg text-slate-900 dark:text-slate-100">{card.meaning}</p>
                         </div>
 
-                        <div className="p-2 bg-muted/30 rounded text-xs space-y-1 italic border-l-2 border-muted">
-                          <div className="font-jp text-muted-foreground">{card.example_sentence}</div>
-                          <div className="text-muted-foreground/70">{card.example_translation}</div>
+                        <div className="flex gap-4 p-2">
+                           <div className="w-1.5 bg-gradient-to-b from-sakura/60 to-transparent rounded-full" />
+                           <div className="space-y-2 py-1 flex-1">
+                             <p className="font-jp text-lg leading-relaxed font-bold text-slate-800 dark:text-slate-200">{card.example_sentence}</p>
+                             <p className="text-sm text-slate-500 italic font-medium">"{card.example_translation}"</p>
+                           </div>
                         </div>
                       </div>
 
                       <Button
                         size="sm"
-                        className={`w-full mt-4 transition-all ${
-                          addedCards.has(idx)
-                            ? 'bg-green-500/10 text-green-600 border-green-300 cursor-default'
-                            : 'opacity-100 md:opacity-0 group-hover:opacity-100 bg-background border-sakura/30 text-sakura hover:bg-sakura hover:text-white'
-                        }`}
                         variant="outline"
-                        onClick={() => !addedCards.has(idx) && handleAddOne(card, idx)}
+                        className={cn(
+                          "w-full h-11 rounded-xl transition-all font-black text-xs uppercase tracking-widest",
+                          addedCards.has(idx)
+                            ? 'bg-green-500 text-white border-transparent cursor-default'
+                            : 'border-sakura/20 text-sakura hover:bg-sakura/10 bg-white/50'
+                        )}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!addedCards.has(idx)) handleAddOne(card, idx);
+                        }}
                         disabled={addedCards.has(idx)}
                       >
                         {addedCards.has(idx) ? (
-                          <><Check className="h-4 w-4 mr-2" /> Đã thêm</>
+                          <><Check className="h-4 w-4 mr-2" /> Đã lưu vào Sổ tay</>
                         ) : (
-                          <><Save className="h-4 w-4 mr-2" /> Thêm vào Sổ tay</>
+                          <><Save className="h-4 w-4 mr-2" /> Lưu thẻ từ này</>
                         )}
                       </Button>
                     </CardContent>
@@ -320,80 +379,89 @@ export const FlashcardGenerator = () => {
         )}
       </AnimatePresence>
 
-      {/* Folder Picker Dialog */}
+      {/* VIP Folder Picker Dialog */}
       <AnimatePresence>
         {showFolderPicker && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4"
             onClick={() => setShowFolderPicker(false)}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-background rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4"
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl rounded-[2.5rem] shadow-elevated-heavy w-full max-w-md p-8 space-y-6 overflow-hidden relative border border-white/20"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="font-bold text-lg flex items-center gap-2">
-                <FolderOpen className="h-5 w-5 text-rose-500" />
-                Chọn thư mục trong Sổ tay
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Thêm {pendingCards.length} từ vào thư mục:
-              </p>
+              <div className="absolute top-0 right-0 p-8 opacity-10">
+                 <FolderOpen className="h-24 w-24" />
+              </div>
+
+              <div className="space-y-2 text-center">
+                <h3 className="font-display font-black text-2xl flex items-center justify-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-sakura/10 flex items-center justify-center">
+                    <FolderOpen className="h-6 w-6 text-sakura" />
+                  </div>
+                  Chọn thư mục
+                </h3>
+                <p className="text-sm text-muted-foreground font-medium">
+                  Đang thêm <span className="text-sakura font-bold">{pendingCards.length}</span> từ vựng mới vào Sổ tay của bạn.
+                </p>
+              </div>
 
               {/* Existing folders */}
-              <div className="space-y-2 max-h-[240px] overflow-y-auto">
+              <div className="space-y-3 max-h-[280px] overflow-y-auto pr-2 custom-scrollbar">
                 {folders.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-4">Chưa có thư mục nào. Tạo mới bên dưới!</p>
+                  <div className="text-center py-8 bg-white/40 dark:bg-white/5 rounded-3xl border border-dashed border-white/20">
+                     <p className="text-sm text-muted-foreground font-medium">Chưa có thư mục nào.<br/>Hãy tạo mới bên dưới!</p>
+                  </div>
                 )}
                 {folders.map((folder) => (
                   <button
                     key={folder.id}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-rose-200 hover:border-rose-400 hover:bg-rose-50 transition-all text-left"
+                    className="w-full flex items-center gap-4 p-4 rounded-2xl border border-white/40 bg-white/40 dark:bg-white/5 hover:border-sakura/50 hover:bg-sakura/5 transition-all text-left shadow-soft hover:shadow-md group"
                     onClick={() => addToFolder(folder.id)}
                   >
-                    <span className="text-2xl">{folder.emoji}</span>
+                    <span className="text-3xl filter drop-shadow-sm group-hover:scale-110 transition-transform">{folder.emoji}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{folder.name}</p>
-                      <p className="text-xs text-muted-foreground">{folder.words.length} từ</p>
+                      <p className="font-bold truncate text-foreground">{folder.name}</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{folder.words.length} từ vựng</p>
                     </div>
-                    <Plus className="h-4 w-4 text-rose-400" />
+                    <PlusCircle className="h-5 w-5 text-sakura opacity-0 group-hover:opacity-100 transition-opacity" />
                   </button>
                 ))}
               </div>
 
               {/* Create new folder */}
-              <div className="border-t pt-3">
-                <p className="text-xs font-medium text-muted-foreground mb-2">Hoặc tạo thư mục mới:</p>
-                <div className="flex gap-2">
+              <div className="pt-4 border-t border-white/20 space-y-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground text-center">Hoặc tạo không gian mới</p>
+                <div className="flex gap-2 bg-white/40 dark:bg-white/5 p-1.5 rounded-2xl border border-white/20 shadow-soft">
                   <input
                     value={newFolderName}
                     onChange={(e) => setNewFolderName(e.target.value)}
                     placeholder="Tên thư mục mới..."
-                    className="flex-1 px-3 py-2 rounded-lg border border-rose-200 focus:ring-2 focus:ring-rose-300 outline-none text-sm bg-background"
+                    className="flex-1 px-4 h-11 bg-transparent border-0 outline-none text-sm font-medium"
                     onKeyDown={(e) => e.key === 'Enter' && createFolderAndAdd()}
                   />
                   <Button
-                    size="sm"
-                    className="bg-gradient-to-r from-rose-400 to-pink-400 text-white"
+                    className="h-11 w-11 rounded-xl bg-gradient-to-r from-sakura to-pink-500 shadow-sakura-soft hover:shadow-sakura transition-all"
                     disabled={!newFolderName.trim()}
                     onClick={createFolderAndAdd}
                   >
-                    <Plus className="h-4 w-4" />
+                    <Plus className="h-5 w-5" />
                   </Button>
                 </div>
               </div>
 
               <Button
                 variant="ghost"
-                className="w-full"
+                className="w-full rounded-2xl h-12 text-muted-foreground hover:bg-sakura/5 hover:text-sakura transition-colors font-bold"
                 onClick={() => setShowFolderPicker(false)}
               >
-                Hủy
+                Hủy bỏ
               </Button>
             </motion.div>
           </motion.div>

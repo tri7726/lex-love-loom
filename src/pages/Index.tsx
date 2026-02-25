@@ -16,6 +16,7 @@ import {
   Bell, // Added as per user's partial edit
   Settings,
   Zap,
+  FileText,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -141,20 +142,20 @@ export const Index = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, user_id, display_name, total_xp, current_streak, avatar_url')
-        .order('total_xp', { ascending: false })
+        .select('id, username, xp, streak, avatar_url')
+        .order('xp', { ascending: false })
         .limit(5);
 
       if (error) throw error;
       
       const formatted = (data || []).map((p, i) => ({
         rank: i + 1,
-        userId: p.user_id,
-        username: p.display_name || 'Anonymous',
-        xp: p.total_xp || 0,
-        streak: p.current_streak || 0,
+        userId: p.id,
+        username: p.username || 'Anonymous',
+        xp: p.xp,
+        streak: p.streak,
         avatar: p.avatar_url,
-        isCurrentUser: p.user_id === user?.id
+        isCurrentUser: p.id === user?.id
       }));
 
       setLeaderboard(formatted);
@@ -173,15 +174,25 @@ export const Index = () => {
       quizzesCompleted: 0,
       level: 'N5',
       levelProgress: 0,
+      jlptProgress: {
+        N5: 45, // Demo values
+        N4: 12,
+        N3: 0,
+      }
     };
 
     return {
       streak: profile.streak,
       totalXp: profile.xp,
       wordsLearned: history.length,
-      quizzesCompleted: 0, // Need a quiz results table for this
+      quizzesCompleted: 0,
       level: profile.level,
-      levelProgress: (profile.xp % 1000) / 10, // Placeholder calculation
+      levelProgress: (profile.xp % 1000) / 10,
+      jlptProgress: {
+        N5: Math.min(100, (profile.xp / 1000) * 100),
+        N4: Math.max(0, Math.min(100, ((profile.xp - 1000) / 2000) * 100)),
+        N3: 0,
+      }
     };
   }, [profile, history]);
 
@@ -229,45 +240,53 @@ export const Index = () => {
           animate={{ opacity: 1, y: 0 }}
           className="sakura-bg rounded-2xl p-6 md:p-8"
         >
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex-1">
               <h1 className="text-2xl md:text-3xl font-display font-bold mb-2">
                 Chào mừng trở lại! 🌸
               </h1>
-              <p className="text-muted-foreground">
-                Sẵn sàng tiếp tục hành trình chinh phục tiếng Nhật?
+              <p className="text-muted-foreground mb-6">
+                Bạn đang đạt cấp độ <strong>{userStats.level}</strong>. Hãy tiếp tục lộ trình chinh phục JLPT nhé!
               </p>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="text-center">
-                <p className="text-3xl font-bold text-gradient-sakura">
-                  {userStats.level}
-                </p>
-                <p className="text-xs text-muted-foreground">Cấp độ hiện tại</p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                {[
+                  { level: 'N5', progress: userStats.jlptProgress.N5, color: 'sakura' },
+                  { level: 'N4', progress: userStats.jlptProgress.N4, color: 'indigo' },
+                  { level: 'N3', progress: userStats.jlptProgress.N3, color: 'matcha' },
+                ].map((item) => (
+                  <Link key={item.level} to={`/learning-path/${item.level.toLowerCase()}`} className="group block space-y-2">
+                    <div className="flex justify-between text-sm items-end">
+                      <span className="font-bold text-lg group-hover:text-primary transition-colors">{item.level}</span>
+                      <span className="text-muted-foreground">{Math.floor(item.progress)}%</span>
+                    </div>
+                    <div className="h-2 bg-background/50 rounded-full overflow-hidden">
+                      <motion.div
+                        className={`h-full bg-${item.color}`}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${item.progress}%` }}
+                        transition={{ duration: 1, delay: 0.5 }}
+                      />
+                    </div>
+                  </Link>
+                ))}
               </div>
-              <div className="w-px h-10 bg-border" />
+            </div>
+
+            <div className="flex items-center gap-6 bg-background/40 p-6 rounded-xl backdrop-blur-sm self-start">
               <div className="text-center">
-                <p className="text-3xl font-bold text-gradient-gold">
+                <p className="text-4xl font-bold text-gradient-sakura">
+                  {userStats.streak}
+                </p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Chuỗi ngày</p>
+              </div>
+              <div className="w-px h-12 bg-border/50" />
+              <div className="text-center">
+                <p className="text-4xl font-bold text-gradient-gold">
                   {userStats.wordsLearned}
                 </p>
-                <p className="text-xs text-muted-foreground">Từ đã học</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Từ đã học</p>
               </div>
-            </div>
-          </div>
-
-          {/* Level Progress */}
-          <div className="mt-6 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Tiến độ lên N4</span>
-              <span className="font-medium">{Math.floor(userStats.levelProgress)}%</span>
-            </div>
-            <div className="progress-sakura">
-              <motion.div
-                className="progress-sakura-fill"
-                initial={{ width: 0 }}
-                animate={{ width: `${userStats.levelProgress}%` }}
-                transition={{ duration: 0.8, delay: 0.3 }}
-              />
             </div>
           </div>
         </motion.section>
@@ -421,6 +440,35 @@ export const Index = () => {
                       <Zap className="h-4 w-4 text-gold" />
                       Kiểm tra nhanh
                     </span>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+
+            {/* Tiện ích section */}
+            <Card className="shadow-card overflow-hidden border-sakura/20">
+              <CardHeader className="pb-2 bg-sakura/5">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-sakura" />
+                  Tiện ích VIP
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4 space-y-2">
+                <Link to="/kanji-worksheet">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between h-auto py-4 rounded-xl border-dashed border-sakura/30 hover:bg-sakura/5 hover:border-sakura transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-sakura/10 flex items-center justify-center">
+                        <FileText className="h-5 w-5 text-sakura" />
+                      </div>
+                      <div className="text-left">
+                        <p className="font-bold text-sm">Tạo Tập viết Kanji</p>
+                        <p className="text-[10px] text-muted-foreground">Xuất PDF Worksheet VIP</p>
+                      </div>
+                    </div>
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </Link>

@@ -279,7 +279,7 @@ export const KanjiReview: React.FC<KanjiReviewProps> = ({ onBack }) => {
             </Card>
 
             {/* Daily Kanji Grid */}
-            <Card className="border-0 shadow-lg overflow-hidden">
+            <Card className="border-0 shadow-lg overflow-visible">
               <CardContent className="p-6 space-y-5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
