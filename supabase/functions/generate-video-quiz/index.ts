@@ -99,17 +99,22 @@ serve(async (req) => {
 
   try {
     const { video_id, title, full_text } = await req.json();
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
+<<<<<<< HEAD
     if (!GEMINI_API_KEY) {
       console.error("GEMINI_API_KEY is not configured");
       throw new Error("Lỗi cấu hình: GEMINI_API_KEY chưa được thiết lập trên Supabase.");
     }
+=======
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+>>>>>>> e9c9650e9d597620c15788c8c8d8749bd92fcd4f
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     console.log(`Generating JLPT-style quiz for video: ${video_id}`);
 
+<<<<<<< HEAD
     const body = {
       contents: [{
         role: "user",
@@ -128,7 +133,29 @@ serve(async (req) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+=======
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: `Video: ${title}\n\nNội dung video:\n${full_text.substring(0, 15000)}` }
+        ],
+        temperature: 0.3,
+      }),
+>>>>>>> e9c9650e9d597620c15788c8c8d8749bd92fcd4f
     });
+
+    if (response.status === 429) {
+      return new Response(JSON.stringify({ error: "Rate limits exceeded, please try again later." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
 
     if (!response.ok) {
       console.warn("Gemini 2.0-flash failed, trying 1.5-flash...");
@@ -141,11 +168,15 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Gemini API error: ${response.status} ${errorText}`);
+      throw new Error(`AI Gateway error: ${response.status} ${errorText}`);
     }
 
     const data = await response.json();
+<<<<<<< HEAD
     console.log("Gemini API response received");
+=======
+    const resultText = data.choices?.[0]?.message?.content;
+>>>>>>> e9c9650e9d597620c15788c8c8d8749bd92fcd4f
     
     const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!resultText) {
@@ -153,6 +184,7 @@ serve(async (req) => {
       throw new Error("AI không trả về nội dung");
     }
 
+<<<<<<< HEAD
     let cleanJson = resultText;
     const jsonMatch = resultText.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
@@ -175,6 +207,11 @@ serve(async (req) => {
         'B_grammar': 'grammar',
         'C_reading': 'comprehension'
       };
+=======
+    const cleanJson = resultText.replace(/```json\n?/, "").replace(/```\n?$/, "").trim();
+    const parsed = JSON.parse(cleanJson);
+    const questions = parsed.questions || [];
+>>>>>>> e9c9650e9d597620c15788c8c8d8749bd92fcd4f
 
       for (const [sectionKey, type] of Object.entries(sectionMapping)) {
         if (parsed.sections[sectionKey] && Array.isArray(parsed.sections[sectionKey])) {
@@ -195,7 +232,7 @@ serve(async (req) => {
 
     if (questions.length > 0) {
       const { error: quizError } = await supabase.from("video_questions").insert(
-        questions.map(q => ({
+        questions.map((q: any) => ({
           video_id,
           question_text: q.question_text,
           options: q.options,

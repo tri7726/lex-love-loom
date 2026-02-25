@@ -141,20 +141,20 @@ export const Index = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, username, xp, streak, avatar_url')
-        .order('xp', { ascending: false })
+        .select('id, user_id, display_name, total_xp, current_streak, avatar_url')
+        .order('total_xp', { ascending: false })
         .limit(5);
 
       if (error) throw error;
       
       const formatted = (data || []).map((p, i) => ({
         rank: i + 1,
-        userId: p.id,
-        username: p.username || 'Anonymous',
-        xp: p.xp,
-        streak: p.streak,
+        userId: p.user_id,
+        username: p.display_name || 'Anonymous',
+        xp: p.total_xp || 0,
+        streak: p.current_streak || 0,
         avatar: p.avatar_url,
-        isCurrentUser: p.id === user?.id
+        isCurrentUser: p.user_id === user?.id
       }));
 
       setLeaderboard(formatted);
