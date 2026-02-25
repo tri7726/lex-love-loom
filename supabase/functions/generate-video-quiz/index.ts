@@ -32,45 +32,53 @@ serve(async (req) => {
 
   try {
     const { video_id, title, full_text } = await req.json();
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     console.log(`Generating quiz for video: ${video_id}`);
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: `${SYSTEM_PROMPT}\n\nVideo: ${title}\n\nNội dung video:\n${full_text.substring(0, 15000)}`
-          }]
-        }],
-        generationConfig: { response_mime_type: "application/json" }
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: `Video: ${title}\n\nNội dung video:\n${full_text.substring(0, 15000)}` }
+        ],
+        temperature: 0.3,
       }),
     });
 
+    if (response.status === 429) {
+      return new Response(JSON.stringify({ error: "Rate limits exceeded, please try again later." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Gemini API error: ${response.status} ${errorText}`);
+      throw new Error(`AI Gateway error: ${response.status} ${errorText}`);
     }
 
     const data = await response.json();
-    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const resultText = data.choices?.[0]?.message?.content;
     
     if (!resultText) throw new Error("AI không trả về nội dung");
 
-    // Clean up resultText in case it has markdown blocks
     const cleanJson = resultText.replace(/```json\n?/, "").replace(/```\n?$/, "").trim();
     const parsed = JSON.parse(cleanJson);
     const questions = parsed.questions || [];
 
     if (questions && questions.length > 0) {
       const { error: quizError } = await supabase.from("video_questions").insert(
-        questions.map(q => ({
+        questions.map((q: any) => ({
           video_id,
           question_text: q.question_text,
           options: q.options,
