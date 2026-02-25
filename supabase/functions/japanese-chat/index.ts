@@ -38,22 +38,21 @@ serve(async (req) => {
   try {
     const { messages, systemPrompt } = await req.json() as { messages: Message[], systemPrompt?: string };
     
-    // Use standard OpenAI-compatible Groq API
-    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
-    if (!GROQ_API_KEY) {
-      throw new Error("GROQ_API_KEY is not configured");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log("Sending request to Groq API...");
+    console.log("Sending request to Lovable AI Gateway...");
     
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${GROQ_API_KEY}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt || SYSTEM_PROMPT },
           ...messages,
@@ -65,12 +64,23 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
+      if (response.status === 429) {
+        return new Response(JSON.stringify({ error: "Rate limits exceeded, please try again later." }), {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ error: "Payment required, please add funds to your Lovable AI workspace." }), {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       const errorText = await response.text();
-      console.error("Groq API error:", response.status, errorText);
-      throw new Error(`Groq API error: ${response.status}`);
+      console.error("AI Gateway error:", response.status, errorText);
+      throw new Error(`AI Gateway error: ${response.status}`);
     }
 
-    // Proxy the stream directly
     return new Response(response.body, {
       headers: { 
         ...corsHeaders, 
