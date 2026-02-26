@@ -4,8 +4,15 @@ import YouTube, { YouTubeProps } from 'react-youtube';
 import {
   ArrowLeft,
   Loader2,
-  PanelRightOpen,
   PanelRightClose,
+  PanelRightOpen,
+  ChevronDown,
+  ChevronUp,
+  Play,
+  Monitor,
+  MonitorOff,
+  HelpCircle,
+  Keyboard,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -22,6 +29,7 @@ import { SummaryMode } from '@/components/video/SummaryMode';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 interface VideoSource {
   id: string;
@@ -64,7 +72,8 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
   
   // Tab & UI state
   const [activeTab, setActiveTab] = useState<VideoTab>('video');
-  const [showSubtitlePanel, setShowSubtitlePanel] = useState(true);
+  const [showSubtitlePanel, setShowSubtitlePanel] = useState(false);
+  const [isPlayerCollapsed, setIsPlayerCollapsed] = useState(false);
   
   // YouTube player state  
   const [player, setPlayer] = useState<any>(null);
@@ -89,8 +98,9 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
   // Display settings
   const [showFurigana, setShowFurigana] = useState(false);
   const [showTranslation, setShowTranslation] = useState(true);
+  const [isVideoHidden, setIsVideoHidden] = useState(false);
 
-  const timeUpdateRef = useRef<NodeJS.Timeout | null>(null);
+  const timeUpdateRef = useRef<number | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -164,7 +174,7 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
       timeUpdateRef.current = setInterval(() => {
         const time = player.getCurrentTime?.() || 0;
         setCurrentTime(time);
-      }, 200); // Reduced frequency from 100ms to 200ms for performance
+      }, 200) as unknown as number; // Reduced frequency from 100ms to 200ms for performance
     }
 
     return () => {
@@ -245,7 +255,7 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
 
     // Save progress to database
     if (user && currentSegment) {
-      supabase.from('user_video_progress').upsert({
+      (supabase as any).from('user_video_progress').upsert({
         user_id: user.id,
         segment_id: currentSegment.id,
         score,
@@ -253,7 +263,7 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
         last_practiced_at: new Date().toISOString(),
       }, {
         onConflict: 'user_id,segment_id',
-      }).then(({ error }) => {
+      }).then(({ error }: { error: any }) => {
         if (error) console.error('Error saving progress:', error);
       });
     }
@@ -466,6 +476,23 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
           />
         );
       
+      case 'transcript':
+        return (
+          <div className="h-[calc(100vh-180px)] lg:h-[calc(100vh-120px)] border rounded-2xl overflow-hidden bg-background shadow-sm">
+            <SubtitlePanel
+              segments={segments}
+              currentIndex={currentIndex}
+              currentTime={currentTime}
+              completedSegments={completedSegments}
+              onSegmentClick={handleSegmentClick}
+              onExplain={handleAnalyzeSegment}
+              showFurigana={showFurigana}
+              showTranslation={showTranslation}
+              isEmbedded={true}
+            />
+          </div>
+        );
+
       case 'summary':
         return (
           <SummaryMode
@@ -477,7 +504,7 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
             showTranslation={showTranslation}
           />
         );
-      
+
       default:
         return null;
     }
@@ -491,141 +518,140 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
     );
   }
 
+
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-[100dvh] flex flex-col bg-background overflow-hidden overscroll-none">
       <Navigation />
 
-      {/* Tabs */}
-      <VideoLearningTabs
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        quizCount={questions.length}
-        segmentsCount={segments.length}
-      />
+      {/* Global Tab Navigation (Desktop Header Style) */}
+      <div className="bg-background border-b z-40">
+        <VideoLearningTabs
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          quizCount={questions.length}
+          segmentsCount={segments.length}
+        />
+      </div>
 
-      {/* Main content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left side - Video + Content */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center gap-3 px-4 py-3 border-b bg-muted/30">
-            <Button variant="ghost" size="icon" onClick={onBack}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-lg font-bold truncate">{video.title}</h1>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>Câu {currentIndex + 1}/{segments.length}</span>
-                <Progress value={progress} className="w-20 h-1.5" />
-                <span>{Math.round(progress)}%</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant={showFurigana ? "default" : "outline"}
-                size="sm"
-                onClick={() => setShowFurigana(!showFurigana)}
-                className={`flex gap-1 h-9 ${showFurigana ? 'bg-sakura hover:bg-sakura/90' : ''}`}
-                title="Bật/Tắt Furigana"
-              >
-                <span className="font-jp font-bold">A</span>
-                <span className="text-[10px] mt-1">あ</span>
-              </Button>
-
-              <Button
-                variant={showTranslation ? "default" : "outline"}
-                size="sm"
-                onClick={() => setShowTranslation(!showTranslation)}
-                className={`flex gap-1 h-9 ${showTranslation ? 'bg-gold hover:bg-gold/90 border-gold/50' : ''}`}
-                title="Bật/Tắt Dịch"
-              >
-                <span className="font-bold text-xs">VN</span>
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowSubtitlePanel(!showSubtitlePanel)}
-                className="hidden md:flex gap-1 h-9"
-              >
-                {showSubtitlePanel ? (
-                  <>
-                    <PanelRightClose className="h-4 w-4" />
-                    Ẩn phụ đề
-                  </>
-                ) : (
-                  <>
-                    <PanelRightOpen className="h-4 w-4" />
-                    Hiện phụ đề
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-
-          {/* Video Player */}
-          <Card className="m-4 overflow-hidden shadow-card">
-            <div className="aspect-video bg-black relative">
-              <YouTube
-                videoId={video.youtube_id}
-                opts={opts}
-                onReady={onPlayerReady}
-                onStateChange={onPlayerStateChange}
-                className="w-full h-full"
-                // @ts-ignore
-                iframeClassName="w-full h-full"
-              />
-              {!playerReady && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-10">
-                  <Loader2 className="h-10 w-10 text-white animate-spin mb-2" />
-                  <p className="text-white/90 text-sm">
-                    Đang tải video...
+      <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
+        
+        {/* Left Column: Video + Statistics */}
+        <div className={cn(
+          "w-full lg:w-[45%] xl:w-[40%] flex flex-col border-r bg-muted/5",
+          "lg:overflow-y-auto",
+          activeTab === 'transcript' ? "sticky top-0 z-30 lg:relative lg:top-auto" : ""
+        )}>
+          <div className="p-4">
+            <div className="flex flex-col gap-4">
+              {/* Header: Title & Back */}
+              <div className="flex items-center gap-3 px-1">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={onBack} 
+                  className="h-9 w-9 rounded-full bg-muted/20 hover:bg-muted"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+                <div className="min-w-0">
+                  <h1 className="text-base font-bold truncate leading-tight">{video.title}</h1>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold mt-0.5">
+                    Đang phát nội dung
                   </p>
                 </div>
-              )}
-            </div>
-          </Card>
+              </div>
 
-          {/* Tab Content */}
-          <div className="flex-1 overflow-auto px-4 pb-20 md:pb-4">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeTab}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
-              >
-                {renderTabContent()}
-              </motion.div>
-            </AnimatePresence>
+              {/* Video Player Section */}
+              {!isVideoHidden && (
+                <div className="relative aspect-video rounded-2xl overflow-hidden shadow-2xl bg-black ring-1 ring-muted-foreground/10 group">
+                  <YouTube
+                    videoId={video.youtube_id}
+                    opts={opts}
+                    onReady={onPlayerReady}
+                    onStateChange={onPlayerStateChange}
+                    className="w-full h-full"
+                    // @ts-ignore
+                    iframeClassName="w-full h-full"
+                  />
+                </div>
+              )}
+
+              {/* Video Control & Settings Card */}
+              <Card className="p-4 rounded-2xl shadow-sm bg-background border border-muted-foreground/10">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Cài đặt Video</span>
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-matcha animate-pulse" />
+                    <span className="text-[10px] font-bold text-matcha uppercase">Live Mode</span>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <Button 
+                    variant="secondary" 
+                    size="sm" 
+                    className={cn(
+                      "h-10 text-xs gap-2 rounded-xl border-none transition-all",
+                      isVideoHidden ? "bg-matcha/20 text-matcha" : "bg-muted/50 hover:bg-muted"
+                    )}
+                    onClick={() => setIsVideoHidden(!isVideoHidden)}
+                  >
+                    {isVideoHidden ? <Monitor className="h-4 w-4" /> : <MonitorOff className="h-4 w-4" />}
+                    {isVideoHidden ? "Hiện video" : "Ẩn video"}
+                  </Button>
+                  
+                  <Button variant="secondary" size="sm" className="h-10 text-xs gap-2 rounded-xl bg-muted/50 hover:bg-muted border-none">
+                    <Keyboard className="h-4 w-4" />
+                    Phím tắt
+                  </Button>
+                </div>
+              </Card>
+
+              {/* Progress Card */}
+              <Card className="p-5 rounded-2xl shadow-sm bg-matcha/[0.03] border border-matcha/10">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] font-bold text-matcha uppercase tracking-widest">Tiến độ bài học</span>
+                    <p className="text-lg font-black text-foreground">
+                      {completedSegments.size} <span className="text-sm font-normal text-muted-foreground">/ {segments.length} câu</span>
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 rounded-full border-4 border-matcha/10 flex items-center justify-center relative">
+                    <span className="text-[10px] font-bold text-matcha">
+                      {Math.round((completedSegments.size / segments.length) * 100)}%
+                    </span>
+                  </div>
+                </div>
+                <Progress 
+                  value={(completedSegments.size / segments.length) * 100} 
+                  className="h-2 rounded-full bg-matcha/10"
+                />
+              </Card>
+            </div>
           </div>
         </div>
 
-        {/* Right side - Subtitle Panel (desktop only) */}
-        <AnimatePresence>
-          {showSubtitlePanel && (
-            <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 320, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="hidden md:block border-l overflow-hidden"
-            >
-              <SubtitlePanel
-                segments={segments}
-                currentIndex={currentIndex}
-                currentTime={currentTime}
-                completedSegments={completedSegments}
-                onSegmentClick={handleSegmentClick}
-                onExplain={handleAnalyzeSegment}
-                onClose={() => setShowSubtitlePanel(false)}
-                showFurigana={showFurigana}
-                showTranslation={showTranslation}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Right Column: Learning Content */}
+        <div className="flex-1 flex flex-col bg-background lg:overflow-hidden">
+          <div className="flex-1 lg:overflow-y-auto overscroll-contain">
+            <div className="max-w-4xl mx-auto p-4 lg:p-6 pb-20 lg:pb-32">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeTab}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full"
+                >
+                  <div className="h-full">
+                    {renderTabContent()}
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </div>
+        </div>
       </div>
 
       <AnalysisPanel

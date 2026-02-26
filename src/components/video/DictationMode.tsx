@@ -12,6 +12,7 @@ import {
   XCircle,
   Monitor,
   MonitorOff,
+  Keyboard,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +22,7 @@ import { KanaKeyboard } from '@/components/KanaKeyboard';
 import { KanjiSuggestions } from '@/components/KanjiSuggestions';
 import { useKanaInput, KanaMode } from '@/hooks/useKanaInput';
 import { useKanjiLookup } from '@/hooks/useKanjiLookup';
+import { cn } from '@/lib/utils';
 import { compareStrings, calculateScore, DiffResult } from '@/lib/stringComparison';
 
 const renderTextWithFurigana = (text: string, vocabulary: any[], show: boolean) => {
@@ -105,7 +107,6 @@ export const DictationMode: React.FC<DictationModeProps> = ({
   const [score, setScore] = useState(0);
   const [showHint, setShowHint] = useState(false);
   const [showAnswer, setShowAnswer] = useState(false);
-  const [hideVideo, setHideVideo] = useState(false);
   
   // Cursor management
   const [cursorPos, setCursorPos] = useState<number | null>(null);
@@ -225,34 +226,24 @@ export const DictationMode: React.FC<DictationModeProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Header with segment info */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-baseline gap-2">
+          <h2 className="text-xl font-bold">Chép chính tả</h2>
           <span className="text-sm text-muted-foreground">
-            Chép chính tả
+            (Câu hỏi {currentIndex + 1}/{segments.length})
           </span>
-          <Badge variant="outline" className="font-mono">
-            Câu {currentIndex + 1}/{segments.length}
-          </Badge>
         </div>
         <div className="flex items-center gap-2">
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
-            onClick={() => setHideVideo(!hideVideo)}
-            className="gap-1"
-          >
-            {hideVideo ? <Monitor className="h-4 w-4" /> : <MonitorOff className="h-4 w-4" />}
-            {hideVideo ? 'Hiện video' : 'Ẩn video'}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
+            className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
             onClick={() => {
               const event = new CustomEvent('toggle-subtitle-panel');
               window.dispatchEvent(event);
             }}
           >
+            <Keyboard className="h-3.5 w-3.5" />
             Phím tắt
           </Button>
         </div>
@@ -262,13 +253,13 @@ export const DictationMode: React.FC<DictationModeProps> = ({
       <ScrollArea className="w-full whitespace-nowrap">
         <div className="flex items-center gap-2 pb-2">
           <Button
-            variant="ghost"
+            variant="secondary"
             size="icon"
-            className="h-8 w-8 flex-shrink-0"
+            className="h-9 w-9 flex-shrink-0 bg-muted/50 rounded-lg hover:bg-muted"
             onClick={handlePrev}
             disabled={currentIndex === 0}
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-5 w-5" />
           </Button>
           
           {segments.map((_, index) => {
@@ -278,13 +269,15 @@ export const DictationMode: React.FC<DictationModeProps> = ({
             return (
               <Button
                 key={index}
-                variant={isActive ? 'default' : 'outline'}
+                variant={isActive ? 'default' : 'secondary'}
                 size="sm"
-                className={`
-                  h-8 min-w-[60px] flex-shrink-0
-                  ${isActive ? 'bg-matcha hover:bg-matcha/90' : ''}
-                  ${isCompleted && !isActive ? 'border-matcha/50 text-matcha' : ''}
-                `}
+                className={cn(
+                  'h-9 min-w-[70px] flex-shrink-0 rounded-lg transition-all',
+                  isActive 
+                    ? 'bg-matcha text-white hover:bg-matcha/90 border-none' 
+                    : 'bg-muted/50 text-foreground hover:bg-muted border-none',
+                  isCompleted && !isActive && 'text-matcha ring-1 ring-matcha/30'
+                )}
                 onClick={() => onIndexChange(index)}
               >
                 Câu {index + 1}
@@ -293,13 +286,13 @@ export const DictationMode: React.FC<DictationModeProps> = ({
           })}
           
           <Button
-            variant="ghost"
+            variant="secondary"
             size="icon"
-            className="h-8 w-8 flex-shrink-0"
+            className="h-9 w-9 flex-shrink-0 bg-muted/50 rounded-lg hover:bg-muted"
             onClick={handleNext}
             disabled={currentIndex === segments.length - 1}
           >
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="h-5 w-5" />
           </Button>
         </div>
         <ScrollBar orientation="horizontal" />
@@ -357,41 +350,56 @@ export const DictationMode: React.FC<DictationModeProps> = ({
         )}
 
         {/* Action buttons */}
-        <div className="flex items-center justify-center gap-3">
+        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4">
           <Button
-            variant="ghost"
+            variant="secondary"
             size="icon"
             onClick={() => setShowHint(!showHint)}
-            className="h-10 w-10"
+            className={cn(
+               "h-12 w-12 rounded-xl bg-muted/30 hover:bg-muted border-none",
+               showHint && "text-gold bg-gold/10"
+            )}
           >
-            <Lightbulb className={`h-5 w-5 ${showHint ? 'text-gold fill-gold' : ''}`} />
+            <Lightbulb className={cn("h-5 w-5", showHint && "fill-gold")} />
           </Button>
           
           <Button
+            variant="secondary"
             size="lg"
-            className="gap-2 px-8 bg-matcha hover:bg-matcha/90 text-white"
+            className="h-12 gap-2 px-8 rounded-xl bg-muted/50 hover:bg-muted border-none"
             onClick={onPlaySegment}
             disabled={!playerReady}
           >
-            <Play className="h-5 w-5" />
-            Phát lại
+            <div className="flex flex-col items-center">
+              <div className="flex items-center gap-2">
+                <Play className="h-4 w-4 fill-foreground" />
+                <span>Phát lại</span>
+              </div>
+              <span className="text-[10px] text-muted-foreground mt-0.5">Space</span>
+            </div>
           </Button>
           
           <Button
-            variant={hasChecked ? 'default' : 'outline'}
+            variant={hasChecked ? "default" : "default"}
             size="lg"
-            className="gap-2 px-6"
+            className={cn(
+              "h-12 flex-1 sm:flex-none gap-2 px-10 rounded-xl font-bold shadow-lg border-none",
+              hasChecked 
+                ? "bg-matcha/20 text-matcha hover:bg-matcha/30" 
+                : "bg-matcha text-white hover:bg-matcha/90 shadow-matcha/20"
+            )}
             onClick={hasChecked ? handleNext : handleCheck}
             disabled={!hasChecked && !userInput.trim()}
           >
-            {hasChecked ? (
-              <>
-                Tiếp
-                <ChevronRight className="h-4 w-4" />
-              </>
-            ) : (
-              'Kiểm tra'
-            )}
+            <div className="flex flex-col items-center">
+              <div className="flex items-center gap-1">
+                <span>{hasChecked ? "Tiếp" : "Kiểm tra"}</span>
+                {hasChecked && <ChevronRight className="h-4 w-4" />}
+              </div>
+              <span className="text-[10px] opacity-80 mt-0.5 font-normal">
+                {hasChecked ? "Tab" : "Enter"}
+              </span>
+            </div>
           </Button>
         </div>
 

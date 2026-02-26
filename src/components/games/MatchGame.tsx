@@ -1,17 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Timer, Trophy, RotateCcw } from 'lucide-react';
+import { Timer, Trophy, RotateCcw, ChevronLeft, Sparkles, Star } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
-interface VocabularyItem {
-  id: string;
-  word: string;
-  reading: string | null;
-  meaning: string;
-  mastery_level: number | null;
-}
+import { VocabularyItem } from '@/types/vocabulary';
 
 interface MatchGameProps {
   vocabulary: VocabularyItem[];
@@ -32,6 +28,7 @@ export const MatchGame: React.FC<MatchGameProps> = ({
   vocabulary,
   onComplete,
   onUpdateMastery,
+  onBack,
 }) => {
   const [cards, setCards] = useState<MatchCard[]>([]);
   const [selectedCards, setSelectedCards] = useState<MatchCard[]>([]);
@@ -44,7 +41,7 @@ export const MatchGame: React.FC<MatchGameProps> = ({
   // Get 6 random words for the game
   const gameWords = useMemo(() => {
     const shuffled = [...vocabulary].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, Math.min(6, vocabulary.length));
+    return shuffled.slice(0, Math.min(8, vocabulary.length));
   }, [vocabulary]);
 
   useEffect(() => {
@@ -111,7 +108,8 @@ export const MatchGame: React.FC<MatchGameProps> = ({
 
       if (first.vocabId === second.vocabId && first.type !== second.type) {
         // Match found!
-        setMatchedPairs((prev) => new Set([...prev, first.vocabId]));
+        const newMatchedSet = new Set([...matchedPairs, first.vocabId]);
+        setMatchedPairs(newMatchedSet);
         setCards((prev) =>
           prev.map((c) =>
             c.vocabId === first.vocabId ? { ...c, matched: true } : c
@@ -121,12 +119,14 @@ export const MatchGame: React.FC<MatchGameProps> = ({
         setSelectedCards([]);
 
         // Check if game complete
-        if (matchedPairs.size + 1 === gameWords.length) {
-          setGameComplete(true);
-          onComplete({
-            correct: gameWords.length,
-            total: attempts + 1,
-          });
+        if (newMatchedSet.size === gameWords.length) {
+          setTimeout(() => {
+            setGameComplete(true);
+            onComplete({
+              correct: gameWords.length,
+              total: attempts + 1,
+            });
+          }, 500);
         }
       } else {
         // Wrong match
@@ -153,69 +153,102 @@ export const MatchGame: React.FC<MatchGameProps> = ({
     const stars = accuracy >= 80 ? 3 : accuracy >= 60 ? 2 : 1;
 
     return (
-      <Card className="text-center">
-        <CardHeader>
-          <CardTitle className="text-2xl flex items-center justify-center gap-2">
-            <Trophy className="h-8 w-8 text-yellow-500" />
-            Hoàn thành!
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex justify-center gap-2">
-            {[...Array(3)].map((_, i) => (
-              <motion.span
-                key={i}
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: i * 0.2 }}
-                className={`text-4xl ${i < stars ? 'text-yellow-500' : 'text-gray-300'}`}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="max-w-md mx-auto"
+      >
+        <Card className="border-0 shadow-2xl overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+          <div className="h-2 bg-gradient-to-r from-indigo-400 via-purple-400 to-indigo-500" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-3xl font-display font-bold text-center text-indigo-900 flex items-center justify-center gap-2">
+              <Trophy className="h-8 w-8 text-amber-500" />
+              Hoàn thành!
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-8 p-8">
+            <div className="flex justify-center gap-3">
+              {[...Array(3)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ scale: 0, rotate: -30 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ delay: i * 0.2, type: 'spring' }}
+                >
+                  <Star className={cn("h-12 w-12", i < stars ? "text-amber-400 fill-amber-400" : "text-gray-200")} />
+                </motion.div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-white/60 p-4 rounded-2xl border border-indigo-100 text-center">
+                <p className="text-xl font-bold text-indigo-700">{formatTime(timeElapsed)}</p>
+                <p className="text-[10px] text-indigo-400 uppercase font-bold">Thời gian</p>
+              </div>
+              <div className="bg-white/60 p-4 rounded-2xl border border-indigo-100 text-center">
+                <p className="text-xl font-bold text-indigo-700">{attempts}</p>
+                <p className="text-[10px] text-indigo-400 uppercase font-bold">Lượt thử</p>
+              </div>
+              <div className="bg-white/60 p-4 rounded-2xl border border-indigo-100 text-center">
+                <p className="text-xl font-bold text-indigo-700">{accuracy}%</p>
+                <p className="text-[10px] text-indigo-400 uppercase font-bold">Chính xác</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <button 
+                onClick={initializeGame} 
+                className="w-full gap-2 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white rounded-2xl py-6 text-lg font-bold shadow-lg shadow-indigo-200 transition-all active:scale-95"
               >
-                ★
-              </motion.span>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div>
-              <p className="text-2xl font-bold">{formatTime(timeElapsed)}</p>
-              <p className="text-sm text-muted-foreground">Thời gian</p>
+                <RotateCcw className="h-5 w-5 inline-block mr-2" />
+                Chơi lại
+              </button>
+              <Button 
+                variant="ghost" 
+                onClick={onBack}
+                className="w-full text-indigo-500 hover:bg-indigo-50 rounded-2xl py-6"
+              >
+                Quay lại
+              </Button>
             </div>
-            <div>
-              <p className="text-2xl font-bold">{attempts}</p>
-              <p className="text-sm text-muted-foreground">Lượt thử</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{accuracy}%</p>
-              <p className="text-sm text-muted-foreground">Chính xác</p>
-            </div>
-          </div>
-
-          <Button onClick={initializeGame} className="gap-2">
-            <RotateCcw className="h-4 w-4" />
-            Chơi lại
-          </Button>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </motion.div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="max-w-4xl mx-auto space-y-6">
       {/* Game Header */}
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Timer className="h-4 w-4" />
-          <span className="font-mono">{formatTime(timeElapsed)}</span>
+      <div className="flex justify-between items-center px-4">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2 bg-indigo-50 px-4 py-2 rounded-2xl border border-indigo-100 shadow-sm">
+            <Timer className="h-4 w-4 text-indigo-500" />
+            <span className="font-mono font-bold text-indigo-700 text-lg">{formatTime(timeElapsed)}</span>
+          </div>
+          <div className="flex items-center gap-2 bg-amber-50 px-4 py-2 rounded-2xl border border-amber-100 shadow-sm">
+            <Sparkles className="h-4 w-4 text-amber-500" />
+            <span className="font-bold text-amber-700">Lượt thử: {attempts}</span>
+          </div>
         </div>
-        <div className="text-sm text-muted-foreground">
-          Lượt: {attempts}
+        
+        <Badge variant="outline" className="bg-indigo-50 text-indigo-600 border-indigo-200 px-4 py-1.5 rounded-full font-bold">
+          {matchedPairs.size} / {gameWords.length} cặp
+        </Badge>
+      </div>
+
+      <div className="px-4">
+        <div className="h-2 w-full bg-muted rounded-full overflow-hidden shadow-inner">
+          <motion.div 
+            className="h-full bg-gradient-to-r from-indigo-400 to-purple-500"
+            animate={{ width: `${progress}%` }}
+            transition={{ duration: 0.5 }}
+          />
         </div>
       </div>
 
-      <Progress value={progress} className="h-2" />
-
       {/* Cards Grid */}
-      <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 p-4">
         <AnimatePresence>
           {cards.map((card) => {
             const isSelected = selectedCards.find((c) => c.id === card.id);
@@ -227,44 +260,59 @@ export const MatchGame: React.FC<MatchGameProps> = ({
                 layout
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ 
-                  opacity: card.matched ? 0.5 : 1, 
-                  scale: 1,
+                  opacity: card.matched ? 0 : 1, 
+                  scale: card.matched ? 0.8 : 1,
+                  y: card.matched ? -20 : 0
                 }}
-                transition={{ duration: 0.2 }}
+                exit={{ opacity: 0, scale: 0.5 }}
+                transition={{ duration: 0.3 }}
               >
-                <Card
-                  className={`cursor-pointer min-h-[80px] flex items-center justify-center transition-all ${
-                    card.matched
-                      ? 'bg-green-100 dark:bg-green-900/30 border-green-500'
-                      : isWrong
-                      ? 'bg-red-100 dark:bg-red-900/30 border-red-500 animate-shake'
-                      : isSelected
-                      ? 'bg-primary/10 border-primary ring-2 ring-primary'
-                      : 'hover:border-primary/50 hover:shadow-md'
-                  }`}
+                <button
+                  className={cn(
+                    "w-full min-h-[120px] rounded-3xl border-2 transition-all duration-300 flex items-center justify-center p-4 relative overflow-hidden",
+                    "bg-white shadow-card hover:shadow-elevated hover:-translate-y-1",
+                    isSelected && "border-indigo-500 bg-indigo-50 ring-4 ring-indigo-100 shadow-lg z-10",
+                    isWrong && "border-red-500 bg-red-50 animate-shake",
+                    card.matched && "pointer-events-none"
+                  )}
                   onClick={() => handleCardClick(card)}
+                  disabled={card.matched}
                 >
-                  <CardContent className="p-3 text-center">
-                    <p
-                      className={`${
-                        card.type === 'word' ? 'font-jp text-lg' : 'text-sm'
-                      } ${card.matched ? 'line-through' : ''}`}
-                    >
-                      {card.content}
-                    </p>
-                  </CardContent>
-                </Card>
+                  <p className={cn(
+                    "text-center transition-all duration-300",
+                    card.type === 'word' ? 'font-jp text-2xl font-bold text-indigo-900' : 'text-base font-medium text-slate-600',
+                    isSelected && "text-indigo-700"
+                  )}>
+                    {card.content}
+                  </p>
+                  
+                  {/* Decorative background for type */}
+                  <div className={cn(
+                    "absolute bottom-2 right-3 text-[10px] font-bold uppercase tracking-tighter opacity-20",
+                    card.type === 'word' ? 'text-indigo-500' : 'text-slate-500'
+                  )}>
+                    {card.type === 'word' ? 'JP' : 'VN'}
+                  </div>
+                </button>
               </motion.div>
             );
           })}
         </AnimatePresence>
       </div>
 
-      <div className="text-center text-sm text-muted-foreground">
-        Ghép {gameWords.length} cặp từ vựng
+      <div className="flex flex-col items-center gap-4 pt-4">
+        <p className="text-sm text-slate-400 font-medium">
+          Ghép từ vựng tiếng Nhật với ý nghĩa tương ứng
+        </p>
+        <Button 
+          variant="ghost" 
+          onClick={onBack}
+          className="text-muted-foreground gap-2 hover:text-indigo-600 transition-colors"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Dừng trò chơi
+        </Button>
       </div>
     </div>
   );
 };
-
-// export default MatchGame;
