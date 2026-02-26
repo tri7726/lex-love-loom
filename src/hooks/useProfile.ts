@@ -14,6 +14,11 @@ export interface Profile {
   jlpt_level: string | null;
   created_at: string;
   updated_at: string;
+  // Convenience aliases used across components
+  full_name: string | null;
+  level: string | null;
+  xp: number;
+  streak: number;
 }
 
 export const useProfile = () => {
@@ -41,7 +46,14 @@ export const useProfile = () => {
           throw error;
         }
       } else {
-        setProfile(data as Profile);
+        const raw = data as any;
+        setProfile({
+          ...raw,
+          full_name: raw.display_name,
+          level: raw.jlpt_level,
+          xp: raw.total_xp || 0,
+          streak: raw.current_streak || 0,
+        } as Profile);
       }
     } catch (error: any) {
       console.error('Error fetching profile:', error);
@@ -67,7 +79,14 @@ export const useProfile = () => {
           },
           (payload: any) => {
             if (payload.new) {
-              setProfile(payload.new as Profile);
+              const raw = payload.new as any;
+              setProfile({
+                ...raw,
+                full_name: raw.display_name,
+                level: raw.jlpt_level,
+                xp: raw.total_xp || 0,
+                streak: raw.current_streak || 0,
+              } as Profile);
             }
           }
         )

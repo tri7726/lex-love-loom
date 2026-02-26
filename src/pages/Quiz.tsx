@@ -18,7 +18,7 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { MINNA_N5_VOCAB } from '@/data/minna-n5';
-import { VocabWord } from './Vocabulary';
+import { VocabWord } from '@/types/vocabulary';
 
 type QuizMode = 'classic' | 'speed' | 'listening' | 'writing';
 type DeepMemoryLevel = 1 | 2 | 3 | 4;

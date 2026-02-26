@@ -52,7 +52,7 @@ export function CreatePassageDialog({ onCreated }: CreatePassageDialogProps) {
       }
 
       // Insert into database
-      const { error: insertError } = await supabase
+      const { error: insertError } = await (supabase as any)
         .from('reading_passages')
         .insert({
           title: form.title,

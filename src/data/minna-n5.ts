@@ -1,4 +1,4 @@
-import { VocabWord } from '../pages/Vocabulary';
+import { VocabWord } from '@/types/vocabulary';
 
 export const MINNA_N5_VOCAB: VocabWord[][] = [
   // Bài 1
