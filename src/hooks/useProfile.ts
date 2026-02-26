@@ -79,7 +79,15 @@ export const useProfile = () => {
           },
           (payload: any) => {
             if (payload.new) {
-              setProfile(payload.new as Profile);
+              const raw = payload.new as any;
+              setProfile({
+                ...raw,
+                full_name: raw.display_name,
+                level: raw.jlpt_level,
+                xp: raw.total_xp || 0,
+                streak: raw.current_streak || 0,
+              } as Profile);
+            }
             }
           }
         )

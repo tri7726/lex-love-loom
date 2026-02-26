@@ -258,8 +258,8 @@ export const STROKE_ORDER: Record<string, string[]> = {
   // '地' already defined above
   '鉄': ['金', '失', '鉄'],
   '船': ['舟', '公', '船'],
-  '空': ['穴', '工', '空'],
-  '港': ['氵', '巷', '港'],
+  // '空' already defined above
+  // '港' already defined above
   '市': ['巾', '市'],
   '町': ['田', '丁', '町'],
   '村': ['木', '寸', '村'],
