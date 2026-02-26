@@ -49,13 +49,13 @@ export const FolderSelectionDialog: React.FC<FolderSelectionDialogProps> = ({
   const loadFolders = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('vocabulary_folders')
         .select('id, name, icon, color, parent_id')
         .order('name');
 
       if (error) throw error;
-      setFolders(data || []);
+      setFolders((data || []) as VocabularyFolder[]);
     } catch (error) {
       console.error('Failed to load folders:', error);
     } finally {
