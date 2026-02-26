@@ -121,11 +121,6 @@ export default {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.5" },
         },
-        shake: {
-          "0%, 100%": { transform: "translateX(0)" },
-          "25%": { transform: "translateX(-5px)" },
-          "75%": { transform: "translateX(5px)" },
-        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -135,7 +130,6 @@ export default {
         "scale-in": "scale-in 0.3s ease-out",
         "bounce-soft": "bounce-soft 2s ease-in-out infinite",
         pulse: "pulse 2s ease-in-out infinite",
-        shake: "shake 0.2s ease-in-out 0s 2",
       },
     },
   },

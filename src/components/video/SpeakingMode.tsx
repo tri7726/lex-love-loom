@@ -207,12 +207,13 @@ export const SpeakingMode: React.FC<SpeakingModeProps> = ({
   return (
     <TooltipProvider>
       <div className="space-y-4">
+        {/* Header */}
         <div className="flex items-center justify-between">
-          <div className="flex items-baseline gap-2">
-            <h2 className="text-xl font-bold">Luyện phát âm</h2>
-            <span className="text-sm text-muted-foreground">
-              (Câu hỏi {currentIndex + 1}/{segments.length})
-            </span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">Luyện phát âm</span>
+            <Badge variant="outline" className="font-mono">
+              Câu {currentIndex + 1}/{segments.length}
+            </Badge>
           </div>
           
           {/* Toolbar icons */}
@@ -268,46 +269,49 @@ export const SpeakingMode: React.FC<SpeakingModeProps> = ({
         <ScrollArea className="w-full whitespace-nowrap">
           <div className="flex items-center gap-2 pb-2">
             <Button
-              variant="secondary"
+              variant="ghost"
               size="icon"
-              className="h-9 w-9 flex-shrink-0 bg-muted/50 rounded-lg hover:bg-muted"
+              className="h-8 w-8 flex-shrink-0"
               onClick={handlePrev}
               disabled={currentIndex === 0}
             >
-              <ChevronLeft className="h-5 w-5" />
+              <ChevronLeft className="h-4 w-4" />
             </Button>
 
-            {segments.map((_, index) => {
-              const isActive = index === currentIndex;
-              const isCompleted = completedSegments.has(index);
+            {segments.slice(0, 5).map((_, index) => {
+              const actualIndex = Math.max(0, currentIndex - 2) + index;
+              if (actualIndex >= segments.length) return null;
+              
+              const isActive = actualIndex === currentIndex;
+              const isCompleted = completedSegments.has(actualIndex);
+              const hasScore = speakingScores.has(actualIndex);
+              const score = speakingScores.get(actualIndex);
 
               return (
                 <Button
-                  key={index}
-                  variant={isActive ? 'default' : 'secondary'}
+                  key={actualIndex}
+                  variant={isActive ? 'default' : 'outline'}
                   size="sm"
                   className={cn(
-                    'h-9 min-w-[70px] flex-shrink-0 rounded-lg transition-all',
-                    isActive 
-                      ? 'bg-matcha text-white hover:bg-matcha/90 border-none' 
-                      : 'bg-muted/50 text-foreground hover:bg-muted border-none',
-                    isCompleted && !isActive && 'text-matcha ring-1 ring-matcha/30'
+                    'h-8 min-w-[60px] flex-shrink-0',
+                    isActive && 'bg-matcha hover:bg-matcha/90',
+                    isCompleted && !isActive && 'border-matcha/50 text-matcha',
                   )}
-                  onClick={() => onIndexChange(index)}
+                  onClick={() => onIndexChange(actualIndex)}
                 >
-                  Câu {index + 1}
+                  Câu {actualIndex + 1}
                 </Button>
               );
             })}
 
             <Button
-              variant="secondary"
+              variant="ghost"
               size="icon"
-              className="h-9 w-9 flex-shrink-0 bg-muted/50 rounded-lg hover:bg-muted"
+              className="h-8 w-8 flex-shrink-0"
               onClick={handleNext}
               disabled={currentIndex === segments.length - 1}
             >
-              <ChevronRight className="h-5 w-5" />
+              <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
           <ScrollBar orientation="horizontal" />
@@ -372,79 +376,70 @@ export const SpeakingMode: React.FC<SpeakingModeProps> = ({
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4">
+            <div className="flex items-center justify-center gap-3">
               {/* Replay button */}
               <Button
-                variant="secondary"
+                variant="outline"
                 size="lg"
                 onClick={onPlaySegment}
                 disabled={!playerReady}
-                className="h-12 flex-1 sm:flex-none gap-2 px-6 rounded-xl bg-muted/50 hover:bg-muted border-none"
+                className="gap-2"
               >
-                <div className="flex flex-col items-center">
-                  <div className="flex items-center gap-2">
-                    <Play className="h-4 w-4 fill-foreground" />
-                    <span>Phát lại</span>
-                  </div>
-                  <span className="text-[10px] text-muted-foreground mt-0.5">Space</span>
-                </div>
+                <Play className="h-5 w-5" />
+                Phát lại
+                <span className="text-xs text-muted-foreground ml-1">Space</span>
               </Button>
 
               {/* Record button - main CTA */}
               <Button
                 size="lg"
                 className={cn(
-                  'h-12 flex-[2] sm:flex-none gap-2 px-10 rounded-xl font-bold shadow-matcha/20 shadow-lg border-none',
+                  'gap-2 px-8',
                   isListening
                     ? 'bg-destructive hover:bg-destructive/90'
-                    : 'bg-matcha hover:bg-matcha/90 text-white',
+                    : 'bg-matcha hover:bg-matcha/90',
                 )}
                 onClick={handleRecord}
                 disabled={!isSupported || hasChecked}
               >
-                <div className="flex flex-col items-center">
-                  <div className="flex items-center gap-2">
-                    {isListening ? <MicOff className="h-5 w-5 animate-pulse" /> : <Mic className="h-5 w-5" />}
-                    <span>{isListening ? "Dừng ghi" : "Kiểm tra phát âm"}</span>
-                  </div>
-                  <span className="text-[10px] opacity-80 mt-0.5 font-normal">Enter</span>
-                </div>
+                {isListening ? (
+                  <>
+                    <MicOff className="h-5 w-5 animate-pulse" />
+                    Dừng ghi
+                  </>
+                ) : (
+                  <>
+                    <Mic className="h-5 w-5" />
+                    Kiểm tra phát âm
+                  </>
+                )}
+                <span className="text-xs ml-1">Enter</span>
               </Button>
 
-              {/* Nav buttons */}
-              <div className="flex gap-2 w-full sm:w-auto">
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  onClick={handlePrev}
-                  disabled={currentIndex === 0}
-                  className="h-12 flex-1 sm:flex-none px-6 rounded-xl bg-muted/30 hover:bg-muted border-none"
-                >
-                  <div className="flex flex-col items-center">
-                    <div className="flex items-center gap-1">
-                      <ChevronLeft className="h-4 w-4" />
-                      <span>Trước</span>
-                    </div>
-                    <span className="text-[10px] text-muted-foreground mt-0.5">Shift + ←</span>
-                  </div>
-                </Button>
+              {/* Navigation buttons */}
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={handlePrev}
+                disabled={currentIndex === 0}
+                className="gap-1"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Trước
+                <span className="text-xs text-muted-foreground ml-1">Shift+←</span>
+              </Button>
 
-                <Button
-                  variant="default"
-                  size="lg"
-                  onClick={handleNext}
-                  disabled={currentIndex === segments.length - 1}
-                  className="h-12 flex-1 sm:flex-none px-10 rounded-xl bg-matcha/20 text-matcha hover:bg-matcha/30 border-none font-bold"
-                >
-                  <div className="flex flex-col items-center">
-                    <div className="flex items-center gap-1">
-                      <span>Tiếp</span>
-                      <ChevronRight className="h-4 w-4" />
-                    </div>
-                    <span className="text-[10px] opacity-80 mt-0.5 font-normal">Tab / Shift + →</span>
-                  </div>
-                </Button>
-              </div>
+              <Button
+                variant="default"
+                size="lg"
+                onClick={handleNext}
+                disabled={currentIndex === segments.length - 1}
+                className="gap-1 bg-matcha hover:bg-matcha/90"
+              >
+                Tiếp
+                <ChevronRight className="h-4 w-4" />
+                <span className="text-xs ml-1">Tab/Shift+→</span>
+              </Button>
             </div>
 
             {/* Listening indicator */}

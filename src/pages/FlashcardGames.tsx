@@ -21,11 +21,17 @@ import { MatchGame } from '@/components/games/MatchGame';
 import { MultipleChoiceGame } from '@/components/games/MultipleChoiceGame';
 import { WriteGame } from '@/components/games/WriteGame';
 import { ListeningGame } from '@/components/games/ListeningGame';
-import { TypingGame } from '@/components/games/TypingGame';
 import { SpeedGame } from '@/components/games/SpeedGame';
+import { TypingGame } from '@/components/games/TypingGame';
 import { useToast } from '@/hooks/use-toast';
-import { VocabularyItem } from '@/types/vocabulary';
 
+interface VocabularyItem {
+  id: string;
+  word: string;
+  reading: string | null;
+  meaning: string;
+  mastery_level: number | null;
+}
 
 type GameMode = 'hub' | 'match' | 'quiz' | 'write' | 'listening' | 'speed' | 'typing';
 

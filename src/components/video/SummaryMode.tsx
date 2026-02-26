@@ -4,7 +4,6 @@ import { CheckCircle, XCircle, Trophy, Target, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
 
 const renderTextWithFurigana = (text: string, vocabulary: any[], show: boolean) => {
   if (!show || !vocabulary || vocabulary.length === 0) return text;
@@ -94,47 +93,43 @@ export const SummaryMode: React.FC<SummaryModeProps> = ({
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="text-center py-8 relative"
+        className="text-center py-6"
       >
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-matcha/5 rounded-full blur-3xl -z-10" />
-        <div className={cn(
-          "inline-flex items-center justify-center w-28 h-28 rounded-2xl bg-background shadow-xl border border-muted-foreground/10 mb-6 rotate-3 transition-transform hover:rotate-0",
-          color
-        )}>
-          <span className="text-6xl font-black">{grade}</span>
+        <div className={`inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-muted to-muted/50 mb-4`}>
+          <span className={`text-5xl font-bold ${color}`}>{grade}</span>
         </div>
-        <h2 className="text-2xl font-bold tracking-tight">Kết quả luyện tập</h2>
-        <p className="text-muted-foreground mt-1">
-          Tuyệt vời! Bạn đã hoàn thành <span className="text-matcha font-bold">{completedCount}/{totalSegments}</span> đoạn video.
+        <h2 className="text-xl font-semibold">Tổng kết bài học</h2>
+        <p className="text-muted-foreground">
+          Bạn đã hoàn thành {completedCount}/{totalSegments} đoạn
         </p>
       </motion.div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card className="border-none bg-muted/30 shadow-none rounded-2xl">
-          <CardContent className="p-6 text-center">
-            <Target className="h-6 w-6 mx-auto text-matcha mb-2 opacity-70" />
-            <p className="text-3xl font-black">{Math.round(completionRate)}%</p>
-            <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Hoàn thành</p>
+      <div className="grid grid-cols-2 gap-4">
+        <Card>
+          <CardContent className="p-4 text-center">
+            <Target className="h-8 w-8 mx-auto text-matcha mb-2" />
+            <p className="text-2xl font-bold">{Math.round(completionRate)}%</p>
+            <p className="text-sm text-muted-foreground">Hoàn thành</p>
           </CardContent>
         </Card>
 
-        <Card className="border-none bg-muted/30 shadow-none rounded-2xl">
-          <CardContent className="p-6 text-center">
-            <BarChart3 className="h-6 w-6 mx-auto text-sakura mb-2 opacity-70" />
-            <p className="text-3xl font-black">{averageScore}%</p>
-            <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Độ chính xác (TB)</p>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <BarChart3 className="h-8 w-8 mx-auto text-sakura mb-2" />
+            <p className="text-2xl font-bold">{averageScore}%</p>
+            <p className="text-sm text-muted-foreground">Điểm TB</p>
           </CardContent>
         </Card>
 
         {quizScore && (
-          <Card className="border-none bg-matcha/5 shadow-none rounded-2xl col-span-2 lg:col-span-1">
-            <CardContent className="p-6 text-center">
-              <Trophy className="h-6 w-6 mx-auto text-gold mb-2 opacity-70" />
-              <p className="text-3xl font-black">
+          <Card className="col-span-2">
+            <CardContent className="p-4 text-center">
+              <Trophy className="h-8 w-8 mx-auto text-gold mb-2" />
+              <p className="text-2xl font-bold">
                 {quizScore.correct}/{quizScore.total}
               </p>
-              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Kết quả Quiz</p>
+              <p className="text-sm text-muted-foreground">Điểm Quiz</p>
             </CardContent>
           </Card>
         )}

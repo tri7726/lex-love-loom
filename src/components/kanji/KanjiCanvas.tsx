@@ -14,10 +14,9 @@ interface KanjiCanvasProps {
   kanji: string;
   meaning: string;
   onComplete?: () => void;
-  showGuide?: boolean;
 }
 
-export const KanjiCanvas = ({ kanji, meaning, onComplete, showGuide = true }: KanjiCanvasProps) => {
+export const KanjiCanvas = ({ kanji, meaning, onComplete }: KanjiCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [context, setContext] = useState<CanvasRenderingContext2D | null>(null);
@@ -105,11 +104,9 @@ export const KanjiCanvas = ({ kanji, meaning, onComplete, showGuide = true }: Ka
 
       <div className="relative group">
         {/* Transparent Placeholder Background Kanji */}
-        {showGuide && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-10">
-            <span className="text-[200px] font-jp font-bold leading-none">{kanji}</span>
-          </div>
-        )}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-10">
+          <span className="text-[200px] font-jp font-bold leading-none">{kanji}</span>
+        </div>
         
         <div className="absolute inset-0 border-2 border-dashed border-muted-foreground/20 rounded-2xl pointer-events-none" />
         <div className="absolute top-1/2 left-0 w-full border-t border-dashed border-muted-foreground/10 pointer-events-none" />
@@ -138,11 +135,7 @@ export const KanjiCanvas = ({ kanji, meaning, onComplete, showGuide = true }: Ka
       
       <div className="bg-muted/50 p-3 rounded-lg flex items-start gap-3 text-xs text-muted-foreground">
         <PenTool className="h-4 w-4 shrink-0 mt-0.5" />
-        <p>
-          {showGuide 
-            ? "Vẽ đè lên khung mờ theo các ô vuông hướng dẫn để rèn luyện độ chính xác của nét chữ."
-            : "Viết chữ Kanji này từ trí nhớ của bạn. Hãy chú ý đến cấu trúc và sự cân đối!"}
-        </p>
+        <p>Vẽ đè lên khung mờ theo các ô vuông hướng dẫn để rèn luyện độ chính xác của nét chữ.</p>
       </div>
     </div>
   );

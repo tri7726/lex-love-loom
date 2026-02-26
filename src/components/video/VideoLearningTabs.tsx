@@ -1,8 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Video, Headphones, Mic, Brain, FileText, ScrollText } from 'lucide-react';
+import { Video, Headphones, Mic, Brain, FileText } from 'lucide-react';
 
-export type VideoTab = 'video' | 'dictation' | 'pronunciation' | 'quiz' | 'summary' | 'transcript';
+export type VideoTab = 'video' | 'dictation' | 'pronunciation' | 'quiz' | 'summary';
 
 interface VideoLearningTabsProps {
   activeTab: VideoTab;
@@ -13,7 +13,6 @@ interface VideoLearningTabsProps {
 
 const tabs: Array<{ id: VideoTab; label: string; icon: React.ElementType }> = [
   { id: 'video', label: 'Video', icon: Video },
-  { id: 'transcript', label: 'Phụ đề', icon: ScrollText },
   { id: 'dictation', label: 'Chép chính tả', icon: Headphones },
   { id: 'pronunciation', label: 'Phát âm', icon: Mic },
   { id: 'quiz', label: 'Bài tập', icon: Brain },
@@ -34,7 +33,7 @@ export const VideoLearningTabs: React.FC<VideoLearningTabsProps> = ({
         
         let count = 0;
         if (tab.id === 'quiz') count = quizCount;
-        if (tab.id === 'dictation' || tab.id === 'pronunciation' || tab.id === 'video' || tab.id === 'transcript') count = segmentsCount;
+        if (tab.id === 'dictation' || tab.id === 'pronunciation' || tab.id === 'video') count = segmentsCount;
 
         return (
           <button

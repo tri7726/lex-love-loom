@@ -8,11 +8,9 @@ import {
   XCircle,
   Keyboard,
   SkipForward,
-  RotateCcw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { cn } from '@/lib/utils';
 import { useTTS } from '@/hooks/useTTS';
 
 const renderTextWithFurigana = (text: string, vocabulary: any[], show: boolean) => {
@@ -191,28 +189,35 @@ export const VideoQuizMode: React.FC<VideoQuizModeProps> = ({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-baseline gap-2">
-          <h2 className="text-xl font-bold">Trắc nghiệm</h2>
-          <span className="text-sm text-muted-foreground">
-            (Câu hỏi {currentIndex + 1}/{shuffledQuestions.length})
-          </span>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold">Quiz Master</span>
+            {currentQuestion.question_type && (
+              <Badge className="bg-primary/10 text-primary border-primary/20">
+                {currentQuestion.question_type === 'vocabulary' ? 'Phần A: Từ vựng' : 
+                 currentQuestion.question_type === 'grammar' ? 'Phần B: Ngữ pháp' : 
+                 'Phần C: Đọc hiểu'}
+              </Badge>
+            )}
+            {currentQuestion.difficulty && (
+              <Badge variant="outline" className="text-sakura border-sakura/30">
+                {currentQuestion.difficulty}
+              </Badge>
+            )}
+          </div>
+          <Button variant="ghost" size="sm" onClick={handleReshuffle} className="gap-1">
+            <Shuffle className="h-4 w-4" />
+          </Button>
         </div>
-        <div className="flex items-center gap-2">
-          {currentQuestion.question_type && (
-            <Badge className="bg-primary/10 text-primary border-none text-[10px] px-2 h-5">
-              {currentQuestion.question_type.toUpperCase()}
-            </Badge>
-          )}
+        
+        {/* Progress bar */}
+        <div className="space-y-1">
+          <Progress value={progress} className="h-2 bg-matcha/20" />
+          <p className="text-sm text-muted-foreground">
+            Câu hỏi {currentIndex + 1} của {shuffledQuestions.length}
+          </p>
         </div>
-      </div>
-      
-      <div className="space-y-1">
-        <div className="flex justify-between text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
-          <span>Tiến độ</span>
-          <span>{Math.round(progress)}%</span>
-        </div>
-        <Progress value={progress} className="h-1.5 bg-muted rounded-full" />
       </div>
 
       {/* Question */}
@@ -234,7 +239,7 @@ export const VideoQuizMode: React.FC<VideoQuizModeProps> = ({
         </div>
 
         {/* Options */}
-        <div className="grid gap-3">
+        <div className="space-y-2">
           {currentQuestion.options.map((option, index) => {
             const isSelected = selectedAnswer === index;
             const isCorrect = index === currentQuestion.correct_answer;
@@ -245,42 +250,42 @@ export const VideoQuizMode: React.FC<VideoQuizModeProps> = ({
                 key={index}
                 onClick={() => handleAnswer(index)}
                 disabled={hasAnswered}
-                className={cn(
-                  "w-full text-left p-4 rounded-xl border transition-all flex items-center gap-4 group",
-                  showResult && isCorrect
-                    ? "border-matcha bg-matcha/5"
+                className={`
+                  w-full text-left p-4 rounded-lg border-2 transition-all
+                  flex items-center gap-3
+                  ${showResult && isCorrect
+                    ? 'border-matcha bg-matcha/10'
                     : showResult && isSelected && !isCorrect
-                      ? "border-destructive/50 bg-destructive/5"
+                      ? 'border-destructive bg-destructive/10'
                       : isSelected
-                        ? "border-matcha bg-matcha/5"
-                        : "border-muted-foreground/10 bg-muted/20 hover:border-matcha/30 hover:bg-muted/40"
-                )}
-                whileHover={!hasAnswered ? { x: 4 } : {}}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                  }
+                `}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.05 }}
               >
-                <div className={cn(
-                  "flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm",
-                  showResult && isCorrect
-                    ? "bg-matcha text-white"
+                <span className={`
+                  flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium
+                  ${showResult && isCorrect
+                    ? 'bg-matcha text-white'
                     : showResult && isSelected && !isCorrect
-                      ? "bg-destructive text-white"
-                      : isSelected
-                        ? "bg-matcha text-white"
-                        : "bg-background text-muted-foreground group-hover:text-matcha group-hover:bg-matcha/10"
-                )}>
+                      ? 'bg-destructive text-white'
+                      : 'bg-muted text-muted-foreground'
+                  }
+                `}>
                   {showResult && isCorrect ? (
                     <CheckCircle className="h-4 w-4" />
                   ) : showResult && isSelected && !isCorrect ? (
                     <XCircle className="h-4 w-4" />
                   ) : (
-                    String.fromCharCode(65 + index)
+                    index + 1
                   )}
-                </div>
-                <div className="font-jp text-base flex-1">
+                </span>
+                <span className="font-jp flex-1">
                   {renderTextWithFurigana(option, allVocabulary, showFurigana)}
-                </div>
+                </span>
               </motion.button>
             );
           })}

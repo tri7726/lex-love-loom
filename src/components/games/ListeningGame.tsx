@@ -1,13 +1,17 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Volume2, CheckCircle2, XCircle, ArrowRight, RotateCcw, ChevronLeft, Headphones, Star, Sparkles, Trophy } from 'lucide-react';
+import { Volume2, CheckCircle, XCircle, ArrowRight, RotateCcw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
 
-import { VocabularyItem } from '@/types/vocabulary';
+interface VocabularyItem {
+  id: string;
+  word: string;
+  reading: string | null;
+  meaning: string;
+  mastery_level: number | null;
+}
 
 interface ListeningGameProps {
   vocabulary: VocabularyItem[];
@@ -26,7 +30,6 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
   vocabulary,
   onComplete,
   onUpdateMastery,
-  onBack,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -64,7 +67,7 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
       setTimeout(() => speak(currentQuestion.word.word), 500);
       setHasPlayed(true);
     }
-  }, [currentIndex, currentQuestion, hasPlayed]);
+  }, [currentIndex]);
 
   const speak = (text: string) => {
     if ('speechSynthesis' in window) {
@@ -82,20 +85,18 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
     setSelectedAnswer(index);
     setShowResult(true);
 
-    const isCorrect = index === currentQuestion?.correctIndex;
+    const isCorrect = index === currentQuestion.correctIndex;
     if (isCorrect) {
       setCorrectCount((prev) => prev + 1);
     }
-    if (currentQuestion) {
-      onUpdateMastery(currentQuestion.word.id, isCorrect);
-    }
+    onUpdateMastery(currentQuestion.word.id, isCorrect);
   };
 
   const handleNext = () => {
     if (currentIndex + 1 >= questions.length) {
       setGameComplete(true);
       onComplete({
-        correct: correctCount + (selectedAnswer === currentQuestion?.correctIndex ? 1 : 0),
+        correct: correctCount + (selectedAnswer === currentQuestion.correctIndex ? 1 : 0),
         total: questions.length,
       });
     } else {
@@ -116,135 +117,75 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
   };
 
   if (gameComplete) {
-    const finalScore = correctCount;
+    const finalScore = correctCount + (selectedAnswer === currentQuestion?.correctIndex ? 1 : 0);
     const percentage = Math.round((finalScore / questions.length) * 100);
 
     return (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="max-w-md mx-auto"
-      >
-        <Card className="border-0 shadow-2xl overflow-hidden rounded-3xl bg-gradient-to-br from-orange-50 via-white to-rose-50">
-          <div className="h-2 bg-gradient-to-r from-orange-400 via-rose-400 to-pink-500" />
-          <CardHeader className="pb-2">
-            <CardTitle className="text-3xl font-display font-bold text-center text-rose-800 flex items-center justify-center gap-2">
-              <Trophy className="h-8 w-8 text-amber-500" />
-              Kết quả
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-8 p-8">
-            <div className="text-center relative">
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className="text-7xl font-display font-black bg-gradient-to-br from-orange-600 to-rose-500 bg-clip-text text-transparent inline-block"
-              >
-                {percentage}%
-              </motion.div>
-              <p className="text-rose-400 font-medium tracking-widest uppercase text-sm mt-2">Độ nhạy tai</p>
-              <Sparkles className="absolute -top-4 -right-4 h-8 w-8 text-amber-300 animate-pulse" />
-            </div>
+      <Card className="text-center">
+        <CardHeader>
+          <CardTitle className="text-2xl">🎧 Kết quả</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="text-6xl font-bold text-primary">
+            {percentage}%
+          </div>
+          <p className="text-lg">
+            Bạn nghe đúng <span className="font-bold text-green-600">{finalScore}</span> / {questions.length} từ
+          </p>
 
-            <div className="bg-white/60 backdrop-blur-sm p-6 rounded-2xl border border-rose-100 text-center">
-              <p className="text-lg text-rose-800">
-                Bạn nghe đúng <span className="font-bold text-rose-600">{finalScore}</span> / {questions.length} câu
-              </p>
-              <div className="mt-2 text-sm">
-                {percentage >= 80 ? (
-                  <p className="text-green-600 font-bold">🌟 Tai nghe cực nhạy!</p>
-                ) : percentage >= 60 ? (
-                  <p className="text-amber-600 font-bold">👍 Nghe tốt lắm!</p>
-                ) : (
-                  <p className="text-orange-600 font-bold">💪 Cần luyện thêm nhé!</p>
-                )}
-              </div>
-            </div>
+          <div className="flex gap-4 justify-center">
+            {percentage >= 80 ? (
+              <p className="text-green-600">🌟 Tai rất nhạy!</p>
+            ) : percentage >= 60 ? (
+              <p className="text-yellow-600">👍 Nghe tốt!</p>
+            ) : (
+              <p className="text-orange-600">💪 Cần luyện thêm!</p>
+            )}
+          </div>
 
-            <div className="flex flex-col gap-3">
-              <button 
-                onClick={restartGame} 
-                className="w-full gap-2 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white rounded-2xl py-6 text-lg font-bold shadow-lg shadow-orange-200 transition-all active:scale-95"
-              >
-                <RotateCcw className="h-5 w-5 inline-block mr-2" />
-                Chơi lại
-              </button>
-              <Button 
-                variant="ghost" 
-                onClick={onBack}
-                className="w-full text-rose-500 hover:bg-rose-50 rounded-2xl py-6"
-              >
-                Quay lại danh sách
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+          <Button onClick={restartGame}>Chơi lại</Button>
+        </CardContent>
+      </Card>
     );
   }
 
   if (!currentQuestion) return null;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-8">
+    <div className="space-y-6">
       {/* Progress */}
-      <div className="space-y-2 px-2">
-        <div className="flex justify-between items-end mb-1">
-          <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-100 px-3 py-1 rounded-full text-xs font-bold">
-            Câu {currentIndex + 1} / {questions.length}
-          </Badge>
-          <div className="flex items-center gap-2 bg-green-50 px-3 py-1 rounded-full border border-green-100">
-            <CheckCircle2 className="h-4 w-4 text-green-500" />
-            <span className="text-sm font-bold text-green-600">{correctCount} đúng</span>
-          </div>
+      <div className="space-y-2">
+        <div className="flex justify-between text-sm">
+          <span>Câu {currentIndex + 1} / {questions.length}</span>
+          <span className="text-green-600">✓ {correctCount}</span>
         </div>
-        <div className="h-2 w-full bg-muted rounded-full overflow-hidden shadow-inner">
-          <motion.div 
-            className="h-full bg-gradient-to-r from-orange-400 to-rose-500"
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.3 }}
-          />
-        </div>
+        <Progress value={progress} className="h-2" />
       </div>
 
-      {/* Main Action Area */}
-      <Card className="border-0 shadow-xl rounded-[3rem] bg-white overflow-hidden border border-orange-100/50">
-        <CardContent className="py-16 text-center space-y-8">
+      {/* Listen Button */}
+      <Card className="text-center">
+        <CardContent className="py-8">
           <div className="space-y-4">
-            <p className="text-rose-400 font-medium uppercase tracking-widest text-sm">Nghe và chọn đáp án đúng</p>
+            <p className="text-sm text-muted-foreground mb-4">Nghe và chọn đáp án đúng</p>
             
-            <div className="relative inline-block">
-              {/* Pulsing rings animation */}
-              <motion.div 
-                animate={{ scale: [1, 1.4], opacity: [0.5, 0] }}
-                transition={{ repeat: Infinity, duration: 2, ease: "easeOut" }}
-                className="absolute inset-0 rounded-full bg-orange-200"
-              />
-              <motion.div 
-                animate={{ scale: [1, 1.2], opacity: [0.3, 0] }}
-                transition={{ repeat: Infinity, duration: 2, delay: 0.5, ease: "easeOut" }}
-                className="absolute inset-0 rounded-full bg-orange-100"
-              />
-              
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => speak(currentQuestion.word.word)}
-                className="relative w-32 h-32 rounded-full bg-gradient-to-br from-orange-400 to-rose-500 text-white flex items-center justify-center shadow-2xl shadow-orange-200 z-10 transition-all"
-              >
-                <Volume2 className="h-14 w-14" />
-              </motion.button>
-            </div>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => speak(currentQuestion.word.word)}
+              className="w-24 h-24 rounded-full bg-primary text-primary-foreground flex items-center justify-center mx-auto shadow-lg"
+            >
+              <Volume2 className="h-10 w-10" />
+            </motion.button>
 
-            <p className="text-sm text-muted-foreground font-medium pt-4">
-              Nhấn vào nút để nghe lại
+            <p className="text-sm text-muted-foreground">
+              Nhấn để nghe lại
             </p>
           </div>
         </CardContent>
       </Card>
 
-      {/* Options Grid */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Options */}
+      <div className="grid grid-cols-2 gap-3">
         <AnimatePresence mode="wait">
           {currentQuestion.options.map((option, index) => {
             const isSelected = selectedAnswer === index;
@@ -259,62 +200,50 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: index * 0.1 }}
               >
-                <button
-                  className={cn(
-                    "w-full min-h-[140px] p-6 rounded-[2rem] border-2 transition-all duration-300 flex flex-col items-center justify-center gap-2 text-center",
-                    !showResult && "bg-white border-muted hover:border-orange-300 hover:bg-orange-50/50 hover:shadow-lg shadow-sm backdrop-blur-sm",
-                    showCorrect && "bg-[#ebf8f1] border-[#22c55e] text-[#166534] shadow-md",
-                    showWrong && "bg-red-50 border-red-500 text-red-700 shadow-md",
-                    isSelected && !showResult && "border-orange-500 bg-orange-50 ring-4 ring-orange-100",
-                    showResult && !isCorrect && !isSelected && "opacity-50 grayscale-[0.2]"
-                  )}
+                <Card
+                  className={`cursor-pointer min-h-[100px] flex items-center justify-center transition-all ${
+                    showCorrect
+                      ? 'bg-green-100 border-green-500 dark:bg-green-900/30'
+                      : showWrong
+                      ? 'bg-red-100 border-red-500 dark:bg-red-900/30'
+                      : isSelected
+                      ? 'border-primary'
+                      : 'hover:border-primary/50'
+                  }`}
                   onClick={() => handleAnswer(index)}
-                  disabled={showResult}
                 >
-                  <p className={cn(
-                    "font-jp text-3xl font-bold transition-colors",
-                    !showResult ? "text-slate-800" : (showCorrect ? "text-[#166534]" : "text-red-700")
-                  )}>
-                    {option.word}
-                  </p>
-                  <p className="text-sm text-muted-foreground line-clamp-2">{option.reading}</p>
-                  
-                  {showResult && (
-                    <div className="mt-1">
-                      {showCorrect && <CheckCircle2 className="h-6 w-6 text-green-600 animate-in zoom-in" />}
-                      {showWrong && <XCircle className="h-6 w-6 text-red-600 animate-in zoom-in" />}
-                    </div>
-                  )}
-                </button>
+                  <CardContent className="p-4 text-center">
+                    <p className="font-jp text-xl mb-1">{option.word}</p>
+                    <p className="text-sm text-muted-foreground">{option.meaning}</p>
+                    {showResult && (
+                      <div className="mt-2">
+                        {showCorrect && <CheckCircle className="h-5 w-5 text-green-600 mx-auto" />}
+                        {showWrong && <XCircle className="h-5 w-5 text-red-600 mx-auto" />}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </motion.div>
             );
           })}
         </AnimatePresence>
       </div>
 
-      {/* Footer Controls */}
-      <div className="flex flex-col items-center gap-6 pt-4">
-        {showResult && (
-          <motion.button 
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            onClick={handleNext} 
-            className="flex items-center gap-3 bg-slate-900 text-white px-12 py-5 rounded-2xl font-bold shadow-2xl hover:bg-black transition-all active:scale-95 group"
-          >
-            {currentIndex + 1 >= questions.length ? 'Xem kết quả' : 'Câu tiếp theo'}
-            <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
-          </motion.button>
-        )}
-
-        <Button 
-          variant="ghost" 
-          onClick={onBack}
-          className="text-muted-foreground gap-2 hover:text-orange-600 transition-colors"
+      {/* Next Button */}
+      {showResult && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex justify-center"
         >
-          <ChevronLeft className="h-4 w-4" />
-          Quay lại Flashcard Hub
-        </Button>
-      </div>
+          <Button onClick={handleNext} className="gap-2">
+            {currentIndex + 1 >= questions.length ? 'Xem kết quả' : 'Tiếp theo'}
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </motion.div>
+      )}
     </div>
   );
 };
+
+// export default ListeningGame;

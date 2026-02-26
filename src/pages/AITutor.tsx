@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Languages, Camera, MessageSquare, BrainCircuit, Library, Zap } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -6,17 +5,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Navigation } from '@/components/Navigation';
 import { GrammarCheckInput } from '@/components/chat/GrammarCheckInput';
-import { GrammarHistory } from '@/components/chat/GrammarHistory';
 import { SnapLearn } from '@/components/chat/SnapLearn';
 import { HybridTutor } from '@/components/chat/HybridTutor';
 import { FlashcardGenerator } from '@/components/chat/FlashcardGenerator';
 import { cn } from '@/lib/utils';
 
 export const AITutor = () => {
-  const [reloadText, setReloadText] = useState('');
-
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0 relative overflow-hidden">
+      {/* Roadmap-inspired Warm Background */}
       <div className="absolute inset-0 bg-sakura-light/5 dark:bg-slate-950/50 pointer-events-none z-0" />
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-sakura/5 rounded-full blur-[120px] pointer-events-none -mr-40 -mt-40 z-0" />
 
@@ -24,6 +21,7 @@ export const AITutor = () => {
 
       <main className="max-w-6xl mx-auto py-8 px-4 md:px-6 space-y-8 relative z-10">
         <Tabs defaultValue="hybrid" className="space-y-6">
+          {/* Horizontal Navigation with Sakura Accents */}
           <TabsList className="flex h-auto bg-white/60 dark:bg-slate-900/50 backdrop-blur-md rounded-2xl border border-sakura/20 dark:border-slate-800 p-1.5 gap-1.5 overflow-x-auto no-scrollbar shadow-soft">
             {[
               { value: 'hybrid', label: 'Hỏi đáp & Phân tích', icon: MessageSquare },
@@ -31,7 +29,7 @@ export const AITutor = () => {
               { value: 'snap', label: 'Snap & Learn', icon: Camera },
               { value: 'flashcards', label: 'Flashcard VIP', icon: Library },
             ].map((tab) => (
-              <TabsTrigger
+              <TabsTrigger 
                 key={tab.value}
                 value={tab.value}
                 className={cn(
@@ -63,27 +61,12 @@ export const AITutor = () => {
                   </Card>
                 </TabsContent>
 
-                {/* Grammar: 2-column layout */}
                 <TabsContent value="grammar" className="mt-0 focus-visible:outline-none">
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-                    {/* Left: input + result */}
-                    <div className="lg:col-span-2">
-                      <Card className="border border-border bg-card rounded-2xl shadow-sm">
-                        <CardContent className="p-4 sm:p-5">
-                          <GrammarCheckInput
-                            initialValue={reloadText}
-                            key={reloadText || 'default'}
-                          />
-                        </CardContent>
-                      </Card>
-                    </div>
-                    {/* Right: saved history panel */}
-                    <div className="lg:col-span-1">
-                      <Card className="border border-border bg-card rounded-2xl shadow-sm overflow-hidden min-h-[200px]">
-                        <GrammarHistory onReload={(t) => setReloadText(t + '\u200b')} />
-                      </Card>
-                    </div>
-                  </div>
+                  <Card className="border-sakura/10 shadow-soft bg-white/70 dark:bg-slate-900/70 backdrop-blur-md rounded-3xl overflow-hidden">
+                    <CardContent className="p-0">
+                      <GrammarCheckInput />
+                    </CardContent>
+                  </Card>
                 </TabsContent>
 
                 <TabsContent value="snap" className="mt-0 focus-visible:outline-none">

@@ -1,10 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Play, X, CheckCircle, Sparkles, Search } from 'lucide-react';
+import { Play, X, CheckCircle, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
 
 interface Segment {
   id: string;
@@ -63,7 +61,6 @@ interface SubtitlePanelProps {
   isOpen?: boolean;
   showFurigana?: boolean;
   showTranslation?: boolean;
-  isEmbedded?: boolean;
 }
 
 const formatTime = (seconds: number): string => {
@@ -83,11 +80,7 @@ export const SubtitlePanel: React.FC<SubtitlePanelProps> = ({
   isOpen = true,
   showFurigana = false,
   showTranslation = true,
-  isEmbedded = false,
 }) => {
-  const [search, setSearch] = React.useState('');
-  const scrollRef = React.useRef<HTMLDivElement>(null);
-
   if (!isOpen) return null;
 
   // Find currently playing segment based on time
@@ -95,56 +88,22 @@ export const SubtitlePanel: React.FC<SubtitlePanelProps> = ({
     (seg) => currentTime >= seg.start_time && currentTime <= seg.end_time
   );
 
-  const filteredSegments = segments.filter(seg => 
-    seg.japanese_text.toLowerCase().includes(search.toLowerCase()) ||
-    (seg.vietnamese_text && seg.vietnamese_text.toLowerCase().includes(search.toLowerCase()))
-  );
-
-  // Auto-scroll to currently playing segment
-  React.useEffect(() => {
-    if (playingIndex !== -1 && !search) {
-      const element = document.getElementById(`segment-${playingIndex}`);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }
-  }, [playingIndex, search]);
-
   return (
-    <div className={cn(
-      "h-full flex flex-col bg-background",
-      !isEmbedded && "border-l"
-    )}>
+    <div className="h-full flex flex-col bg-background border-l">
       {/* Header */}
-      <div className="flex flex-col border-b bg-muted/30">
-        <div className="flex items-center justify-between p-3 pb-2">
-          <h3 className="font-semibold text-sm">Nội dung bài học</h3>
-          {!isEmbedded && onClose && (
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-        
-        {/* Search */}
-        <div className="px-3 pb-3">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Tìm kiếm nội dung..."
-              className="h-8 pl-8 text-xs bg-white/50"
-            />
-          </div>
-        </div>
+      <div className="flex items-center justify-between p-3 border-b bg-muted/30">
+        <h3 className="font-semibold text-sm">Phụ đề</h3>
+        {onClose && (
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
       {/* Subtitle List */}
-      <ScrollArea className="flex-1" ref={scrollRef}>
+      <ScrollArea className="flex-1">
         <div className="p-2 space-y-1">
-          {filteredSegments.map((segment) => {
-            const index = segments.findIndex(s => s.id === segment.id);
+          {segments.map((segment, index) => {
             const isPlaying = index === playingIndex;
             const isSelected = index === currentIndex;
             const isCompleted = completedSegments.has(index);
@@ -152,7 +111,6 @@ export const SubtitlePanel: React.FC<SubtitlePanelProps> = ({
             return (
               <motion.button
                 key={segment.id}
-                id={`segment-${index}`}
                 onClick={() => onSegmentClick(index)}
                 className={`
                   w-full text-left p-3 rounded-lg transition-all
