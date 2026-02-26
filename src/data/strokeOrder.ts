@@ -138,7 +138,7 @@ export const STROKE_ORDER: Record<string, string[]> = {
   '路': ['足', '各', '路'],
   '近': ['斤', '辶', '近'],
   '遠': ['袁', '辶', '遠'],
-  '前': ['ノ', '𠂉', '前'],
+  // '前' already defined above
 
   /* ── Verbs & Actions (N5/N4) ─────────────────────────────────── */
   '見': ['目', '儿', '見'],
