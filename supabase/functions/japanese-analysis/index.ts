@@ -4,6 +4,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 // ==========================================
@@ -302,7 +303,10 @@ serve(async (req) => {
     }
 
     // Smart Routing Logic
-    const complexKeywords = ["why", "explain", "culture", "difference", "honne", "tatemae", "nuance", "history", "social", "context", "tại sao", "giải thích", "văn hóa", "khác biệt", "sắc thái", "lịch sử"];
+    const complexKeywords = [
+      "why", "explain", "culture", "difference", "honne", "tatemae", "nuance", "history", "social", "context", 
+      "tại sao", "giải thích", "văn hóa", "khác biệt", "sắc thái", "lịch sử", "phân tích", "analysis", "breakdown", "giải mã"
+    ];
     const isComplex = (prompt || "").toLowerCase().split(" ").some(word => complexKeywords.includes(word)) || (content || "").length > 500;
     
     // Explicit override or smart check
@@ -330,7 +334,9 @@ serve(async (req) => {
 
       if (geminiResponse.ok) {
         const geminiData = await geminiResponse.json();
-        const result = JSON.parse(geminiData.candidates[0].content.parts[0].text);
+        const rawText = geminiData.candidates[0].content.parts[0].text;
+        const cleanedText = rawText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+        const result = JSON.parse(cleanedText);
         return new Response(JSON.stringify({ format: 'structured', analysis: result, engine: 'gemini' }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });

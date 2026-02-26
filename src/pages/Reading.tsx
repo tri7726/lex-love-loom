@@ -176,9 +176,11 @@ export const Reading = () => {
       } else {
         throw new Error('Invalid response format');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setAnalysisError('Failed to analyze. Please try again.');
+      const errorMessage = err.message || 'Failed to analyze. Please try again.';
+      setAnalysisError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsAnalyzing(false);
     }
@@ -626,6 +628,7 @@ export const Reading = () => {
       <AnalysisPanel
         isOpen={showAnalysis}
         onClose={() => setShowAnalysis(false)}
+        onToggle={() => setShowAnalysis(!showAnalysis)}
         isLoading={isAnalyzing}
         content={analysisContent}
         error={analysisError}

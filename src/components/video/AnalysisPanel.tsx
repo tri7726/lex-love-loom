@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sparkles, Loader2, BookOpen, MessageSquare, GraduationCap, Lightbulb, Plus } from 'lucide-react';
+import { X, Sparkles, Loader2, BookOpen, MessageSquare, GraduationCap, Lightbulb, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -72,6 +72,7 @@ interface AnalysisPanelProps {
   content: string | null;
   error: string | null;
   structuredData?: StructuredAnalysis | null;
+  onToggle?: () => void;
 }
 
 const JLPT_COLORS: Record<string, string> = {
@@ -89,6 +90,7 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
   content,
   error,
   structuredData,
+  onToggle,
 }) => {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
@@ -131,6 +133,30 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
 
   return (
     <AnimatePresence>
+      {/* Floating Toggle Button (Handle) */}
+      <motion.div
+        initial={false}
+        animate={{ 
+          x: isOpen ? -500 : 0, // Stay at the edge of the panel when open, or screen edge when closed
+        }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        className="fixed top-1/2 right-0 -translate-y-1/2 z-[60]"
+      >
+        <Button
+          variant="secondary"
+          size="icon"
+          className="h-12 w-8 rounded-l-xl rounded-r-none border-y border-l shadow-xl bg-background hover:bg-muted group transition-all"
+          onClick={onToggle || onClose}
+          title={isOpen ? "Ẩn bảng phân tích" : "Hiện bảng phân tích"}
+        >
+          {isOpen ? (
+            <ChevronRight className="h-5 w-5 text-primary group-hover:scale-110 transition-transform" />
+          ) : (
+            <ChevronLeft className="h-5 w-5 text-primary group-hover:scale-110 transition-transform" />
+          )}
+        </Button>
+      </motion.div>
+
       {isOpen && (
         <motion.div
           initial={{ opacity: 0, x: 300 }}

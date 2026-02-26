@@ -657,6 +657,7 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
       <AnalysisPanel
         isOpen={showAnalysis}
         onClose={() => setShowAnalysis(false)}
+        onToggle={() => setShowAnalysis(!showAnalysis)}
         isLoading={isAnalyzing}
         content={analysisContent}
         error={analysisError}

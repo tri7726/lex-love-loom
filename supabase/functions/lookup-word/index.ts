@@ -5,6 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 interface WordData {
@@ -158,7 +159,10 @@ serve(async (req) => {
     if (!wordData) {
       const apiKey = Deno.env.get('GEMINI_API_KEY');
       if (!apiKey) {
-        throw new Error('GEMINI_API_KEY not configured');
+        return new Response(
+          JSON.stringify({ error: 'GEMINI_API_KEY is not configured in Supabase Secrets' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
       wordData = await lookupAI(word, context, apiKey);
     }
