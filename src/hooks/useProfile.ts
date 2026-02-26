@@ -46,7 +46,14 @@ export const useProfile = () => {
           throw error;
         }
       } else {
-        setProfile(data as Profile);
+        const raw = data as any;
+        setProfile({
+          ...raw,
+          full_name: raw.display_name,
+          level: raw.jlpt_level,
+          xp: raw.total_xp || 0,
+          streak: raw.current_streak || 0,
+        } as Profile);
       }
     } catch (error: any) {
       console.error('Error fetching profile:', error);
