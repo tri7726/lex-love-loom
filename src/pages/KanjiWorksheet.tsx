@@ -1,535 +1,616 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Navigation } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import {
-  Download, FileText, Loader2, Sparkles, Trash2,
-  Settings2, BookOpen, RefreshCw, LayoutTemplate,
-  Palette, Eye, Printer
+  Download, Loader2, Sparkles, Settings2, RefreshCw,
+  Copy, RotateCcw, Check, BookOpen
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { getStrokeOrder } from '@/data/strokeOrder';
-import { motion, AnimatePresence } from 'framer-motion';
 
-/* ─────────────────────────── Types ────────────────────────────── */
-type PaperSize = 'a4' | 'a5' | 'letter';
-type GhostColor = 'gray' | 'indigo' | 'sakura' | 'olive';
+/* ──────── Types ──────── */
+type PaperSize   = 'a4' | 'a5' | 'letter';
+type GhostColor  = 'gray' | 'indigo' | 'sakura' | 'olive';
 type BorderStyle = 'solid' | 'dashed';
+type CellGuide   = 'cross' | 'diagonal' | 'both';
+type SheetTheme  = 'white' | 'cream';
+type LayoutMode  = 'compact' | 'onePerPage';
+type SettingsTab = 'layout' | 'style' | 'display' | 'export';
 
+interface KanjiEntry {
+  character: string; hanviet: string; meaning: string;
+  strokeCount?: number; onReading?: string; kunReading?: string;
+}
 interface SheetSettings {
-  // Layout
-  ghostCells: number;
-  practiceCells: number;
-  cellSize: number;
-  paperSize: PaperSize;
-  // Style
-  ghostOpacityMax: number;   // 0..1 — first ghost cell opacity
-  ghostOpacityMin: number;   // 0..1 — last ghost cell opacity
-  ghostColor: GhostColor;
-  borderWeight: number;      // 1..3 px
-  borderStyle: BorderStyle;
-  // Display
-  showStrokeOrder: boolean;
-  showHanViet: boolean;
-  showMeaning: boolean;
-  showStrokeCount: boolean;
-  showPageFooter: boolean;
+  ghostCells: number; practiceCells: number; cellSize: number;
+  paperSize: PaperSize; layoutMode: LayoutMode;
+  ghostOpacityMax: number; ghostOpacityMin: number;
+  ghostColor: GhostColor; borderWeight: number; borderStyle: BorderStyle;
+  sheetTheme: SheetTheme; cellGuide: CellGuide; showCellNumbers: boolean;
+  showStrokeOrder: boolean; showHanViet: boolean; showMeaning: boolean;
+  showStrokeCount: boolean; showReadings: boolean; showVocabRows: boolean; showPageFooter: boolean;
 }
 
-/* ──────────────────── Settings helper ─────────────────────────── */
+/* ──────── Constants ──────── */
 const GHOST_COLORS: Record<GhostColor, string> = {
-  gray:   '#555555',
-  indigo: '#4f46e5',
-  sakura: '#e87ca0',
-  olive:  '#6b7a3e',
+  gray: '#555', indigo: '#4f46e5', sakura: '#e87ca0', olive: '#6b7a3e',
+};
+const PAPER_WIDTHS:  Record<PaperSize, number> = { a4: 210, a5: 148, letter: 216 };
+const PAPER_HEIGHTS: Record<PaperSize, number> = { a4: 297, a5: 210, letter: 279 };
+const SHEET_THEMES:  Record<SheetTheme, string> = { white: '#fff', cream: '#fdf8ef' };
+const KANJI_FONT   = '"Noto Sans JP","Yu Gothic","MS Gothic",sans-serif';
+const NOTO_URL     = 'https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap';
+const STORAGE_KEY  = 'kanji-worksheet-v3';
+
+const DEFAULT: SheetSettings = {
+  ghostCells: 9, practiceCells: 3, cellSize: 58, paperSize: 'a4', layoutMode: 'compact',
+  ghostOpacityMax: 0.75, ghostOpacityMin: 0.08,
+  ghostColor: 'gray', borderWeight: 1.5, borderStyle: 'solid',
+  sheetTheme: 'white', cellGuide: 'cross', showCellNumbers: false,
+  showStrokeOrder: true, showHanViet: true, showMeaning: true,
+  showStrokeCount: true, showReadings: false, showVocabRows: false, showPageFooter: true,
 };
 
-const PAPER_WIDTHS: Record<PaperSize, number> = { a4: 210, a5: 148, letter: 216 };
-const PAPER_HEIGHTS: Record<PaperSize, number> = { a4: 297, a5: 210, letter: 279 };
-
-/* ──────────────── Preset packs ────────────────────────────────── */
 const PRESETS = [
-  { label: 'N5 Số đếm',    icon: '🔢', chars: '一二三四五六七八九十百千万円' },
-  { label: 'N5 Thiên nhiên',icon: '🌿', chars: '山川木林森花草空海雨雪風火水土' },
-  { label: 'N5 Thời gian', icon: '🕐', chars: '日月年時分今午朝夜前後週' },
-  { label: 'N5 Con người',  icon: '👤', chars: '人男女子母父友先生学' },
-  { label: 'Ví dụ mẫu',    icon: '✏️', chars: '今玉交合歩茶弓雲算小' },
-  { label: 'N5 Địa điểm',  icon: '🏠', chars: '家国会社校店駅門道中外上下' },
+  { label: 'Số đếm N5',   chars: '一二三四五六七八九十百千万円' },
+  { label: 'Thiên nhiên', chars: '山川木林森花草空海雨雪風火水土' },
+  { label: 'Thời gian',   chars: '日月年時分今午朝夜前後週春夏秋冬' },
+  { label: 'Con người',   chars: '人男女子母父友先生学兄弟姉妹' },
+  { label: 'Địa điểm',   chars: '家国会社校店駅門道中外上下右左' },
+  { label: 'Động từ N4',  chars: '動働持使作教習送受取走泳着住切' },
+  { label: 'Tính từ N4',  chars: '安高低広重軽速早若暗強弱正好' },
+  { label: 'Giáo dục N4', chars: '意英音化感漢記計語字者集全題代' },
 ];
 
-/* ──────────────── Input parser ─────────────────────────────────── */
-const isKanjiChar = (ch: string): boolean => {
-  const code = ch.codePointAt(0) ?? 0;
-  return (code >= 0x4e00 && code <= 0x9fff) || (code >= 0x3400 && code <= 0x4dbf) || (code >= 0xf900 && code <= 0xfaff);
-};
-const parseKanjiChars = (text: string): string[] => {
-  const seen = new Set<string>(); const result: string[] = [];
-  const segs = text.includes(',') ? text.split(',') : [text];
-  for (const s of segs) for (const ch of s.trim()) if (isKanjiChar(ch) && !seen.has(ch)) { seen.add(ch); result.push(ch); }
-  return result;
+/* ──────── Helpers ──────── */
+const isKanji = (ch: string) => { const c = ch.codePointAt(0) ?? 0; return (c >= 0x4e00 && c <= 0x9fff) || (c >= 0x3400 && c <= 0x4dbf); };
+const parseKanji = (t: string) => { const s = new Set<string>(); const r: string[] = []; for (const ch of t) if (isKanji(ch) && !s.has(ch)) { s.add(ch); r.push(ch); } return r; };
+const ensureFonts = async () => {
+  if (!document.querySelector(`link[href="${NOTO_URL}"]`)) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = NOTO_URL; document.head.appendChild(l); }
+  try { await document.fonts.load('700 48px "Noto Sans JP"'); await document.fonts.ready; } catch { await new Promise(r => setTimeout(r, 1500)); }
 };
 
-/* ──────────────── Font helpers ─────────────────────────────────── */
-const NOTO_FONT_URL = 'https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap';
-const ensureFontsLoaded = async () => {
-  if (!document.querySelector(`link[href="${NOTO_FONT_URL}"]`)) {
-    const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = NOTO_FONT_URL; document.head.appendChild(l);
-  }
-  try { await document.fonts.load('700 48px "Noto Sans JP"'); await document.fonts.ready; }
-  catch { await new Promise(r => setTimeout(r, 1500)); }
-};
+/* ──────── Cell guide SVG ──────── */
+const Guide: React.FC<{ guide: CellGuide; size: number }> = ({ guide, size }) => (
+  <svg style={{ position:'absolute',top:0,left:0,width:'100%',height:'100%',pointerEvents:'none' }} viewBox={`0 0 ${size} ${size}`} preserveAspectRatio="none">
+    {(guide==='cross'||guide==='both')&&<><line x1="0" y1={size/2} x2={size} y2={size/2} stroke="#e0e0e0" strokeWidth="0.6"/><line x1={size/2} y1="0" x2={size/2} y2={size} stroke="#e0e0e0" strokeWidth="0.6"/></>}
+    {(guide==='diagonal'||guide==='both')&&<><line x1="0" y1="0" x2={size} y2={size} stroke="#e8e8e8" strokeWidth="0.6"/><line x1={size} y1="0" x2="0" y2={size} stroke="#e8e8e8" strokeWidth="0.6"/></>}
+  </svg>
+);
 
-/* ──────────────── Grid cell constants ──────────────────────────── */
-const KANJI_FONT = '"Noto Sans JP", "Yu Gothic", "MS Gothic", sans-serif';
-
-const Crosshair: React.FC<{ settings: SheetSettings }> = ({ settings }) => {
-  const d = settings.borderStyle === 'dashed' ? '1px dashed #e0e0e0' : '1px solid #ebebeb';
-  return <>
-    <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, borderTop: d }} />
-    <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, borderLeft: d }} />
-  </>;
-};
-
-/* ──────────────── WorksheetRow ─────────────────────────────────── */
-interface KanjiEntry { character: string; hanviet: string; meaning: string; strokeCount?: number; }
-
+/* ──────── WorksheetRow ──────── */
 const WorksheetRow: React.FC<{ entry: KanjiEntry; s: SheetSettings }> = ({ entry, s }) => {
-  const strokeSteps = getStrokeOrder(entry.character);
-  const totalCells = 1 + s.ghostCells + s.practiceCells;
-  const ghostCol = GHOST_COLORS[s.ghostColor];
-
-  const cellBase: React.CSSProperties = {
-    position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    width: `${s.cellSize}px`, height: `${s.cellSize}px`, flexShrink: 0, overflow: 'hidden', boxSizing: 'border-box',
-  };
-  const outerBorder = `${s.borderWeight}px solid #222`;
-  const innerBorder = s.borderStyle === 'dashed' ? `1px dashed #ccc` : `1px solid #d0d0d0`;
-
+  const steps = getStrokeOrder(entry.character);
+  const total = 1 + s.ghostCells + s.practiceCells;
+  const gc = GHOST_COLORS[s.ghostColor];
+  const bg = SHEET_THEMES[s.sheetTheme];
+  const ob = `${s.borderWeight}px solid #222`;
+  const ib = s.borderStyle==='dashed'?'1px dashed #ccc':'1px solid #d4d4d4';
+  const cell: React.CSSProperties = { position:'relative',display:'inline-flex',alignItems:'center',justifyContent:'center',width:`${s.cellSize}px`,height:`${s.cellSize}px`,flexShrink:0,overflow:'hidden',boxSizing:'border-box' };
   return (
-    <div style={{ marginBottom: '20px', breakInside: 'avoid' }}>
-      {/* Header info */}
-      {(s.showHanViet || s.showMeaning || s.showStrokeCount) && (
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', fontFamily: 'Arial, sans-serif', marginBottom: '2px' }}>
-          {s.showHanViet && <span style={{ fontWeight: 900, fontSize: '13px', letterSpacing: '0.12em', textTransform: 'uppercase' }}>{entry.hanviet || entry.character}</span>}
-          {s.showMeaning && entry.meaning && <span style={{ fontSize: '11px', color: '#555' }}>({entry.meaning})</span>}
-          {s.showStrokeCount && !strokeSteps && entry.strokeCount && <span style={{ fontSize: '9px', color: '#aaa' }}>{entry.strokeCount} nét</span>}
+    <div style={{ marginBottom:20, pageBreakAfter:s.layoutMode==='onePerPage'?'always':'auto', breakInside:'avoid' }}>
+      {(s.showHanViet||s.showMeaning||s.showStrokeCount)&&(
+        <div style={{ display:'flex',gap:6,alignItems:'baseline',fontFamily:'Arial,sans-serif',marginBottom:1 }}>
+          {s.showHanViet&&<span style={{ fontWeight:900,fontSize:12,letterSpacing:'0.1em',textTransform:'uppercase' }}>{entry.hanviet||entry.character}</span>}
+          {s.showMeaning&&entry.meaning&&<span style={{ fontSize:10,color:'#666' }}>({entry.meaning})</span>}
+          {s.showStrokeCount&&!steps&&entry.strokeCount&&<span style={{ fontSize:9,color:'#aaa' }}>{entry.strokeCount} nét</span>}
         </div>
       )}
-
-      {/* Stroke order guide */}
-      {s.showStrokeOrder && strokeSteps && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '3px', fontFamily: KANJI_FONT, fontSize: '14px', color: '#333', lineHeight: 1 }}>
-          {strokeSteps.map((step, i) => <span key={i}>{step}</span>)}
-          {s.showStrokeCount && entry.strokeCount && <span style={{ fontSize: '9px', color: '#bbb', marginLeft: '2px', fontFamily: 'Arial' }}>{entry.strokeCount} nét</span>}
+      {s.showReadings&&(entry.onReading||entry.kunReading)&&(
+        <div style={{ fontSize:10,color:'#888',fontFamily:KANJI_FONT,marginBottom:1,display:'flex',gap:6 }}>
+          {entry.onReading&&<span>音: <b>{entry.onReading}</b></span>}
+          {entry.kunReading&&<span>訓: <b>{entry.kunReading}</b></span>}
         </div>
       )}
-
-      {/* Grid */}
-      <div style={{ display: 'flex', border: outerBorder, width: `${s.cellSize * totalCells}px`, boxSizing: 'border-box', backgroundColor: '#fff' }}>
-        {/* Reference cell */}
-        <div style={{ ...cellBase, borderRight: outerBorder }}>
-          <Crosshair settings={s} />
-          <span style={{ fontFamily: KANJI_FONT, fontSize: `${s.cellSize * 0.44}px`, fontWeight: 900, color: '#111', lineHeight: 1, position: 'relative' }}>
-            {entry.character}
-          </span>
+      {s.showStrokeOrder&&steps&&(
+        <div style={{ display:'flex',alignItems:'center',gap:4,marginBottom:3,fontFamily:KANJI_FONT,fontSize:13,color:'#444',lineHeight:1 }}>
+          {steps.map((x,i)=><span key={i}>{x}</span>)}
+          {s.showStrokeCount&&entry.strokeCount&&<span style={{ fontSize:8,color:'#bbb',marginLeft:2,fontFamily:'Arial' }}>{entry.strokeCount} nét</span>}
         </div>
-
-        {/* Ghost cells */}
-        {Array.from({ length: s.ghostCells }).map((_, i) => {
-          const t = s.ghostCells === 1 ? 1 : i / (s.ghostCells - 1);
-          const opacity = s.ghostOpacityMax - t * (s.ghostOpacityMax - s.ghostOpacityMin);
-          return (
-            <div key={`g${i}`} style={{ ...cellBase, borderRight: i === s.ghostCells - 1 ? outerBorder : innerBorder, backgroundColor: '#fafafa' }}>
-              <Crosshair settings={s} />
-              <span style={{ fontFamily: KANJI_FONT, fontSize: `${s.cellSize * 0.37}px`, fontWeight: 400, color: ghostCol, opacity, lineHeight: 1, position: 'relative' }}>
-                {entry.character}
-              </span>
+      )}
+      <div style={{ display:'flex',border:ob,width:`${s.cellSize*total}px`,boxSizing:'border-box',backgroundColor:bg }}>
+        <div style={{ ...cell,borderRight:ob,backgroundColor:bg }}>
+          <Guide guide={s.cellGuide} size={s.cellSize}/>
+          <span style={{ fontFamily:KANJI_FONT,fontSize:`${s.cellSize*.44}px`,fontWeight:900,color:'#111',lineHeight:1,position:'relative' }}>{entry.character}</span>
+        </div>
+        {Array.from({length:s.ghostCells}).map((_,i)=>{
+          const t=s.ghostCells===1?1:i/(s.ghostCells-1);
+          const op=s.ghostOpacityMax-t*(s.ghostOpacityMax-s.ghostOpacityMin);
+          return(
+            <div key={`g${i}`} style={{ ...cell,borderRight:i===s.ghostCells-1?ob:ib,backgroundColor:bg }}>
+              <Guide guide={s.cellGuide} size={s.cellSize}/>
+              {s.showCellNumbers&&<span style={{ position:'absolute',top:2,left:3,fontSize:8,color:'#bbb',fontFamily:'Arial',lineHeight:1 }}>{i+1}</span>}
+              <span style={{ fontFamily:KANJI_FONT,fontSize:`${s.cellSize*.37}px`,fontWeight:400,color:gc,opacity:op,lineHeight:1,position:'relative' }}>{entry.character}</span>
             </div>
           );
         })}
-
-        {/* Empty cells */}
-        {Array.from({ length: s.practiceCells }).map((_, i) => (
-          <div key={`e${i}`} style={{ ...cellBase, borderLeft: i > 0 ? innerBorder : undefined }}>
-            <Crosshair settings={s} />
-          </div>
+        {Array.from({length:s.practiceCells}).map((_,i)=>(
+          <div key={`e${i}`} style={{ ...cell,borderLeft:i>0?ib:undefined,backgroundColor:bg }}><Guide guide={s.cellGuide} size={s.cellSize}/></div>
         ))}
       </div>
+      {s.showVocabRows&&(
+        <div style={{ width:`${s.cellSize*total}px`,marginTop:3 }}>
+          <div style={{ fontSize:8,color:'#ccc',fontFamily:'Arial',marginBottom:2 }}>TỪ VỰNG</div>
+          {[0,1].map(i=><div key={i} style={{ height:`${s.cellSize*.44}px`,borderBottom:'1px solid #ddd',marginBottom:4 }}/>)}
+        </div>
+      )}
     </div>
   );
 };
 
-/* ────────────── WorksheetPrintSheet ───────────────────────────── */
-const WorksheetPrintSheet = React.forwardRef<HTMLDivElement, { entries: KanjiEntry[]; s: SheetSettings; title?: string }>(
-  ({ entries, s, title }, ref) => {
-    const sheetWidth = s.cellSize * (1 + s.ghostCells + s.practiceCells) + 100;
-    return (
-      <div ref={ref} style={{ width: `${sheetWidth}px`, backgroundColor: '#fff', padding: '36px 50px', fontFamily: 'Arial, sans-serif', boxSizing: 'border-box' }}>
-        {/* Title */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '22px', borderBottom: '2px solid #111', paddingBottom: '8px' }}>
-          <div>
-            <div style={{ fontSize: '16px', fontWeight: 900, letterSpacing: '0.15em' }}>{title || 'KANJI WRITING PRACTICE'}</div>
-            <div style={{ fontSize: '9px', color: '#999', marginTop: '2px' }}>Tập viết Kanji · LexLoveLoom</div>
-          </div>
-          <div style={{ fontSize: '10px', color: '#888', textAlign: 'right', lineHeight: 1.8 }}>
-            <div>Họ tên: ______________________</div>
-            <div>Ngày: {new Date().toLocaleDateString('vi-VN')}</div>
-          </div>
+/* ──────── PrintSheet ──────── */
+const PrintSheet = React.forwardRef<HTMLDivElement,{entries:KanjiEntry[];s:SheetSettings;title?:string}>(({entries,s,title},ref)=>{
+  const w=s.cellSize*(1+s.ghostCells+s.practiceCells)+100;
+  return(
+    <div ref={ref} style={{ width:`${w}px`,backgroundColor:SHEET_THEMES[s.sheetTheme],padding:'36px 50px',fontFamily:'Arial,sans-serif',boxSizing:'border-box' }}>
+      <div style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:22,borderBottom:'2px solid #111',paddingBottom:8 }}>
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: '0.15em' }}>{title || 'LUYỆN VIẾT KANJI'}</div>
+          <div style={{ fontSize:9,color:'#aaa',marginTop:2 }}>Tập viết Kanji · LexLoveLoom</div>
         </div>
-        {entries.map(entry => <WorksheetRow key={entry.character} entry={entry} s={s} />)}
-        {s.showPageFooter && (
-          <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #eee', fontSize: '9px', color: '#ccc', textAlign: 'center' }}>
-            Kaizen Kanji Coach · LexLoveLoom · {new Date().getFullYear()}
-          </div>
-        )}
+        <div style={{ fontSize:10,color:'#999',textAlign:'right',lineHeight:1.8 }}>
+          <div>Họ tên: ______________________</div>
+          <div>Ngày: {new Date().toLocaleDateString('vi-VN')}</div>
+        </div>
       </div>
-    );
-  }
-);
-WorksheetPrintSheet.displayName = 'WorksheetPrintSheet';
+      {entries.map(e=><WorksheetRow key={e.character} entry={e} s={s}/>)}
+      {s.showPageFooter&&<div style={{ marginTop:10,paddingTop:8,borderTop:'1px solid #eee',fontSize:9,color:'#ccc',textAlign:'center' }}>Kaizen Kanji Coach · LexLoveLoom · {new Date().getFullYear()}</div>}
+    </div>
+  );
+});
+PrintSheet.displayName='PrintSheet';
 
-/* ──────────────── Settings panel sub-tabs ─────────────────────── */
-type SettingsTab = 'layout' | 'style' | 'display' | 'export';
-
-const TAB_META: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
-  { id: 'layout', label: 'Bố cục', icon: <LayoutTemplate className="h-3 w-3" /> },
-  { id: 'style', label: 'Kiểu dáng', icon: <Palette className="h-3 w-3" /> },
-  { id: 'display', label: 'Hiển thị', icon: <Eye className="h-3 w-3" /> },
-  { id: 'export', label: 'Xuất file', icon: <Printer className="h-3 w-3" /> },
-];
-
-/* ──────────────── Helper UI atoms ─────────────────────────────── */
-const Row: React.FC<{ label: string; value: string; children: React.ReactNode }> = ({ label, value, children }) => (
-  <div className="space-y-2">
-    <div className="flex justify-between">
-      <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">{label}</Label>
-      <span className="text-[10px] font-black text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded-md">{value}</span>
+/* ──────── Setting atoms ──────── */
+const SRow: React.FC<{label:string;val:string;note?:string;children:React.ReactNode}>=({label,val,note,children})=>(
+  <div className="space-y-1.5">
+    <div className="flex justify-between items-center">
+      <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">{label}</span>
+      <span className="text-[11px] font-bold text-sakura bg-sakura/10 px-2 py-0.5 rounded">{val}</span>
     </div>
     {children}
+    {note&&<p className="text-[10px] text-muted-foreground">{note}</p>}
   </div>
 );
 
-const Toggle: React.FC<{ label: string; desc?: string; checked: boolean; onChecked: (v: boolean) => void }> = ({ label, desc, checked, onChecked }) => (
-  <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800 last:border-0">
-    <div>
-      <p className="text-xs font-semibold">{label}</p>
-      {desc && <p className="text-[10px] text-muted-foreground">{desc}</p>}
+const SToggle: React.FC<{label:string;desc?:string;checked:boolean;on:(v:boolean)=>void}>=({label,desc,checked,on})=>(
+  <div className="flex items-center justify-between py-3 border-b border-sakura-light/30 last:border-0 hover:bg-sakura-light/20 px-2 rounded-lg transition-colors">
+    <div className="pr-4">
+      <p className="text-[12px] font-bold text-slate-700">{label}</p>
+      {desc&&<p className="text-[10px] text-slate-400 font-medium leading-tight mt-0.5">{desc}</p>}
     </div>
-    <Switch checked={checked} onCheckedChange={onChecked} />
+    <Switch checked={checked} onCheckedChange={on}/>
   </div>
 );
 
-const ChipGroup: React.FC<{ options: { value: string; label: string }[]; value: string; onChange: (v: string) => void }> = ({ options, value, onChange }) => (
-  <div className="flex flex-wrap gap-1.5">
-    {options.map(o => (
-      <button key={o.value} onClick={() => onChange(o.value)}
-        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all
-          ${value === o.value ? 'bg-indigo-500 text-white border-indigo-500' : 'border-slate-200 dark:border-slate-700 text-muted-foreground hover:border-indigo-300'}`}
-      >{o.label}</button>
+const SChips: React.FC<{opts:{v:string;l:string}[];val:string;on:(v:string)=>void}>=({opts,val,on})=>(
+  <div className="flex flex-wrap gap-1.5 p-1 bg-sakura-light/30 rounded-xl border border-sakura-light/50">
+    {opts.map(o=>(
+      <button 
+        key={o.v} 
+        onClick={()=>on(o.v)}
+        className={cn(
+          "px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all",
+          val === o.v 
+            ? "bg-white text-sakura shadow-sm ring-1 ring-sakura/20" 
+            : "text-slate-400 hover:text-sakura"
+        )}
+      >{o.l}</button>
     ))}
   </div>
 );
 
-/* ──────────────── Default settings ────────────────────────────── */
-const DEFAULT_SETTINGS: SheetSettings = {
-  ghostCells: 9, practiceCells: 3, cellSize: 58, paperSize: 'a4',
-  ghostOpacityMax: 0.75, ghostOpacityMin: 0.08,
-  ghostColor: 'gray', borderWeight: 1.5, borderStyle: 'solid',
-  showStrokeOrder: true, showHanViet: true, showMeaning: true,
-  showStrokeCount: true, showPageFooter: true,
-};
-
-/* ──────────────── MAIN PAGE ────────────────────────────────────── */
+/* ──────── Main Page ──────── */
 export const KanjiWorksheet = () => {
-  const [inputText, setInputText] = useState('今玉交合歩茶弓雲算小');
-  const [kanjiList, setKanjiList] = useState<KanjiEntry[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<SettingsTab>('layout');
-  const [settings, setSettings] = useState<SheetSettings>(DEFAULT_SETTINGS);
-  const [worksheetTitle, setWorksheetTitle] = useState('');
-  const printRef = useRef<HTMLDivElement>(null);
+  const [input,     setInput]     = useState('今玉交合歩茶弓雲算小');
+  const [list,      setList]      = useState<KanjiEntry[]>([]);
+  const [loading,   setLoading]   = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [showAdv,   setShowAdv]   = useState(false);
+  const [tab,       setTab]       = useState<SettingsTab>('layout');
+  const [s,         setS]         = useState<SheetSettings>(DEFAULT);
+  const [title,     setTitle]     = useState('');
+  const [copied,    setCopied]    = useState(false);
+  const [previewScale, setPreviewScale] = useState(0.72);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const set = useCallback(<K extends keyof SheetSettings>(k:K,v:SheetSettings[K])=>setS(p=>({...p,[k]:v})),[]);
 
-  const setSetting = <K extends keyof SheetSettings>(k: K, v: SheetSettings[K]) =>
-    setSettings(s => ({ ...s, [k]: v }));
+  const TABS: {id:SettingsTab;label:string}[] = [
+    {id:'layout',label:'Bố cục'},{id:'style',label:'Kiểu dáng'},{id:'display',label:'Hiển thị'},{id:'export',label:'Xuất PDF'},
+  ];
 
-  const handleGenerate = async () => {
-    const chars = parseKanjiChars(inputText);
-    if (!chars.length) { toast({ title: 'Vui lòng nhập ký tự Kanji', variant: 'destructive' }); return; }
-    setIsLoading(true); setKanjiList([]);
+  /* Responsive preview scale */
+  useEffect(() => {
+    const update = () => {
+      if (!previewContainerRef.current) return;
+      const cw = previewContainerRef.current.clientWidth - 32;
+      const contentW = s.cellSize * (1 + s.ghostCells + s.practiceCells) + 100;
+      setPreviewScale(Math.min(0.82, Math.max(0.3, cw / contentW)));
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, [s.cellSize, s.ghostCells, s.practiceCells, list.length]);
+
+  /* localStorage */
+  useEffect(() => {
+    try { const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}'); if(d.s)setS({...DEFAULT,...d.s}); if(d.input)setInput(d.input); if(d.list)setList(d.list); if(d.title)setTitle(d.title); } catch {}
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY,JSON.stringify({s,input,list,title})); } catch {}
+  }, [s,input,list,title]);
+
+  const generate = async () => {
+    const chars=parseKanji(input);
+    if(!chars.length){toast({title:'Vui lòng nhập Kanji',variant:'destructive'});return;}
+    setLoading(true); setList([]);
     try {
-      const results = await Promise.all(chars.map(async (ch): Promise<KanjiEntry> => {
-        try {
-          const { data } = await supabase.functions.invoke('kanji-details', { body: { character: ch } });
-          const k = data?.kanji;
-          return { character: ch, hanviet: k?.hanviet || ch, meaning: k?.meaning_vi || k?.meaning || '', strokeCount: k?.stroke_count };
-        } catch { return { character: ch, hanviet: ch, meaning: '' }; }
+      const r=await Promise.all(chars.map(async(ch):Promise<KanjiEntry>=>{
+        try{const{data}=await supabase.functions.invoke('kanji-details',{body:{character:ch}});const k=data?.kanji;
+          return{character:ch,hanviet:k?.hanviet||ch,meaning:k?.meaning_vi||k?.meaning||'',strokeCount:k?.stroke_count,onReading:k?.on_reading,kunReading:k?.kun_reading};
+        }catch{return{character:ch,hanviet:ch,meaning:''};}
       }));
-      setKanjiList(results);
-    } finally { setIsLoading(false); }
+      setList(r);
+    } finally { setLoading(false); }
   };
 
-  const handleExportPDF = async () => {
-    if (!printRef.current || !kanjiList.length) return;
-    setIsExporting(true);
-    try {
-      toast({ title: '⏳ Đang chuẩn bị...', description: 'Đang tải font' });
-      await ensureFontsLoaded();
-      const el = printRef.current;
-      el.style.cssText = 'position:fixed;top:-99999px;left:0;z-index:-1;display:block;';
-      await new Promise(r => setTimeout(r, 400));
+  const copy = async () => {
+    await navigator.clipboard.writeText(list.map(k=>k.character).join(''));
+    setCopied(true); setTimeout(()=>setCopied(false),2000);
+    toast({title:'Đã copy!'});
+  };
 
-      const canvas = await html2canvas(el, {
-        useCORS: true, allowTaint: false, backgroundColor: '#ffffff', logging: false,
-        onclone: (doc) => { const l = doc.createElement('link'); l.rel = 'stylesheet'; l.href = NOTO_FONT_URL; doc.head.appendChild(l); },
+  const exportPDF = async () => {
+    if(!ref.current||!list.length)return;
+    setExporting(true);
+    try{
+      toast({title:'⏳ Đang tải font...'});
+      await ensureFonts();
+      const el=ref.current;
+      el.style.cssText='position:fixed;top:-99999px;left:0;z-index:-1;display:block;';
+      await new Promise(r=>setTimeout(r,400));
+      const cv=await html2canvas(el,{useCORS:true,allowTaint:false,backgroundColor:SHEET_THEMES[s.sheetTheme],logging:false,
+        onclone:(doc)=>{const l=doc.createElement('link');l.rel='stylesheet';l.href=NOTO_URL;doc.head.appendChild(l);}
       } as Parameters<typeof html2canvas>[1]);
-
-      el.style.cssText = '';
-      const pw = PAPER_WIDTHS[settings.paperSize];
-      const ph = PAPER_HEIGHTS[settings.paperSize];
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [pw, ph] });
-      const imgW = pw, imgH = (canvas.height * pw) / canvas.width;
-      let oy = 0, pg = 0;
-      while (oy < imgH) {
-        if (pg > 0) pdf.addPage([pw, ph]);
-        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, -oy, imgW, imgH);
-        oy += ph; pg++;
-      }
+      el.style.cssText='';
+      const pw=PAPER_WIDTHS[s.paperSize],ph=PAPER_HEIGHTS[s.paperSize];
+      const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:[pw,ph]});
+      const iw=pw,ih=(cv.height*pw)/cv.width;
+      let oy=0,pg=0;
+      while(oy<ih){if(pg>0)pdf.addPage([pw,ph]);pdf.addImage(cv.toDataURL('image/png'),'PNG',0,-oy,iw,ih);oy+=ph;pg++;}
       pdf.save(`kanji-ws-${Date.now()}.pdf`);
-      toast({ title: '✅ PDF đã tải về!', description: `${kanjiList.length} Kanji · ${settings.paperSize.toUpperCase()}` });
-    } catch (e) {
-      console.error(e);
-      toast({ title: 'Lỗi xuất PDF', variant: 'destructive' });
-    } finally { setIsExporting(false); }
+      toast({title:'✅ Đã tải PDF!',description:`${list.length} Kanji · ${s.paperSize.toUpperCase()}`});
+    }catch(e){console.error(e);toast({title:'Lỗi xuất PDF',variant:'destructive'});}
+    finally{setExporting(false);}
   };
 
-  const totalCells = 1 + settings.ghostCells + settings.practiceCells;
+  const total=1+s.ghostCells+s.practiceCells;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-sakura/5 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 pb-24 md:pb-8">
+    <div className="min-h-screen bg-background">
       <Navigation />
-      <main className="max-w-5xl mx-auto px-4 py-8 space-y-5">
-
-        {/* Hero */}
-        <div className="flex items-center gap-4">
-          <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-sakura/30 to-indigo-500/20 flex items-center justify-center shadow-sm">
-            <FileText className="h-7 w-7 text-sakura" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-black bg-gradient-to-r from-sakura to-indigo-500 bg-clip-text text-transparent">Kanji Worksheet Generator</h1>
-            <p className="text-sm text-muted-foreground">Nhập Kanji → Hướng dẫn nét viết → Xuất PDF in được</p>
-          </div>
+      
+      <main className="max-w-5xl mx-auto px-4 py-8 sm:py-12 space-y-8">
+        
+        {/* --- Hero Section --- */}
+        <div className="text-center space-y-2 relative">
+          <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-48 h-48 bg-sakura/5 rounded-full blur-3xl -z-10" />
+          <h1 className="text-3xl sm:text-5xl font-black text-sakura-dark tracking-tight">
+            Kanji Worksheet
+          </h1>
+          <p className="text-muted-foreground text-lg max-w-lg mx-auto">
+            Tạo trang luyện viết Kanji cá nhân hóa chỉ trong giây lát.
+          </p>
         </div>
 
-        {/* Presets */}
-        <div className="flex flex-wrap gap-2">
-          {PRESETS.map(p => (
-            <motion.button key={p.label} whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.03 }}
-              onClick={() => setInputText(p.chars)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white/70 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 hover:border-sakura/50 hover:bg-sakura/5 transition-all shadow-sm backdrop-blur-sm"
+        {/* --- Presets Bar --- */}
+        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar px-1">
+          {PRESETS.map((p) => (
+            <button 
+              key={p.label} 
+              onClick={() => setInput(p.chars)}
+              className="flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold bg-white border border-sakura-light/50 text-sakura-dark hover:bg-sakura-light/30 transition-all active:scale-95 shadow-sm"
             >
-              <span>{p.icon}</span>{p.label}
-            </motion.button>
+              {p.label}
+            </button>
           ))}
         </div>
 
-        {/* Input card */}
-        <Card className="border-0 shadow-soft bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-3xl">
-          <CardContent className="p-6 space-y-4">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold text-sakura uppercase tracking-widest">Nhập Kanji</Label>
-                <span className="text-xs text-muted-foreground">{parseKanjiChars(inputText).length} ký tự</span>
-              </div>
-              <Textarea value={inputText} onChange={e => setInputText(e.target.value)}
-                placeholder="今玉交合歩茶弓雲算小"
-                className="font-jp text-2xl tracking-widest h-20 resize-none rounded-2xl border-sakura/20 focus:border-sakura" />
-            </div>
+        {/* --- Main Workspace --- */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          
+          {/* Left Column: Input & Settings */}
+          <div className="lg:col-span-5 space-y-6">
+            <Card className="border border-slate-200 shadow-sm rounded-xl bg-white overflow-hidden">
+              <CardContent className="p-6 space-y-6">
+                
+                <div className="space-y-3">
+                  <div className="flex justify-between items-end">
+                    <Label className="text-sm font-bold text-slate-700 ml-1">Nhập Kanji của bạn</Label>
+                    <Badge variant="outline" className="bg-sakura-light/20 text-sakura border-sakura-light/50 text-[10px]">
+                      {parseKanji(input).length} ký tự
+                    </Badge>
+                  </div>
+                  <div className="relative group">
+                    <Textarea 
+                      value={input} 
+                      onChange={e => setInput(e.target.value)}
+                      placeholder="Nhập Kanji tại đây ( ví dụ: 今玉交合...) "
+                      className="text-2xl sm:text-3xl tracking-[0.3em] h-32 resize-none rounded-2xl border-2 border-slate-100 focus:border-slate-300 font-jp bg-slate-50/50 p-6 transition-all"
+                    />
+                  </div>
+                </div>
 
-            <div className="flex items-center gap-3 flex-wrap">
-              <Button onClick={handleGenerate} disabled={isLoading || !inputText.trim()}
-                className="bg-gradient-to-r from-sakura to-pink-500 hover:opacity-90 text-white font-bold rounded-xl px-6">
-                {isLoading ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Đang tải...</> : <><Sparkles className="h-4 w-4 mr-2" />Tạo Worksheet</>}
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => setShowSettings(!showSettings)}
-                className={`gap-1.5 rounded-xl text-xs font-bold ${showSettings ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600' : ''}`}>
-                <Settings2 className="h-3.5 w-3.5" />Nâng cao
-              </Button>
-              {kanjiList.length > 0 && <>
-                <Button onClick={handleExportPDF} disabled={isExporting} variant="outline"
-                  className="border-indigo-500/30 text-indigo-600 hover:bg-indigo-50 font-bold rounded-xl px-5">
-                  {isExporting ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Đang xuất...</> : <><Download className="h-4 w-4 mr-2" />Tải PDF</>}
-                </Button>
-                <Button onClick={() => { setKanjiList([]); setInputText(''); }} variant="ghost" size="sm" className="text-muted-foreground gap-1">
-                  <RefreshCw className="h-3 w-3" />Làm lại
-                </Button>
-                <Badge variant="secondary" className="ml-auto bg-sakura/10 text-sakura border-0 font-bold">{kanjiList.length} Kanji</Badge>
-              </>}
-            </div>
+                <div className="flex items-center gap-3">
+                  <Button 
+                    onClick={generate} 
+                    disabled={loading || !input.trim()}
+                    className="flex-1 bg-sakura hover:bg-sakura-dark text-white font-bold rounded-xl h-12 transition-all active:scale-95 shadow-md shadow-sakura/10"
+                  >
+                    {loading ? (
+                      <><Loader2 className="h-5 w-5 animate-spin mr-2" /> Đang tạo...</>
+                    ) : (
+                      <><Sparkles className="h-5 w-5 mr-2" /> Tạo Worksheet</>
+                    )}
+                  </Button>
+                  
+                  <Button 
+                    variant="outline"
+                    onClick={() => setShowAdv(!showAdv)}
+                    className={cn(
+                      "w-12 h-12 rounded-xl border-2 transition-all p-0",
+                      showAdv ? "bg-sakura-light border-sakura-light text-sakura-dark font-bold" : "bg-white border-sakura-light/50 text-sakura/60 hover:text-sakura hover:border-sakura"
+                    )}
+                  >
+                    <Settings2 className="h-5 w-5" />
+                  </Button>
+                </div>
 
-            {/* ── Advanced settings ── */}
-            <AnimatePresence>
-              {showSettings && (
-                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                  <div className="border-t border-slate-100 dark:border-slate-800 pt-4 space-y-4">
+                {list.length > 0 && (
+                  <div className="flex items-center justify-between pt-4 border-t border-sakura-light/30">
+                    <div className="flex gap-2">
+                      <Button onClick={copy} variant="ghost" size="sm" className="h-8 px-3 rounded-lg text-sakura/70 hover:text-sakura hover:bg-sakura-light/20 gap-1.5">
+                        {copied ? (
+                          <><Check className="h-3.5 w-3.5 text-green-500" /> <span className="text-xs font-bold text-green-600">Đã lưu</span></>
+                        ) : (
+                          <><Copy className="h-3.5 w-3.5" /> <span className="text-xs font-bold">Copy Kanji</span></>
+                        )}
+                      </Button>
+                      <Button onClick={() => { setList([]); setInput(''); }} variant="ghost" size="sm" className="h-8 px-3 rounded-lg text-slate-400 hover:text-sakura hover:bg-sakura-light/20 gap-1.5">
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        <span className="text-xs font-bold">Làm lại</span>
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-                    {/* Tab bar */}
-                    <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-fit">
-                      {TAB_META.map(t => (
-                        <button key={t.id} onClick={() => setSettingsTab(t.id)}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all
-                            ${settingsTab === t.id ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white' : 'text-muted-foreground hover:text-slate-700'}`}>
-                          {t.icon}{t.label}
+            {/* Settings Panel */}
+            {showAdv && (
+              <Card className="border border-slate-200 shadow-sm rounded-xl bg-white overflow-hidden">
+                <CardContent className="p-6 space-y-6">
+                  <div className="flex items-center justify-between pb-4 border-b border-slate-50">
+                    <div className="flex gap-1 p-1 bg-slate-50 rounded-xl overflow-x-auto no-scrollbar border border-slate-100">
+                      {TABS.map(t => (
+                        <button 
+                          key={t.id} 
+                          onClick={() => setTab(t.id)}
+                          className={cn(
+                            "px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all whitespace-nowrap",
+                            tab === t.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                          )}
+                        >
+                          {t.label}
                         </button>
                       ))}
                     </div>
+                  </div>
 
-                    {/* Tab: Layout */}
-                    {settingsTab === 'layout' && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                        <Row label="Ô nét mờ (ghost)" value={`${settings.ghostCells} ô`}>
-                          <Slider min={3} max={14} step={1} value={[settings.ghostCells]} onValueChange={([v]) => setSetting('ghostCells', v)} />
-                        </Row>
-                        <Row label="Ô trống luyện tập" value={`${settings.practiceCells} ô`}>
-                          <Slider min={1} max={8} step={1} value={[settings.practiceCells]} onValueChange={([v]) => setSetting('practiceCells', v)} />
-                        </Row>
-                        <Row label="Kích thước ô" value={`${settings.cellSize}px`}>
-                          <Slider min={44} max={80} step={2} value={[settings.cellSize]} onValueChange={([v]) => setSetting('cellSize', v)} />
-                          <p className="text-[10px] text-muted-foreground">Tổng: {totalCells} ô/hàng</p>
-                        </Row>
-                        <div className="space-y-2">
-                          <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Khổ giấy</Label>
-                          <ChipGroup value={settings.paperSize} onChange={v => setSetting('paperSize', v as PaperSize)}
-                            options={[{ value: 'a4', label: 'A4' }, { value: 'a5', label: 'A5' }, { value: 'letter', label: 'Letter' }]} />
-                        </div>
-                        <div className="sm:col-span-2 space-y-2">
-                          <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Tiêu đề trang</Label>
-                          <input value={worksheetTitle} onChange={e => setWorksheetTitle(e.target.value)}
-                            placeholder="Kanji Writing Practice"
-                            className="w-full text-sm border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-sakura/30" />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Tab: Style */}
-                    {settingsTab === 'style' && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                        <Row label="Độ đậm chữ mờ đầu" value={`${Math.round(settings.ghostOpacityMax * 100)}%`}>
-                          <Slider min={30} max={100} step={5} value={[Math.round(settings.ghostOpacityMax * 100)]}
-                            onValueChange={([v]) => setSetting('ghostOpacityMax', v / 100)} />
-                        </Row>
-                        <Row label="Độ đậm chữ mờ cuối" value={`${Math.round(settings.ghostOpacityMin * 100)}%`}>
-                          <Slider min={2} max={30} step={1} value={[Math.round(settings.ghostOpacityMin * 100)]}
-                            onValueChange={([v]) => setSetting('ghostOpacityMin', v / 100)} />
-                        </Row>
-                        <Row label="Độ dày đường khung" value={`${settings.borderWeight}px`}>
-                          <Slider min={1} max={3} step={0.5} value={[settings.borderWeight]}
-                            onValueChange={([v]) => setSetting('borderWeight', v)} />
-                        </Row>
-                        <div className="space-y-2">
-                          <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Kiểu đường kẻ ô</Label>
-                          <ChipGroup value={settings.borderStyle} onChange={v => setSetting('borderStyle', v as BorderStyle)}
-                            options={[{ value: 'solid', label: 'Nét liền' }, { value: 'dashed', label: 'Nét đứt' }]} />
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Màu chữ mờ</Label>
-                          <div className="flex gap-2">
-                            {(Object.entries(GHOST_COLORS) as [GhostColor, string][]).map(([key, hex]) => (
-                              <button key={key} onClick={() => setSetting('ghostColor', key)}
-                                className={`h-7 w-7 rounded-full border-2 ${settings.ghostColor === key ? 'border-indigo-500 scale-110' : 'border-transparent'} transition-all`}
-                                style={{ backgroundColor: hex, opacity: 0.6 }} title={key} />
-                            ))}
-                          </div>
-                          <p className="text-[10px] text-muted-foreground capitalize">{settings.ghostColor}</p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Tab: Display */}
-                    {settingsTab === 'display' && (
-                      <div className="space-y-0">
-                        <Toggle label="Hướng dẫn thứ tự nét" desc="Hiện các ký tự mẫu nhỏ ở trên grid" checked={settings.showStrokeOrder} onChecked={v => setSetting('showStrokeOrder', v)} />
-                        <Toggle label="Tên Hán Việt" desc="Hiện tên đọc Hán Việt in đậm" checked={settings.showHanViet} onChecked={v => setSetting('showHanViet', v)} />
-                        <Toggle label="Nghĩa tiếng Việt" desc="Hiện nghĩa của từ trong ngoặc" checked={settings.showMeaning} onChecked={v => setSetting('showMeaning', v)} />
-                        <Toggle label="Số nét" desc="Hiện số nét viết bên cạnh tên" checked={settings.showStrokeCount} onChecked={v => setSetting('showStrokeCount', v)} />
-                        <Toggle label="Footer trang" desc="Hiện dòng chú thích cuối trang" checked={settings.showPageFooter} onChecked={v => setSetting('showPageFooter', v)} />
-                      </div>
-                    )}
-
-                    {/* Tab: Export */}
-                    {settingsTab === 'export' && (
-                      <div className="space-y-3">
-                        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 space-y-2 text-sm">
-                          <p className="font-bold text-xs uppercase tracking-wide text-muted-foreground mb-3">Thông số xuất file hiện tại</p>
-                          <div className="grid grid-cols-2 gap-2 text-xs">
-                            {[
-                              ['Khổ giấy', settings.paperSize.toUpperCase()],
-                              ['Số Kanji', `${kanjiList.length} ký tự`],
-                              ['Tổng ô/hàng', `${totalCells} ô`],
-                              ['Kích thước ô', `${settings.cellSize}px`],
-                              ['Ghost', `${settings.ghostCells} ô (${Math.round(settings.ghostOpacityMax * 100)}%→${Math.round(settings.ghostOpacityMin * 100)}%)`],
-                              ['Màu ghost', settings.ghostColor],
-                            ].map(([k, v]) => (
-                              <div key={k} className="flex justify-between gap-2">
-                                <span className="text-muted-foreground">{k}</span>
-                                <span className="font-bold">{v}</span>
+                      <div className="min-h-[200px]">
+                        {/* Tab Content Mapping */}
+                        {tab === 'layout' && (
+                          <div className="grid grid-cols-1 gap-6">
+                            <div className="grid grid-cols-2 gap-4">
+                              <SRow label="Ô ghost" val={`${s.ghostCells}`}>
+                                <Slider min={3} max={14} step={1} value={[s.ghostCells]} onValueChange={([v]) => set('ghostCells', v)} />
+                              </SRow>
+                              <SRow label="Ô trống" val={`${s.practiceCells}`}>
+                                <Slider min={1} max={8} step={1} value={[s.practiceCells]} onValueChange={([v]) => set('practiceCells', v)} />
+                              </SRow>
+                            </div>
+                            <SRow label="Kích thước ô" val={`${s.cellSize}px`} note={`Một hàng có tổng cộng ${total} ô`}>
+                              <Slider min={44} max={80} step={2} value={[s.cellSize]} onValueChange={([v]) => set('cellSize', v)} />
+                            </SRow>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Khổ giấy</Label>
+                                <SChips val={s.paperSize} on={v => set('paperSize', v as PaperSize)} opts={[{ v: 'a4', l: 'A4' }, { v: 'a5', l: 'A5' }, { v: 'letter', l: 'Letter' }]} />
                               </div>
-                            ))}
+                              <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Bố cục PDF</Label>
+                                <SChips val={s.layoutMode} on={v => set('layoutMode', v as LayoutMode)} opts={[{ v: 'compact', l: 'Gộp chung' }, { v: 'onePerPage', l: '1 Kanji/trang' }]} />
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Tiêu đề trang</Label>
+                              <input 
+                                value={title} 
+                                onChange={e => setTitle(e.target.value)} 
+                                placeholder="Luyện viết Kanji"
+                                className="w-full text-sm font-bold border border-sakura-light/50 rounded-xl px-4 py-2.5 bg-white focus:outline-none focus:border-sakura transition-all"
+                              />
+                            </div>
                           </div>
-                        </div>
-                        <Button onClick={handleExportPDF} disabled={isExporting || !kanjiList.length}
-                          className="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:opacity-90 text-white font-bold rounded-xl">
-                          {isExporting ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Đang xuất...</> : <><Download className="h-4 w-4 mr-2" />Xuất PDF ngay</>}
-                        </Button>
-                        {!kanjiList.length && <p className="text-xs text-center text-muted-foreground">Tạo worksheet trước để xuất PDF</p>}
+                        )}
+
+                        {tab === 'style' && (
+                          <div className="grid grid-cols-1 gap-6">
+                            <div className="grid grid-cols-2 gap-4">
+                              <SRow label="Mờ nhất" val={`${Math.round(s.ghostOpacityMin * 100)}%`}>
+                                <Slider min={2} max={30} step={1} value={[Math.round(s.ghostOpacityMin * 100)]} onValueChange={([v]) => set('ghostOpacityMin', v / 100)} />
+                              </SRow>
+                              <SRow label="Rõ nhất" val={`${Math.round(s.ghostOpacityMax * 100)}%`}>
+                                <Slider min={30} max={100} step={5} value={[Math.round(s.ghostOpacityMax * 100)]} onValueChange={([v]) => set('ghostOpacityMax', v / 100)} />
+                              </SRow>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <SRow label="Độ dày viền" val={`${s.borderWeight}px`}>
+                                <Slider min={1} max={3} step={0.5} value={[s.borderWeight]} onValueChange={([v]) => set('borderWeight', v)} />
+                              </SRow>
+                              <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Kiểu viền</Label>
+                                <SChips val={s.borderStyle} on={v => set('borderStyle', v as BorderStyle)} opts={[{ v: 'solid', l: 'Liền' }, { v: 'dashed', l: 'Đứt' }]} />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Đường kẻ ô</Label>
+                                <SChips val={s.cellGuide} on={v => set('cellGuide', v as CellGuide)} opts={[{ v: 'cross', l: '+' }, { v: 'diagonal', l: '×' }, { v: 'both', l: '✳' }]} />
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Màu giấy</Label>
+                                <SChips val={s.sheetTheme} on={v => set('sheetTheme', v as SheetTheme)} opts={[{ v: 'white', l: 'Trắng' }, { v: 'cream', l: 'Kem' }]} />
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Màu chữ mờ (Ghost)</Label>
+                              <div className="flex gap-3 pt-1">
+                                {(Object.entries(GHOST_COLORS) as [GhostColor, string][]).map(([k, hex]) => (
+                                  <button 
+                                    key={k} 
+                                    onClick={() => set('ghostColor', k)} 
+                                    className={cn(
+                                      "h-7 w-7 rounded-full border-2 transition-all shadow-sm",
+                                      s.ghostColor === k ? "border-slate-900 scale-110" : "border-white hover:scale-105"
+                                    )}
+                                    style={{ backgroundColor: hex }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {tab === 'display' && (
+                          <div className="grid grid-cols-1 divide-y divide-slate-50">
+                            <SToggle label="Thứ tự nét viết" desc="Hiện các bước vẽ chữ nhỏ phía trên" checked={s.showStrokeOrder} on={v => set('showStrokeOrder', v)} />
+                            <SToggle label="Đánh số ô" desc="Số thứ tự ở góc mỗi ô" checked={s.showCellNumbers} on={v => set('showCellNumbers', v)} />
+                            <SToggle label="Hán Việt & Nghĩa" checked={s.showHanViet} on={v => set('showHanViet', v)} />
+                            <SToggle label="Cách đọc On/Kun" checked={s.showReadings} on={v => set('showReadings', v)} />
+                            <SToggle label="Dòng luyện từ vựng" desc="Thêm dòng kẻ trống bên dưới" checked={s.showVocabRows} on={v => set('showVocabRows', v)} />
+                            <SToggle label="Footer chân trang" checked={s.showPageFooter} on={v => set('showPageFooter', v)} />
+                          </div>
+                        )}
+
+                        {tab === 'export' && (
+                          <div className="space-y-6">
+                            <div className="rounded-xl bg-slate-50 p-6 space-y-4 border border-slate-100">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tóm tắt cấu hình</p>
+                              <div className="grid grid-cols-2 gap-4">
+                                {[
+                                  { l: 'Khổ giấy', v: s.paperSize.toUpperCase() },
+                                  { l: 'Kanji', v: `${list.length} từ` },
+                                  { l: 'Cỡ ô', v: `${s.cellSize}px` },
+                                  { l: 'Bố cục', v: s.layoutMode === 'compact' ? 'Gộp' : 'Rời' }
+                                ].map(item => (
+                                  <div key={item.l} className="space-y-1">
+                                    <p className="text-[10px] text-slate-400">{item.l}</p>
+                                    <p className="text-sm font-bold text-slate-700">{item.v}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                            <Button 
+                              onClick={exportPDF} 
+                              disabled={exporting || !list.length}
+                              className="w-full bg-slate-900 hover:bg-black text-white font-bold rounded-xl h-12 transition-all"
+                            >
+                              {exporting ? (
+                                <><Loader2 className="h-5 w-5 animate-spin mr-2" /> Đang chuẩn bị...</>
+                              ) : (
+                                <><Download className="h-5 w-5 mr-2" /> Tải về PDF ngay</>
+                              )}
+                            </Button>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </CardContent>
-        </Card>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
 
-        {/* Preview */}
-        {kanjiList.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <Card className="border-0 shadow-soft bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-3xl overflow-hidden">
-              <CardHeader className="border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-slate-50 to-white dark:from-slate-900 dark:to-slate-900">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="h-4 w-4 text-sakura" />
-                    <CardTitle className="text-base">Xem trước</CardTitle>
-                    <Badge variant="outline" className="text-xs">{kanjiList.length} Kanji · {totalCells} ô · {settings.paperSize.toUpperCase()}</Badge>
-                  </div>
-                  <Button onClick={handleExportPDF} disabled={isExporting} size="sm"
-                    className="bg-gradient-to-r from-indigo-600 to-indigo-500 hover:opacity-90 text-white font-bold rounded-xl gap-1.5">
-                    {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Download className="h-4 w-4" />Tải PDF</>}
-                  </Button>
+          {/* Right Column: Live Preview */}
+          <div className="lg:col-span-7">
+            {list.length > 0 ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between px-4">
+                  <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest">
+                     Bản xem trước trực tiếp
+                  </h3>
                 </div>
-              </CardHeader>
-              <CardContent className="p-4 overflow-x-auto bg-slate-50/50 dark:bg-slate-950/50">
-                <div style={{ transform: 'scale(0.75)', transformOrigin: 'top left', width: '133%' }}>
-                  <WorksheetPrintSheet ref={printRef} entries={kanjiList} s={settings} title={worksheetTitle} />
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
 
-        {kanjiList.length === 0 && (
+                <Card className="border border-slate-200 shadow-sm rounded-xl bg-white overflow-hidden">
+                  <CardHeader className="p-4 bg-slate-50 flex flex-row items-center justify-between border-b border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <div className="leading-tight">
+                        <p className="text-sm font-bold text-slate-800">{title || 'Luyện viết Kanji'}</p>
+                        <p className="text-[10px] text-slate-400 font-medium uppercase">{s.paperSize} Worksheet</p>
+                      </div>
+                    </div>
+                    <Button 
+                      onClick={exportPDF} 
+                      disabled={exporting} 
+                      size="sm"
+                      className="bg-sakura hover:bg-sakura-dark text-white rounded-lg gap-2 h-9 px-4 font-bold transition-all shadow-sm"
+                    >
+                      {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Download className="h-4 w-4" /> Tải PDF</>}
+                    </Button>
+                  </CardHeader>
+                  
+                  <CardContent className="p-0 bg-slate-100 relative min-h-[500px]" ref={previewContainerRef}>
+                    <div style={{
+                      transform: `scale(${previewScale})`,
+                      transformOrigin: 'top left',
+                      width: `${Math.round((1 / previewScale) * 100)}%`,
+                      height: 'auto',
+                    }}>
+                      <PrintSheet ref={ref} entries={list} s={s} title={title} />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center p-12 text-center space-y-6 bg-white border border-dashed border-slate-200 rounded-xl">
+                <div className="w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center">
+                  <BookOpen className="h-8 w-8 text-slate-300" />
+                </div>
+                <div className="space-y-2 max-w-sm">
+                  <h3 className="text-lg font-bold text-slate-800">Bắt đầu tạo Worksheet</h3>
+                  <p className="text-slate-500 text-sm">
+                    Nhập danh sách chữ Kanji mà bạn muốn luyện tập vào ô bên trái, sau đó nhấn "Tạo" để xem bản thiết kế tại đây.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Hidden component for canvas capture */}
+        {list.length === 0 && (
           <div style={{ position: 'absolute', left: '-99999px', top: 0 }}>
-            <WorksheetPrintSheet ref={printRef} entries={[]} s={settings} />
+            <PrintSheet ref={ref} entries={[]} s={s} title={title} />
           </div>
         )}
       </main>

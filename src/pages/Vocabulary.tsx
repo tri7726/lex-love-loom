@@ -50,18 +50,8 @@ import { useWordHistory } from '@/hooks/useWordHistory';
 import { useAuth } from '@/hooks/useAuth';
 import { MINNA_N5_VOCAB } from '@/data/minna-n5';
 import { MINNA_N4_VOCAB } from '@/data/minna-n4';
+import { VocabWord } from '@/types/vocabulary';
 
-// ==================== TYPES ====================
-export interface VocabWord {
-  id: string;
-  word: string;
-  reading: string | null;
-  hanviet: string | null;
-  meaning: string;
-  mastery_level: number | null;
-  example?: string;
-  exampleMeaning?: string;
-}
 
 interface Lesson {
   id: string;
@@ -160,21 +150,41 @@ const textbookSeries: TextbookSeries[] = [
   },
 ];
 
-const levelGradients: Record<string, string> = {
+// ── Tango: Rose/Pink (JLPT exam) ──
+const tangoGradients: Record<string, string> = {
   N5: 'from-rose-400 via-pink-400 to-rose-500',
   N4: 'from-rose-500 via-pink-500 to-rose-600',
   N3: 'from-pink-400 via-rose-400 to-pink-500',
   N2: 'from-rose-500 via-red-400 to-pink-500',
   N1: 'from-pink-500 via-rose-500 to-red-500',
 };
-
-const levelAccents: Record<string, { ring: string; badge: string; text: string }> = {
+const tangoAccents: Record<string, { ring: string; badge: string; text: string }> = {
   N5: { ring: 'ring-rose-300/40', badge: 'bg-rose-100 text-rose-700', text: 'text-rose-600' },
   N4: { ring: 'ring-pink-300/40', badge: 'bg-pink-100 text-pink-700', text: 'text-pink-600' },
   N3: { ring: 'ring-rose-300/40', badge: 'bg-rose-50 text-rose-600', text: 'text-rose-500' },
   N2: { ring: 'ring-rose-400/30', badge: 'bg-rose-100 text-rose-700', text: 'text-rose-600' },
   N1: { ring: 'ring-pink-400/30', badge: 'bg-pink-100 text-pink-700', text: 'text-pink-600' },
 };
+
+// ── Minna: Blue/Sky (textbook series) ──
+const minaGradients: Record<string, string> = {
+  N5: 'from-sky-400 via-blue-400 to-sky-500',
+  N4: 'from-blue-500 via-indigo-400 to-blue-600',
+};
+const minaAccents: Record<string, { ring: string; badge: string; text: string }> = {
+  N5: { ring: 'ring-sky-300/40', badge: 'bg-sky-100 text-sky-700', text: 'text-sky-600' },
+  N4: { ring: 'ring-blue-300/40', badge: 'bg-blue-100 text-blue-700', text: 'text-blue-600' },
+};
+
+const getLevelGradient = (seriesId: string, level: string) =>
+  seriesId === 'mina'
+    ? (minaGradients[level] ?? 'from-sky-400 to-blue-500')
+    : (tangoGradients[level] ?? tangoGradients.N5);
+
+const getLevelAccent = (seriesId: string, level: string) =>
+  seriesId === 'mina'
+    ? (minaAccents[level] ?? minaAccents.N5)
+    : (tangoAccents[level] ?? tangoAccents.N5);
 
 // ==================== COMPONENT ====================
 export const Vocabulary = () => {
@@ -529,17 +539,33 @@ export const Vocabulary = () => {
           transition={{ delay: seriesIdx * 0.15 }}
           className="space-y-5"
         >
-          <div className="flex items-center gap-3">
+          {/* Series header — distinct visual per series */}
+          <div className={cn(
+            'flex items-center gap-3 px-4 py-3 rounded-2xl border',
+            series.id === 'mina'
+              ? 'bg-sky-50/70 dark:bg-sky-950/20 border-sky-200/60 dark:border-sky-800/40'
+              : 'bg-rose-50/70 dark:bg-rose-950/20 border-rose-200/60 dark:border-rose-800/40'
+          )}>
             <span className="text-3xl">{series.emoji}</span>
-            <div>
-              <h2 className="text-xl font-bold">{series.name}</h2>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold">{series.name}</h2>
+                <span className={cn(
+                  'text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full',
+                  series.id === 'mina'
+                    ? 'bg-sky-100 text-sky-600 dark:bg-sky-900/40 dark:text-sky-400'
+                    : 'bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400'
+                )}>
+                  {series.id === 'mina' ? '📖 Giáo trình' : '🎯 JLPT'}
+                </span>
+              </div>
               <p className="text-sm text-muted-foreground font-jp">{series.nameJp}</p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {series.levels.map((level, idx) => {
-              const grad = levelGradients[level.level] || levelGradients.N5;
+              const grad = getLevelGradient(series.id, level.level);
               return (
                 <motion.div
                   key={`${series.id}-${level.level}`}
@@ -597,17 +623,22 @@ export const Vocabulary = () => {
         transition={{ delay: 0.35 }}
         className="space-y-5"
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 flex-1 px-4 py-3 rounded-2xl border bg-amber-50/70 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-800/40 min-w-0">
             <span className="text-3xl">📝</span>
-            <div>
-              <h2 className="text-xl font-bold">Sổ tay của tôi</h2>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold">Sổ tay của tôi</h2>
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400">
+                  ✏️ Cá nhân
+                </span>
+              </div>
               <p className="text-sm text-muted-foreground">Tự tạo folder để học từ vựng riêng</p>
             </div>
           </div>
           <Button
             size="sm"
-            className="gap-2 bg-gradient-to-r from-rose-400 to-pink-400 hover:from-rose-500 hover:to-pink-500 text-white shadow"
+            className="gap-2 bg-amber-500 hover:bg-amber-600 text-white shadow flex-shrink-0"
             onClick={() => setShowCreateDialog(true)}
           >
             <Plus className="h-4 w-4" />
@@ -715,18 +746,18 @@ export const Vocabulary = () => {
             whileTap={{ scale: 0.96 }}
           >
             <Card
-              className="cursor-pointer border-2 border-dashed border-rose-300 hover:border-rose-400 transition-all duration-300 h-full min-h-[140px] flex items-center justify-center"
+              className="cursor-pointer border-2 border-dashed border-amber-300 hover:border-amber-400 transition-all duration-300 h-full min-h-[140px] flex items-center justify-center"
               onClick={() => setShowCreateDialog(true)}
             >
               <CardContent className="p-5 text-center">
                 <motion.div
                   animate={{ scale: [1, 1.1, 1] }}
                   transition={{ repeat: Infinity, duration: 2.5 }}
-                  className="w-12 h-12 rounded-xl bg-rose-100 flex items-center justify-center mx-auto mb-2"
+                  className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center mx-auto mb-2"
                 >
-                  <Plus className="h-6 w-6 text-rose-400" />
+                  <Plus className="h-6 w-6 text-amber-500" />
                 </motion.div>
-                <p className="text-sm font-medium text-rose-400">Tạo folder mới</p>
+                <p className="text-sm font-medium text-amber-500">Tạo folder mới</p>
               </CardContent>
             </Card>
           </motion.div>
@@ -799,8 +830,8 @@ export const Vocabulary = () => {
   // ==================== TIER 2: LESSONS ====================
   const renderLessons = () => {
     if (!selectedSeries || !selectedLevel) return null;
-    const accent = levelAccents[selectedLevel.level] || levelAccents.N5;
-    const grad = levelGradients[selectedLevel.level] || levelGradients.N5;
+    const accent = getLevelAccent(selectedSeries.id, selectedLevel.level);
+    const grad = getLevelGradient(selectedSeries.id, selectedLevel.level);
 
     return (
       <motion.div
@@ -907,8 +938,8 @@ export const Vocabulary = () => {
     const currentWord = words[flashcardIndex];
     const lessonIndex = selectedLevel.lessons.indexOf(selectedLesson);
     const hasNext = lessonIndex < selectedLevel.lessons.length - 1;
-    const grad = levelGradients[selectedLevel.level] || levelGradients.N5;
-    const accent = levelAccents[selectedLevel.level] || levelAccents.N5;
+    const grad = getLevelGradient(selectedSeries.id, selectedLevel.level);
+    const accent = getLevelAccent(selectedSeries.id, selectedLevel.level);
     const progress = words.length > 0 ? ((flashcardIndex + 1) / words.length) * 100 : 0;
 
     if (activeGame) {
@@ -1179,7 +1210,7 @@ export const Vocabulary = () => {
                       <p className="text-xs text-muted-foreground">Câu hỏi</p>
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-amber-500">4</p>
+                      <p className="text-2xl font-bold text-amber-500">5</p>
                       <p className="text-xs text-muted-foreground">Chế độ</p>
                     </div>
                     <div>
@@ -1284,6 +1315,7 @@ export const Vocabulary = () => {
           {activeGame === 'speed' && <SpeedGame vocabulary={gameVocab} onComplete={onGameComplete} onBack={goBack} onUpdateMastery={onUpdateMastery} />}
           {activeGame === 'listening' && <ListeningGame vocabulary={gameVocab} onComplete={onGameComplete} onBack={goBack} onUpdateMastery={onUpdateMastery} />}
           {activeGame === 'writing' && <WriteGame vocabulary={gameVocab} onComplete={onGameComplete} onBack={goBack} onUpdateMastery={onUpdateMastery} />}
+          {activeGame === 'pronunciation' && <PronunciationGame words={gameVocab} onFinish={goBack} />}
         </motion.div>
       );
     }
@@ -1533,12 +1565,13 @@ export const Vocabulary = () => {
                     <div className="h-1 bg-gradient-to-r from-rose-300 via-pink-300 to-rose-400" />
                     <CardContent className="p-5 space-y-4">
                       <h3 className="font-bold flex items-center gap-2"><Target className="h-4 w-4 text-rose-500" /> Chọn chế độ ôn tập</h3>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                         {([
                           { mode: 'classic' as GameMode, icon: Target, label: 'Cổ điển', desc: 'Chọn đáp án đúng', gradient: 'from-rose-50 to-pink-50', border: 'border-rose-200 hover:border-rose-400', iconColor: 'text-rose-500' },
                           { mode: 'speed' as GameMode, icon: Zap, label: 'Tốc độ', desc: 'Trả lời nhanh', gradient: 'from-pink-50 to-rose-50', border: 'border-pink-200 hover:border-pink-400', iconColor: 'text-pink-500' },
                           { mode: 'listening' as GameMode, icon: Headphones, label: 'Nghe', desc: 'Nghe và chọn', gradient: 'from-rose-50 to-pink-50', border: 'border-rose-200 hover:border-rose-400', iconColor: 'text-rose-400' },
                           { mode: 'writing' as GameMode, icon: PenTool, label: 'Viết', desc: 'Gõ reading', gradient: 'from-pink-50 to-rose-50', border: 'border-pink-200 hover:border-pink-400', iconColor: 'text-pink-400' },
+                          { mode: 'pronunciation' as GameMode, icon: Mic, label: 'Phát âm', desc: 'Luyện nói từ', gradient: 'from-rose-50 to-pink-50', border: 'border-sakura/20 hover:border-sakura', iconColor: 'text-sakura' },
                         ]).map(({ mode, icon: Icon, label, desc, gradient, border, iconColor }) => (
                           <motion.div key={mode} whileHover={{ scale: 1.05, y: -4 }} whileTap={{ scale: 0.95 }}>
                             <Card

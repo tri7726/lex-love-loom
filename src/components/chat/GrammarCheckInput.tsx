@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, AlertCircle, Loader2, Sparkles, RefreshCcw, Trash2, Mic, MicOff, Volume2, Info, BookOpen, Quote } from 'lucide-react';
+import {
+  CheckCircle2, AlertCircle, Loader2, Sparkles, RefreshCcw, Trash2,
+  Mic, MicOff, Volume2, Info, BookOpen, Quote, Save
+} from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,7 +14,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useSpeechToText } from '@/hooks/useSpeechToText';
 import { useTTS } from '@/hooks/useTTS';
 import { useProfile } from '@/hooks/useProfile';
+import { GRAMMAR_SAVED_KEY, GRAMMAR_SAVED_EVENT, loadSavedExercises } from './GrammarHistory';
 
+/* ──────── Types ──────── */
 export interface GrammarResult {
   isCorrect: boolean;
   corrected: string;
@@ -24,38 +29,62 @@ export interface GrammarCheckInputProps {
   initialValue?: string;
   className?: string;
   onClear?: () => void;
+  /** Called when user asks to reload a saved exercise text */
+  onTextRequest?: (text: string) => void;
 }
 
-export const GrammarCheckInput: React.FC<GrammarCheckInputProps> = ({ 
-  initialValue = '', 
+/* ──────── Highlight Japanese text in 「」 ──────── */
+const HighlightJP: React.FC<{text: string}> = ({ text }) => {
+  const parts = text.split(/(「[^」]*」)/g);
+  return (
+    <>
+      {parts.map((p, i) =>
+        /^「/.test(p)
+          ? <span key={i} className="font-jp font-bold text-primary bg-primary/10 px-1 py-0.5 rounded-md mx-0.5">{p}</span>
+          : <span key={i}>{p}</span>
+      )}
+    </>
+  );
+};
+
+/** Parse "1. … 2. … n. …" into numbered items */
+const parseExplanation = (text: string): {num: number; content: string}[] => {
+  return text.split(/(?=\d+\.\s)/)
+    .map(s => s.trim())
+    .filter(Boolean)
+    .flatMap(chunk => {
+      const m = chunk.match(/^(\d+)\.\s+([\s\S]+)/);
+      return m ? [{ num: parseInt(m[1]), content: m[2].trim() }] : [];
+    });
+};
+
+/* ──────── Main Component ──────── */
+export const GrammarCheckInput: React.FC<GrammarCheckInputProps> = ({
+  initialValue = '',
   className,
-  onClear
+  onClear,
 }) => {
   const [text, setText] = useState(initialValue);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<GrammarResult | null>(null);
   const { toast } = useToast();
   const { profile } = useProfile();
-  const { speak, isSpeaking } = useTTS();
+  const { speak } = useTTS();
   const { isListening, startListening, stopListening } = useSpeechToText({
     onResult: (transcript) => setText(transcript)
   });
 
   const checkGrammar = useCallback(async (textToCheck: string) => {
-    if (!textToCheck.trim() || textToCheck.length < 2) {
-      setResult(null);
-      return;
-    }
-
+    if (!textToCheck.trim() || textToCheck.length < 2) { setResult(null); return; }
     setIsLoading(true);
     try {
-      const userContext = profile ? 
-        `User is level ${profile.level}, name ${profile.full_name || 'Gakusei'}.` : 
-        "User is learning Japanese.";
+      const userContext = profile
+        ? `User is level ${profile.level}, name ${profile.full_name || 'Gakusei'}.`
+        : 'User is learning Japanese.';
 
       const { data, error: invokeError } = await supabase.functions.invoke('japanese-analysis', {
-        body: { 
-          content: textToCheck, 
+        body: {
+          content: textToCheck,
           isGrammar: true,
           isVip: true,
           prompt: `[Context: ${userContext}] Please check my grammar carefully Sensei!`
@@ -63,210 +92,198 @@ export const GrammarCheckInput: React.FC<GrammarCheckInputProps> = ({
       });
 
       if (invokeError) throw invokeError;
-      
       if (data?.error && !data.explanation) {
-        toast({
-          title: 'Sensei Note',
-          description: data.error,
-        });
+        toast({ title: 'Sensei Note', description: data.error });
       }
-      
       setResult(data);
     } catch (error: any) {
       console.error('Grammar check error:', error);
-      toast({
-        title: 'Lỗi Sensei',
-        description: 'Sensei đang bận, vui lòng thử lại sau.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Lỗi Sensei', description: 'Sensei đang bận, vui lòng thử lại sau.', variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, profile]);
 
-  // Debounce effect
+  // Debounce
   useEffect(() => {
     if (text === initialValue && !result) return;
-    
     const timer = setTimeout(() => {
-      if (text.trim() && text !== initialValue) {
-        checkGrammar(text);
-      } else if (!text.trim()) {
-        setResult(null);
-      }
+      if (text.trim() && text !== initialValue) checkGrammar(text);
+      else if (!text.trim()) setResult(null);
     }, 1200);
-
     return () => clearTimeout(timer);
   }, [text, checkGrammar, initialValue, result]);
 
-  const handleClear = () => {
-    setText('');
-    setResult(null);
-    if (onClear) onClear();
+  const handleClear = () => { setText(''); setResult(null); if (onClear) onClear(); };
+
+  /** Save to localStorage and notify GrammarHistory via custom event */
+  const handleSave = () => {
+    if (!result || !text.trim()) return;
+    const prev = loadSavedExercises();
+    const entry = { id: Date.now(), text: text.trim(), result, savedAt: new Date().toISOString() };
+    const updated = [entry, ...prev].slice(0, 30);
+    try { localStorage.setItem(GRAMMAR_SAVED_KEY, JSON.stringify(updated)); } catch {}
+    window.dispatchEvent(new Event(GRAMMAR_SAVED_EVENT));
+    toast({ title: '✅ Đã lưu bài!', description: `"${text.trim().slice(0, 30)}${text.length > 30 ? '...' : ''}"` });
   };
 
+  const explanationItems = result ? parseExplanation(result.explanation) : [];
+  const hasNumberedItems = explanationItems.length > 1;
+
   return (
-    <div className={cn("space-y-6", className)}>
-      <div className="relative group">
+    <div className={cn('space-y-4', className)}>
+
+      {/* ── Input ── */}
+      <div className="relative">
         <Textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Nhập hoặc nói câu tiếng Nhật để kiểm tra..."
-          className="min-h-[150px] pr-28 font-jp text-lg resize-none bg-white/70 dark:bg-slate-950/70 backdrop-blur-md border-sakura/10 dark:border-slate-800 transition-all rounded-3xl p-6 shadow-soft focus-visible:ring-sakura/30"
+          className="min-h-[130px] pr-16 font-jp text-lg resize-none bg-background border-border rounded-2xl p-4 sm:p-5 focus-visible:ring-primary/30"
         />
-        <div className="absolute right-4 top-4 flex flex-col gap-3">
-            <Button
-              onClick={() => isListening ? stopListening() : startListening()}
-              variant="outline"
-              size="icon"
-              className={cn(
-                 "h-12 w-12 rounded-2xl transition-all shadow-sm border-sakura/20",
-                 isListening ? "bg-red-500 text-white shadow-lg border-transparent animate-pulse" : "bg-white/80 dark:bg-slate-900/80 text-sakura hover:bg-sakura/10"
-              )}
-            >
-              {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-            </Button>
-          
+        <div className="absolute right-3 top-3 flex flex-col gap-2">
+          <Button onClick={() => isListening ? stopListening() : startListening()}
+            variant="outline" size="icon"
+            className={cn('h-9 w-9 rounded-xl border-border transition-all',
+              isListening ? 'bg-red-500 text-white border-transparent animate-pulse' : 'bg-card text-primary hover:bg-primary/10')}>
+            {isListening ? <MicOff className="h-4 w-4"/> : <Mic className="h-4 w-4"/>}
+          </Button>
           {text.length > 0 && (
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-10 w-10 rounded-xl bg-white/80 dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 hover:text-destructive text-slate-400 transition-all shadow-sm"
-              onClick={handleClear}
-            >
-              <Trash2 className="h-4 w-4" />
+            <Button variant="outline" size="icon" onClick={handleClear}
+              className="h-9 w-9 rounded-xl bg-card border-border hover:text-destructive text-muted-foreground">
+              <Trash2 className="h-3.5 w-3.5"/>
             </Button>
           )}
-
           {isLoading && (
-            <div className="h-10 w-10 rounded-xl bg-white/80 dark:bg-slate-900/80 border-sakura/10 flex items-center justify-center shadow-sm">
-               <Loader2 className="h-5 w-5 animate-spin text-sakura" />
+            <div className="h-9 w-9 rounded-xl bg-card border border-border flex items-center justify-center">
+              <Loader2 className="h-4 w-4 animate-spin text-primary"/>
             </div>
           )}
         </div>
-
         {text.length > 0 && !isLoading && !result && (
-          <div className="absolute left-6 bottom-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-sakura/50">
-            <Sparkles className="h-3 w-3 animate-pulse" />
-            Sensei đang xem xét...
+          <div className="absolute left-4 bottom-3 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-primary/50">
+            <Sparkles className="h-3 w-3 animate-pulse"/>Sensei đang xem xét...
           </div>
         )}
       </div>
 
+      {/* ── Result card ── */}
       <AnimatePresence mode="wait">
         {result && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.98, y: 15 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.98, y: -10 }}
-            className="relative"
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}
           >
             <Card className={cn(
-              "border-0 overflow-hidden shadow-soft relative z-10 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-3xl",
-              result.isCorrect ? "bg-green-50/30 dark:bg-green-950/10" : "bg-sakura/5 dark:bg-slate-900/90"
+              'border rounded-2xl overflow-hidden',
+              result.isCorrect ? 'border-green-200 dark:border-green-900 bg-green-50/30 dark:bg-green-950/10'
+                               : 'border-border bg-background'
             )}>
-              <div className={cn(
-                "h-1.5 w-full",
-                result.isCorrect ? "bg-green-500" : "bg-sakura"
-              )} />
-              
-              <CardContent className="p-8 space-y-8">
-                <div className="flex items-start justify-between gap-6">
-                  <div className="flex items-center gap-4">
-                    <div className={cn(
-                      "h-12 w-12 rounded-2xl flex items-center justify-center shadow-md",
-                      result.isCorrect ? "bg-green-500 text-white" : "bg-sakura text-white shadow-sakura/20"
-                    )}>
-                      {result.isCorrect ? (
-                        <CheckCircle2 className="h-6 w-6" />
-                      ) : (
-                        <AlertCircle className="h-6 w-6" />
-                      )}
+              <div className={cn('h-1 w-full', result.isCorrect ? 'bg-green-400' : 'bg-primary')}/>
+
+              <CardContent className="p-4 sm:p-5 space-y-4">
+
+                {/* Header */}
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-3">
+                    <div className={cn('h-9 w-9 rounded-xl flex items-center justify-center',
+                      result.isCorrect ? 'bg-green-100 dark:bg-green-900/30 text-green-600' : 'bg-primary/10 text-primary')}>
+                      {result.isCorrect ? <CheckCircle2 className="h-4.5 w-4.5"/> : <AlertCircle className="h-4.5 w-4.5"/>}
                     </div>
                     <div>
-                      <h4 className="text-lg font-bold leading-tight">
-                        {result.isCorrect ? 'Tuyệt vời, chính xác!' : 'Cần điều chỉnh'}
-                      </h4>
-                      <p className="text-xs text-muted-foreground font-medium">Bản tin từ Sensei AI</p>
+                      <p className="font-bold text-sm">{result.isCorrect ? '✨ Chính xác!' : '📝 Cần điều chỉnh'}</p>
+                      <p className="text-[10px] text-muted-foreground">Phân tích từ Sensei AI</p>
                     </div>
                   </div>
-                  {!result.isCorrect && (
-                    <Button 
-                      onClick={() => setText(result.corrected)}
-                      variant="outline"
-                      className="border-sakura/20 text-sakura hover:bg-sakura/10 rounded-xl h-10 px-4 text-xs font-bold transition-all shadow-sm"
-                    >
-                      <RefreshCcw className="h-3.5 w-3.5 mr-2" />
-                      Sửa tự động
+                  <div className="flex gap-2">
+                    {!result.isCorrect && (
+                      <Button onClick={() => setText(result.corrected)} variant="outline" size="sm"
+                        className="rounded-xl text-xs gap-1.5 border-border h-8">
+                        <RefreshCcw className="h-3 w-3"/>Sửa tự động
+                      </Button>
+                    )}
+                    <Button onClick={handleSave} variant="outline" size="sm"
+                      className="rounded-xl text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10 h-8">
+                      <Save className="h-3 w-3"/>Lưu bài
                     </Button>
-                  )}
+                  </div>
                 </div>
 
-                {!result.isCorrect && (
-                  <div className="rounded-[2rem] bg-white/50 dark:bg-slate-950/50 border border-sakura/10 p-6 relative group hover:border-sakura/30 transition-all shadow-inner-soft">
-                    <p className="text-[9px] uppercase tracking-[0.2em] font-black text-sakura/60 mb-3">Câu đúng từ Sensei</p>
-                    <p className="font-jp text-2xl text-foreground font-bold leading-relaxed pr-12">
+                {/* Corrected sentence */}
+                {!result.isCorrect && result.corrected && (
+                  <div className="relative rounded-xl bg-primary/5 border border-primary/15 p-4 group">
+                    <p className="text-[9px] uppercase tracking-widest text-primary/50 mb-1.5 font-black">Câu đúng từ Sensei</p>
+                    <p className="font-jp text-xl sm:text-2xl font-bold text-foreground leading-relaxed pr-10">
                       {result.corrected}
                     </p>
-                    <Button
-                      onClick={() => speak(result.corrected)}
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-4 bottom-4 h-10 w-10 rounded-full text-sakura hover:bg-sakura/10"
-                    >
-                      <Volume2 className="h-5 w-5" />
+                    <Button onClick={() => speak(result.corrected)} variant="ghost" size="icon"
+                      className="absolute right-2 bottom-2 h-8 w-8 rounded-full text-primary/50 hover:text-primary hover:bg-primary/10">
+                      <Volume2 className="h-4 w-4"/>
                     </Button>
                   </div>
                 )}
 
-                <div className="space-y-4">
-                  <p className="text-[10px] uppercase tracking-[0.2em] font-black text-muted-foreground flex items-center gap-2 px-2">
-                    <Info className="h-3.5 w-3.5 text-sakura" />
-                    Phân tích từ Sensei
+                {/* Explanation */}
+                <div className="space-y-2">
+                  <p className="text-[10px] uppercase tracking-widest font-black text-muted-foreground flex items-center gap-1.5">
+                    <Info className="h-3.5 w-3.5 text-primary"/>Phân tích chi tiết
                   </p>
-                  <div className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 bg-white/40 dark:bg-slate-800/40 p-5 rounded-2xl border border-white/20 shadow-sm italic font-medium">
-                    {result.explanation || "Đang tải dữ liệu phân tích..."}
-                  </div>
+                  {hasNumberedItems ? (
+                    <div className="space-y-2">
+                      {explanationItems.map(({ num, content }) => (
+                        <div key={num} className="flex gap-3 p-3 rounded-xl bg-muted/40 border border-border">
+                          <span className="flex-shrink-0 h-5 w-5 rounded-full bg-primary text-primary-foreground text-[10px] font-black flex items-center justify-center mt-0.5">
+                            {num}
+                          </span>
+                          <p className="text-sm text-foreground/80 leading-relaxed">
+                            <HighlightJP text={content}/>
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm leading-relaxed text-foreground/80 bg-muted/40 p-4 rounded-xl border border-border">
+                      <HighlightJP text={result.explanation || 'Đang tải dữ liệu...'}/>
+                    </div>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-2">
-                  {Array.isArray(result.rules) && result.rules.length > 0 && (
-                    <div className="space-y-4">
-                       <p className="text-[10px] uppercase tracking-[0.2em] font-black text-muted-foreground flex items-center gap-2 px-2">
-                         <BookOpen className="h-3.5 w-3.5 text-sakura" />
-                         Kiến thức bổ trợ
-                       </p>
-                       <div className="flex flex-wrap gap-2">
+                {/* Rules + Suggestions */}
+                {(result.rules?.length > 0 || result.suggestions?.length > 0) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {result.rules?.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-[10px] uppercase tracking-widest font-black text-muted-foreground flex items-center gap-1.5">
+                          <BookOpen className="h-3.5 w-3.5 text-primary"/>Kiến thức bổ trợ
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
                           {result.rules.map((rule, i) => (
-                           <Badge key={i} variant="secondary" className="bg-white/80 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-sakura/10 px-4 py-1.5 rounded-xl text-xs font-bold shadow-sm">
+                            <Badge key={i} variant="secondary"
+                              className="bg-card border border-border text-foreground/80 px-2.5 py-1 rounded-lg text-xs">
                               {rule}
                             </Badge>
                           ))}
-                       </div>
-                    </div>
-                  )}
-
-                  {Array.isArray(result.suggestions) && result.suggestions.length > 0 && (
-                    <div className="space-y-4">
-                      <p className="text-[10px] uppercase tracking-[0.2em] font-black text-muted-foreground flex items-center gap-2 px-2">
-                        <Quote className="h-3.5 w-3.5 text-sakura" />
-                        Cách nói tự nhiên
-                      </p>
-                      <div className="space-y-3">
-                        {result.suggestions.map((s, i) => (
-                          <div 
-                            key={i} 
-                            onClick={() => speak(s)}
-                            className="flex items-center gap-4 text-sm bg-white/40 dark:bg-white/5 hover:bg-sakura/10 p-4 rounded-2xl border border-white/20 transition-all cursor-pointer group/s shadow-sm"
-                          >
-                            <Volume2 className="h-4 w-4 text-sakura opacity-40 group-hover/s:opacity-100 transition-opacity" />
-                            <span className="font-jp font-bold text-slate-800 dark:text-slate-200">{s}</span>
-                          </div>
-                        ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
+                    )}
+                    {result.suggestions?.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-[10px] uppercase tracking-widest font-black text-muted-foreground flex items-center gap-1.5">
+                          <Quote className="h-3.5 w-3.5 text-primary"/>Cách nói tự nhiên
+                        </p>
+                        <div className="space-y-1.5">
+                          {result.suggestions.map((s, i) => (
+                            <div key={i} onClick={() => speak(s)}
+                              className="flex items-center gap-3 text-sm bg-card border border-border hover:border-primary/40 p-3 rounded-xl cursor-pointer group/s transition-all">
+                              <Volume2 className="h-3.5 w-3.5 text-primary/40 group-hover/s:text-primary transition-colors flex-shrink-0"/>
+                              <span className="font-jp font-semibold text-foreground">{s}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>
@@ -275,6 +292,3 @@ export const GrammarCheckInput: React.FC<GrammarCheckInputProps> = ({
     </div>
   );
 };
-
-
-// export default GrammarCheckInput;
