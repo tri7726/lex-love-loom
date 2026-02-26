@@ -88,7 +88,6 @@ export const useProfile = () => {
                 streak: raw.current_streak || 0,
               } as Profile);
             }
-            }
           }
         )
         .subscribe();
