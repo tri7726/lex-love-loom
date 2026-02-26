@@ -255,7 +255,7 @@ export const STROKE_ORDER: Record<string, string[]> = {
   '合': ['人', '今', '合'],
 
   /* ── Transport & City (N4) ───────────────────────────────────── */
-  '地': ['土', '也', '地'],
+  // '地' already defined above
   '鉄': ['金', '失', '鉄'],
   '船': ['舟', '公', '船'],
   '空': ['穴', '工', '空'],
