@@ -14,6 +14,11 @@ export interface Profile {
   jlpt_level: string | null;
   created_at: string;
   updated_at: string;
+  // Convenience aliases used across components
+  full_name: string | null;
+  level: string | null;
+  xp: number;
+  streak: number;
 }
 
 export const useProfile = () => {
