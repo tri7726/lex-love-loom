@@ -60,18 +60,18 @@ export const FlashcardReview = () => {
 
   const fetchFolders = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('vocabulary_folders')
         .select('id, name, icon, color')
         .eq('user_id', user!.id)
         .order('name');
 
       if (error) throw error;
-      setFolders(data || []);
+      setFolders((data || []) as Folder[]);
 
       // Auto-select first folder if none selected
       if (!selectedFolder && data && data.length > 0) {
-        setSelectedFolder(data[0].id);
+        setSelectedFolder((data as any[])[0].id);
       }
     } catch (error) {
       console.error('Error fetching folders:', error);
