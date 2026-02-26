@@ -69,13 +69,13 @@ export const FolderSelectionDialog: React.FC<FolderSelectionDialogProps> = ({
     if (recent) {
       try {
         const recentIds: string[] = JSON.parse(recent);
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from('vocabulary_folders')
           .select('id, name, icon, color, parent_id')
           .in('id', recentIds);
         
         if (!error && data) {
-          setRecentFolders(data);
+          setRecentFolders(data as VocabularyFolder[]);
         }
       } catch (err) {
         console.error('Failed to load recent folders:', err);

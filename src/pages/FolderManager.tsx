@@ -146,7 +146,7 @@ export const FolderManager = () => {
 
   const fetchFolders = async () => {
     try {
-      let query = supabase
+      let query = (supabase as any)
         .from('vocabulary_folders')
         .select('*')
         .eq('user_id', user!.id)
@@ -164,11 +164,11 @@ export const FolderManager = () => {
       const folderMap = new Map<string, Folder>();
       const rootFolders: Folder[] = [];
 
-      data?.forEach((folder) => {
-        folderMap.set(folder.id, { ...folder, children: [] });
+      (data as any[])?.forEach((folder: any) => {
+        folderMap.set(folder.id, { ...folder, children: [] } as Folder);
       });
 
-      data?.forEach((folder) => {
+      (data as any[])?.forEach((folder: any) => {
         const folderNode = folderMap.get(folder.id)!;
         if (folder.parent_id) {
           const parent = folderMap.get(folder.parent_id);

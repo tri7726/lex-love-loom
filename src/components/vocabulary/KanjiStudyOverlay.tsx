@@ -207,7 +207,7 @@ export const KanjiStudyOverlay: React.FC<KanjiStudyOverlayProps> = ({
                     key={p} 
                     className={cn(
                       "h-1.5 w-8 rounded-full transition-all duration-300",
-                      currentPhase === p ? "bg-sakura w-12" : (['LEARN', 'QUIZ', 'WRITE_GUIDED', 'WRITE_BLIND'] as string[]).indexOf(currentPhase) > i || currentPhase === 'COMPLETE' ? "bg-matcha" : "bg-sakura/10"
+                      currentPhase === p ? "bg-sakura w-12" : (['LEARN', 'QUIZ', 'WRITE_GUIDED', 'WRITE_BLIND'] as string[]).indexOf(currentPhase as string) > i || (currentPhase as string) === 'COMPLETE' ? "bg-matcha" : "bg-sakura/10"
                     )}
                   />
                 ))}

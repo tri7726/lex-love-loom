@@ -150,7 +150,7 @@ export function useFlashcardCreation() {
               ease_factor: 2.5,
               interval: 0,
               repetitions: 0,
-              next_review: new Date().toISOString(),
+              next_review_date: new Date().toISOString(),
             })
             .select()
             .single();
@@ -158,7 +158,7 @@ export function useFlashcardCreation() {
           if (flashcardError) throw flashcardError;
 
           // Link to folder
-          await supabase
+          await (supabase as any)
             .from('vocabulary_folder_items')
             .insert({
               folder_id: folderId,

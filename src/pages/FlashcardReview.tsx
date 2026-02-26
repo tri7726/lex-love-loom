@@ -87,7 +87,7 @@ export const FlashcardReview = () => {
     setLoading(true);
     try {
       // Fetch flashcards in this folder
-      const { data: folderItems, error: itemsError } = await supabase
+      const { data: folderItems, error: itemsError } = await (supabase as any)
         .from('vocabulary_folder_items')
         .select('flashcard_id')
         .eq('folder_id', folderId);
@@ -101,7 +101,7 @@ export const FlashcardReview = () => {
         return;
       }
 
-      const flashcardIds = folderItems.map(item => item.flashcard_id);
+      const flashcardIds = (folderItems as any[]).map(item => item.flashcard_id);
 
       const { data: flashcardsData, error: flashcardsError } = await supabase
         .from('flashcards')
