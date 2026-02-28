@@ -14,6 +14,7 @@ export interface Profile {
   jlpt_level: string | null;
   created_at: string;
   updated_at: string;
+  role: string | null;
   // Convenience aliases used across components
   full_name: string | null;
   level: string | null;
@@ -53,6 +54,7 @@ export const useProfile = () => {
           level: raw.jlpt_level,
           xp: raw.total_xp || 0,
           streak: raw.current_streak || 0,
+          role: raw.role || 'user',
         } as Profile);
       }
     } catch (error: any) {
@@ -86,6 +88,7 @@ export const useProfile = () => {
                 level: raw.jlpt_level,
                 xp: raw.total_xp || 0,
                 streak: raw.current_streak || 0,
+                role: raw.role || 'user',
               } as Profile);
             }
           }

@@ -1,204 +1,111 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-interface WordData {
-  word: string;
-  reading: string;
-  meaning: string;
-  word_type?: string;
-  examples?: Array<{ japanese: string; vietnamese: string }>;
-  notes?: string;
-  source?: string;
-}
+const SYSTEM_PROMPT = `You are a Japanese dictionary and language expert. 
+Provide a detailed breakdown of the following Japanese word in JSON format.
+Include: reading (hiragana), Hán Việt (if applicable), and clear Vietnamese meanings.
+If the word is complex, break down its components.
 
-// Try to get word from Jisho API (free)
-async function lookupJisho(word: string): Promise<WordData | null> {
-  try {
-    console.log('Trying Jisho API for:', word);
-    const response = await fetch(`https://jisho.org/api/v1/search/words?keyword=${encodeURIComponent(word)}`);
-    
-    if (!response.ok) return null;
-    
-    const data = await response.json();
-    const result = data.data?.[0];
-    
-    if (!result) return null;
-    
-    const japanese = result.japanese?.[0];
-    const senses = result.senses?.[0];
-    
-    if (!senses) return null;
-    
-    return {
-      word: japanese?.word || word,
-      reading: japanese?.reading || '',
-      meaning: senses.english_definitions?.join(', ') || '',
-      word_type: senses.parts_of_speech?.join(', ') || '',
-      examples: [],
-      notes: 'Nguồn: Jisho.org (tiếng Anh)',
-      source: 'jisho'
-    };
-  } catch (e) {
-    console.error('Jisho API error:', e);
-    return null;
-  }
-}
-
-// Call AI for Vietnamese translation and examples
-async function lookupAI(word: string, context: string | null, apiKey: string): Promise<WordData | null> {
-  try {
-    console.log('Calling Gemini for:', word);
-    
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: `Bạn là từ điển Nhật-Việt. Tra từ "${word}" ${context ? `trong ngữ cảnh: "${context}"` : ''}.
-Trả về JSON:
 {
-  "word": "từ kanji",
-  "reading": "hiragana",
-  "meaning": "nghĩa tiếng Việt",
-  "word_type": "loại từ",
-  "examples": [{"japanese": "câu JP", "vietnamese": "nghĩa VN"}],
-  "notes": "ghi chú"
-}
-Chỉ trả về JSON, không kèm theo bất kỳ văn bản nào khác.`
-          }]
-        }],
-        generationConfig: {
-          response_mime_type: "application/json",
-        }
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Gemini API error:', response.status, errorText);
-      return null;
+  "word": "string",
+  "reading": "string (hiragana)",
+  "hanviet": "string",
+  "meanings": ["string"],
+  "parts": [
+    {
+      "component": "string",
+      "reading": "string",
+      "meaning": "string"
     }
-
-    const data = await response.json();
-    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    
-    if (!resultText) return null;
-    
-    const wordData = JSON.parse(resultText);
-    wordData.source = 'ai';
-    
-    return wordData;
-  } catch (e) {
-    console.error('AI lookup error:', e);
-    return null;
-  }
-}
+  ],
+  "jlpt_level": "N5-N1 or null",
+  "common": boolean
+}`;
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { word, context } = await req.json();
+    const { word } = await req.json();
+    if (!word) throw new Error("Word is required");
 
-    if (!word) {
-      return new Response(
-        JSON.stringify({ error: 'Word is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
 
-    console.log('Looking up word:', word);
+    let resultData = null;
+    let engineUsed = "none";
 
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-    // Step 1: Check cache first
-    console.log('Step 1: Checking cache...');
-    const { data: cached } = await supabase
-      .from('word_cache')
-      .select('*')
-      .eq('word', word)
-      .maybeSingle();
-
-    if (cached) {
-      console.log('Cache hit! Source:', cached.source);
-      return new Response(
-        JSON.stringify({
-          word: cached.word,
-          reading: cached.reading,
-          meaning: cached.meaning,
-          word_type: cached.word_type,
-          examples: cached.examples || [],
-          notes: cached.notes,
-          source: cached.source,
-          cached: true
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log('Cache miss, trying other sources...');
-
-    // Step 2: Try Jisho API (free)
-    let wordData = await lookupJisho(word);
-
-    // Step 3: If Jisho failed or we need Vietnamese, use AI
-    if (!wordData) {
-      const apiKey = Deno.env.get('GEMINI_API_KEY');
-      if (!apiKey) {
-        return new Response(
-          JSON.stringify({ error: 'GEMINI_API_KEY is not configured in Supabase Secrets' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+    // Helper for Groq
+    async function tryGroq(word) {
+      if (!GROQ_API_KEY) return null;
+      console.log(`Looking up word "${word}" using Groq (Primary)...`);
+      try {
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: word }],
+            response_format: { type: "json_object" }
+          }),
+        });
+        if (response.ok) {
+          const d = await response.json();
+          return JSON.parse(d.choices?.[0]?.message?.content || "{}");
+        }
+        return null;
+      } catch (e) {
+        console.error("Groq lookup error:", e);
+        return null;
       }
-      wordData = await lookupAI(word, context, apiKey);
     }
 
-    if (!wordData) {
-      return new Response(
-        JSON.stringify({ error: 'Could not find word' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Helper for Gemini
+    async function tryGemini(word) {
+      if (!GEMINI_API_KEY) return null;
+      console.log(`Looking up word "${word}" using Gemini (Fallback)...`);
+      try {
+        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ 
+          model: "gemini-2.0-flash",
+          generationConfig: { responseMimeType: "application/json" }
+        });
+        const result = await model.generateContent(`${SYSTEM_PROMPT}\n\nWord to look up: ${word}`);
+        return JSON.parse(result.response.text());
+      } catch (e) {
+        console.error("Gemini lookup error:", e);
+        return null;
+      }
     }
 
-    // Step 4: Save to cache
-    console.log('Saving to cache...');
-    await supabase
-      .from('word_cache')
-      .upsert({
-        word: wordData.word,
-        reading: wordData.reading,
-        meaning: wordData.meaning,
-        word_type: wordData.word_type,
-        examples: wordData.examples || [],
-        notes: wordData.notes,
-        source: wordData.source
-      }, { onConflict: 'word' });
+    // Execution
+    resultData = await tryGroq(word);
+    if (resultData) {
+      engineUsed = "groq";
+    } else {
+      console.log("Groq failed, trying Gemini fallback...");
+      resultData = await tryGemini(word);
+      if (resultData) engineUsed = "gemini";
+    }
 
-    return new Response(
-      JSON.stringify({ ...wordData, cached: false }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    if (!resultData) throw new Error("Word lookup failed");
+
+    return new Response(JSON.stringify({ ...resultData, engine: engineUsed }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
 
   } catch (error) {
-    console.error('Error in lookup-word:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    console.error("Lookup error:", error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

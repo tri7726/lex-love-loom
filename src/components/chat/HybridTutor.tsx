@@ -40,12 +40,21 @@ interface AnalysisData {
   cultural_notes: string[];
 }
 
-export const HybridTutor = () => {
-  const [content, setContent] = useState('');
+export const HybridTutor = ({ initialData }: { initialData?: any }) => {
+  const [content, setContent] = useState(initialData?.content || '');
   const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<AnalysisData | null>(null);
-  const [engine, setEngine] = useState<'groq' | 'gemini' | null>(null);
+  const [result, setResult] = useState<AnalysisData | null>(initialData?.analysis || null);
+  const [engine, setEngine] = useState<'groq' | 'gemini' | null>(initialData?.engine || null);
+  
+  // Update state when initialData changes
+  React.useEffect(() => {
+    if (initialData) {
+      setContent(initialData.content || '');
+      setResult(initialData.analysis || null);
+      setEngine(initialData.engine || null);
+    }
+  }, [initialData]);
   const { toast } = useToast();
   const { profile } = useProfile();
   const { speak, isSpeaking } = useTTS();
@@ -60,6 +69,8 @@ export const HybridTutor = () => {
     setEngine(null);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
       const userContext = profile
         ? `User is level ${profile.level}, has ${profile.xp} XP and a streak of ${profile.streak} days. Name: ${profile.full_name || 'Gakusei'}.`
         : 'User is a Japanese learner.';
@@ -68,8 +79,12 @@ export const HybridTutor = () => {
         body: {
           content,
           prompt: `[Context: ${userContext}] ${prompt}`,
-          isVip: true
+          isVip: true,
+          saveToHistory: true
         },
+        headers: session ? {
+          Authorization: `Bearer ${session.access_token}`
+        } : {}
       });
 
       if (error) throw error;

@@ -1,138 +1,114 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+const SYSTEM_PROMPT = `You are an expert Japanese content creator. 
+Generate a reading passage for Japanese learners based on the provided level and topic.
+Return the result in the following JSON format:
 
-  try {
-    const { content, level } = await req.json();
-
-    if (!content) {
-      return new Response(
-        JSON.stringify({ error: 'Content is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log('Generating reading analysis for level:', level);
-
-    const apiKey = Deno.env.get('GEMINI_API_KEY');
-    if (!apiKey) {
-      throw new Error('GEMINI_API_KEY not configured');
-    }
-
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{
-              text: `Bạn là giáo viên tiếng Nhật. Phân tích đoạn văn sau:
-"${content}"
-
-Level người học: ${level || 'N5'}
-
-Trả về JSON với cấu trúc:
 {
-  "content_with_furigana": "HTML với ruby tags, ví dụ: <ruby>日本語<rt>にほんご</rt></ruby>",
-  "vocabulary_list": [
-    {"word": "từ", "reading": "hiragana", "meaning": "nghĩa VN ngắn"}
-  ],
-  "preloaded_vocabulary": [
+  "title": "string (Japanese)",
+  "content": "string (Japanese passage)",
+  "vocabulary": [
     {
-      "word": "từ kanji",
-      "reading": "hiragana",
-      "meaning": "nghĩa tiếng Việt đầy đủ",
-      "word_type": "loại từ (danh từ, động từ, v.v.)",
-      "examples": [{"japanese": "câu ví dụ", "vietnamese": "nghĩa"}],
-      "notes": "ghi chú cách dùng"
+      "word": "string",
+      "reading": "string (hiragana)",
+      "meaning": "string (Vietnamese)"
+    }
+  ],
+  "questions": [
+    {
+      "question": "string (Japanese)",
+      "options": ["A", "B", "C", "D"],
+      "answer": "correct string",
+      "explanation": "string (Vietnamese)"
     }
   ]
 }
-Yêu cầu:
-1. Thêm furigana cho TẤT CẢ Kanji trong "content_with_furigana".
-2. "vocabulary_list": Chọn 5-10 từ quan trọng.
-3. "preloaded_vocabulary": TẤT CẢ từ vựng quan trọng xuất hiện trong bài kèm ví dụ và ghi chú.
-4. CHỈ trả về JSON.`
-            }]
-          }
-        ],
-        generationConfig: {
-          response_mime_type: "application/json",
+
+Levels: N5, N4, N3, N2, N1. Use appropriate vocabulary and kanji for the level.`;
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  try {
+    const { level = "N5", topic = "daily life" } = await req.json();
+
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+
+    let resultData = null;
+    let engineUsed = "none";
+
+    // Helper for Groq
+    async function tryGroq(level, topic) {
+      if (!GROQ_API_KEY) return null;
+      console.log(`Generating ${level} reading about "${topic}" using Groq (Primary)...`);
+      try {
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: `Level: ${level}, Topic: ${topic}` }],
+            response_format: { type: "json_object" }
+          }),
+        });
+        if (response.ok) {
+          const d = await response.json();
+          return JSON.parse(d.choices?.[0]?.message?.content || "{}");
         }
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('API error:', errorText);
-      throw new Error(`API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!resultText) {
-      throw new Error('No response from AI');
-    }
-
-    // Parse JSON from response
-    const analysisData = JSON.parse(resultText);
-
-    console.log('Reading analysis result - vocabulary count:', analysisData.preloaded_vocabulary?.length || 0);
-
-    // Cache all preloaded vocabulary to word_cache table
-    if (analysisData.preloaded_vocabulary && analysisData.preloaded_vocabulary.length > 0) {
-      console.log('Caching preloaded vocabulary...');
-      
-      const wordsToCache = analysisData.preloaded_vocabulary.map((v: any) => ({
-        word: v.word,
-        reading: v.reading,
-        meaning: v.meaning,
-        word_type: v.word_type,
-        examples: v.examples || [],
-        notes: v.notes,
-        source: 'preload'
-      }));
-
-      // Upsert to avoid duplicates
-      const { error: cacheError } = await supabase
-        .from('word_cache')
-        .upsert(wordsToCache, { onConflict: 'word', ignoreDuplicates: true });
-
-      if (cacheError) {
-        console.error('Cache error:', cacheError);
-      } else {
-        console.log('Cached', wordsToCache.length, 'words');
+        return null;
+      } catch (e) {
+        console.error("Groq generation error:", e);
+        return null;
       }
     }
 
-    return new Response(
-      JSON.stringify(analysisData),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    // Helper for Gemini
+    async function tryGemini(level, topic) {
+      if (!GEMINI_API_KEY) return null;
+      console.log(`Generating ${level} reading about "${topic}" using Gemini (Fallback)...`);
+      try {
+        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ 
+          model: "gemini-2.0-flash",
+          generationConfig: { responseMimeType: "application/json" }
+        });
+        const result = await model.generateContent(`${SYSTEM_PROMPT}\n\nTarget Level: ${level}\nTopic: ${topic}`);
+        return JSON.parse(result.response.text());
+      } catch (e) {
+        console.error("Gemini generation error:", e);
+        return null;
+      }
+    }
+
+    // Execution
+    resultData = await tryGroq(level, topic);
+    if (resultData) {
+      engineUsed = "groq";
+    } else {
+      console.log("Groq failed, trying Gemini fallback...");
+      resultData = await tryGemini(level, topic);
+      if (resultData) engineUsed = "gemini";
+    }
+
+    if (!resultData) throw new Error("Reading generation failed");
+
+    return new Response(JSON.stringify({ ...resultData, engine: engineUsed }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
 
   } catch (error) {
-    console.error('Error in generate-reading:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    console.error("Generation error:", error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
