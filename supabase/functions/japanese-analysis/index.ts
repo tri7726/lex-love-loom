@@ -1,5 +1,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,86 +9,17 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// ==========================================
-// TypeScript Interfaces for Response Schema
-// ==========================================
-
-interface WordBreakdown {
-  word: string;
-  reading: string;
-  hanviet?: string;
-  meaning: string;
-  word_type: string;
-  jlpt_level?: string;
-}
-
-interface GrammarPattern {
-  pattern: string;
-  meaning: string;
-  usage: string;
-}
-
-interface SentenceAnalysis {
-  japanese: string;
-  vietnamese: string;
-  breakdown: {
-    words: WordBreakdown[];
-    grammar_patterns: GrammarPattern[];
-  };
-}
-
-interface SuggestedFlashcard {
-  word: string;
-  reading: string;
-  hanviet?: string;
-  meaning: string;
-  example_sentence: string;
-  example_translation: string;
-  jlpt_level?: string;
-  word_type?: string;
-  notes?: string;
-}
-
-interface AnalysisResponse {
-  overall_analysis: {
-    jlpt_level: string;
-    politeness_level: string;
-    text_type: string;
-    summary: string;
-  };
-  sentences: SentenceAnalysis[];
-  suggested_flashcards: SuggestedFlashcard[];
-  grammar_summary: {
-    particles_used: string[];
-    verb_forms: string[];
-    key_patterns: string[];
-  };
-  cultural_notes: string[];
-}
-
-interface GrammarResponse {
-  isCorrect: boolean;
-  corrected: string;
-  explanation: string;
-  rules: string[];
-  suggestions: string[];
-}
-
 const GRAMMAR_SYSTEM_PROMPT = `あなたは日本語の文法チェッカーです。
 ユーザーが入力した日本語の文法をチェックし、以下のJSON形式で返答してください。
-修正内容や解説はベトナム語で行ってください。
+修正 nội dung hay giải thích bằng tiếng Việt.
 
 {
   "isCorrect": boolean,
   "corrected": "string",
-  "explanation": "string (in Vietnamese)",
-  "rules": ["string (in Japanese)"],
-  "suggestions": ["string (in Japanese)"]
+  "explanation": "string (bằng tiếng Việt)",
+  "rules": ["string (bằng tiếng Nhật)"],
+  "suggestions": ["string (bằng tiếng Nhật)"]
 }`;
-
-// ==========================================
-// Enhanced System Prompt for Structured Analysis
-// ==========================================
 
 const ENHANCED_SYSTEM_PROMPT = `You are an expert Japanese language analyzer specialized in Vietnamese learners.
 
@@ -94,31 +27,31 @@ Analyze the provided Japanese text and return a detailed JSON response with the 
 
 {
   "overall_analysis": {
-    "jlpt_level": "Estimated JLPT level (N5, N4, N3, N2, N1, or 'Mixed' if multiple levels)",
+    "jlpt_level": "Estimated JLPT level (N5, N4, N3, N2, N1, or 'Mixed')",
     "politeness_level": "formal/casual/mixed",
     "text_type": "conversation/news/literature/daily/academic",
     "summary": "Brief overall analysis summary in Vietnamese (2-3 sentences)"
   },
   "sentences": [
     {
-      "japanese": "Original sentence in Japanese",
+      "japanese": "Original sentence",
       "vietnamese": "Vietnamese translation",
       "breakdown": {
         "words": [
           {
-            "word": "Word in kanji/kana",
-            "reading": "Hiragana reading",
-            "hanviet": "Hán Việt reading (if kanji, otherwise omit)",
-            "meaning": "Vietnamese meaning",
-            "word_type": "noun/verb/adjective/adverb/particle/conjunction/etc",
-            "jlpt_level": "N5/N4/N3/N2/N1 (if known, otherwise omit)"
+            "word": "Word",
+            "reading": "Reading",
+            "hanviet": "Hán Việt",
+            "meaning": "Meaning",
+            "word_type": "type",
+            "jlpt_level": "N5-N1"
           }
         ],
         "grammar_patterns": [
           {
-            "pattern": "Grammar pattern (e.g., 〜ですね, 〜ている)",
-            "meaning": "Explanation in Vietnamese",
-            "usage": "Usage context/nuance in Vietnamese"
+            "pattern": "Pattern",
+            "meaning": "Meaning (VN)",
+            "usage": "Usage (VN)"
           }
         ]
       }
@@ -126,294 +59,186 @@ Analyze the provided Japanese text and return a detailed JSON response with the 
   ],
   "suggested_flashcards": [
     {
-      "word": "Important word in kanji/kana (select 5-10 most valuable words, NOT particles or extremely common words)",
-      "reading": "Hiragana reading",
-      "hanviet": "Hán Việt (if applicable)",
-      "meaning": "Vietnamese meaning",
-      "example_sentence": "Sentence from the original text",
-      "example_translation": "Vietnamese translation of example",
-      "jlpt_level": "N5/N4/N3/N2/N1",
-      "word_type": "noun/verb/adjective/etc",
-      "notes": "Additional learning notes (optional)"
+      "word": "Word",
+      "reading": "Reading",
+      "hanviet": "Hán Việt",
+      "meaning": "Meaning",
+      "example_sentence": "Example",
+      "example_translation": "Translation",
+      "jlpt_level": "N5-N1",
+      "word_type": "type"
     }
   ],
   "grammar_summary": {
-    "particles_used": ["List of particles found: は, が, を, に, で, と, etc"],
-    "verb_forms": ["List of verb forms: masu-form, te-form, ta-form, nai-form, etc"],
-    "key_patterns": ["List of important grammar patterns found"]
+    "particles_used": ["List"],
+    "verb_forms": ["List"],
+    "key_patterns": ["List"]
   },
-  "cultural_notes": [
-    "Cultural insights, usage contexts, or important notes in Vietnamese (if applicable)"
-  ]
+  "cultural_notes": ["Notes in VN"]
 }
 
-CRITICAL INSTRUCTIONS:
-- Return ONLY valid JSON, no markdown code blocks, no additional text
-- All readings must be in hiragana (not romaji)
-- All explanations and translations must be in Vietnamese
-- For suggested_flashcards: prioritize intermediate/advanced vocabulary (N3-N1) over basic words
-- Exclude particles (は, が, を, に, etc) from suggested_flashcards
-- Include example sentences from the original text when possible
-- Grammar patterns should explain WHY and WHEN to use them, not just WHAT they mean
-- Be encouraging and educational in tone`;
-
-// ==========================================
-// Edge Function Handler
-// ==========================================
-
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+CRITICAL: Return ONLY valid JSON. Readings in hiragana. Vietnamese for explanations.`;
 
 const VISION_SYSTEM_PROMPT = `You are an expert Japanese tutor. 
-Analyze the image provided and identify the main object or scene.
-Return a JSON response with the following structure:
+Analyze the image provided and identify objects. Return JSON:
 {
-  "object_name": "Main object name in Japanese (Kanji/Kana)",
-  "reading": "Hiragana reading",
-  "vietnamese_meaning": "Meaning in Vietnamese",
-  "description": "Brief description of what is in the image in Vietnamese",
-  "vocabulary": [
-    {
-      "word": "Related Japanese word",
-      "reading": "Reading",
-      "meaning": "Vietnamese meaning"
-    }
-  ],
-  "sample_sentences": [
-    {
-      "japanese": "A natural sample sentence using the object name",
-      "translation": "Vietnamese translation"
-    }
-  ]
-}
-Return ONLY valid JSON.`;
+  "object_name": "In Japanese",
+  "reading": "Hiragana",
+  "vietnamese_meaning": "VN",
+  "description": "VN description",
+  "vocabulary": [{"word": "JP", "reading": "kana", "meaning": "VN"}],
+  "sample_sentences": [{"japanese": "JP", "translation": "VN"}]
+}`;
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { prompt, content, image, isImageAnalysis, isGrammar } = await req.json();
+    const { prompt, content, image, isImageAnalysis, isGrammar, engine = "gemini", saveToHistory = true } = await req.json();
     
-    // 0. Grammar Check Mode (New)
-    if (isGrammar) {
-      const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
-      const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-      
-      console.log("Grammar check requested via analysis function...");
-      
-      const useGemini = !!GEMINI_API_KEY && (content?.length > 100 || req.headers.get("x-ai-engine") === "gemini");
-      let resultText = "";
-      
-      if (useGemini) {
-        const geminiResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: GRAMMAR_SYSTEM_PROMPT }, { text: content }] }],
-            generationConfig: { response_mime_type: "application/json" }
-          }),
-        });
-        if (geminiResp.ok) {
-          const d = await geminiResp.json();
-          resultText = d.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    
+    // Get user from auth header
+    const authHeader = req.headers.get('Authorization');
+    let user = null;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.replace('Bearer ', '');
+      try {
+        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser(token);
+        if (authError) {
+          console.error("Auth error:", authError.message);
+        } else {
+          user = authUser;
+          console.log("Authenticated user detected:", user.id);
         }
+      } catch (e) {
+        console.error("Auth Exception:", e.message);
       }
-      
-      if (!resultText && GROQ_API_KEY) {
-        const groqResp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    } else {
+      console.log("No valid Authorization header found - history will NOT be saved.");
+    }
+
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+
+    let resultData = null;
+    let engineUsed = "none";
+
+    // Helper for Groq Text Analysis
+    async function tryGroq(systemPrompt, userContent, isGrammar) {
+      if (!GROQ_API_KEY) return null;
+      console.log("Analysis using Groq (Primary)...");
+      try {
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
           headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
           body: JSON.stringify({
             model: "llama-3.3-70b-versatile",
-            messages: [{ role: "system", content: GRAMMAR_SYSTEM_PROMPT }, { role: "user", content: content }],
+            messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userContent }],
             response_format: { type: "json_object" }
           }),
         });
-        if (groqResp.ok) {
-          const d = await groqResp.json();
-          resultText = d.choices?.[0]?.message?.content || "";
+        if (response.ok) {
+          const d = await response.json();
+          const raw = d.choices?.[0]?.message?.content || "{}";
+          const parsed = JSON.parse(raw);
+          return isGrammar 
+            ? { format: 'grammar', result: parsed }
+            : { format: 'structured', analysis: parsed };
         }
+        return null;
+      } catch (e) {
+        console.error("Groq analysis error:", e);
+        return null;
       }
-
-      const cleaned = resultText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      const raw = JSON.parse(cleaned || "{}");
-      
-      // Map to the format GrammarCheckInput expects
-      return new Response(JSON.stringify({
-        isCorrect: raw.isCorrect ?? true,
-        corrected: raw.corrected || content,
-        explanation: raw.explanation || "",
-        rules: raw.rules || [],
-        suggestions: raw.suggestions || []
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // 1. Image Analysis Logic... (unchanged)
-    if (isImageAnalysis && image) {
-      if (!GEMINI_API_KEY) {
-        throw new Error("GEMINI_API_KEY is not configured");
-      }
-
-      console.log("Sending request to Gemini Vision API...");
-      
-      const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: VISION_SYSTEM_PROMPT },
-                {
-                  inline_data: {
-                    mime_type: "image/jpeg",
-                    data: image // base64 string
-                  }
-                }
-              ]
-            }
-          ],
-          generationConfig: {
-            response_mime_type: "application/json"
-          }
-        }),
-      });
-
-      if (!geminiResponse.ok) {
-        const errorText = await geminiResponse.text();
-        console.error("Gemini API error:", geminiResponse.status, errorText);
-        throw new Error(`Gemini API error: ${geminiResponse.status}`);
-      }
-
-      const geminiData = await geminiResponse.json();
-      const result = JSON.parse(geminiData.candidates[0].content.parts[0].text);
-
-      return new Response(JSON.stringify({ format: 'vision', result }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Default: Text analysis
-    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
-    if (!GROQ_API_KEY) {
-      throw new Error("GROQ_API_KEY is not configured");
-    }
-
-    // Smart Routing Logic
-    const complexKeywords = [
-      "why", "explain", "culture", "difference", "honne", "tatemae", "nuance", "history", "social", "context", 
-      "tại sao", "giải thích", "văn hóa", "khác biệt", "sắc thái", "lịch sử", "phân tích", "analysis", "breakdown", "giải mã"
-    ];
-    const isComplex = (prompt || "").toLowerCase().split(" ").some(word => complexKeywords.includes(word)) || (content || "").length > 500;
-    
-    // Explicit override or smart check
-    const useGemini = req.headers.get("x-ai-engine") === "gemini" || isComplex;
-
-    console.log(`Routing to ${useGemini ? 'Gemini' : 'Groq'}... (Complex: ${isComplex})`);
-
-    if (useGemini && GEMINI_API_KEY) {
-      const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_API_KEY}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: ENHANCED_SYSTEM_PROMPT },
-              { text: prompt 
-                ? `Analyze this Japanese text and answer the question.\n\nText: ${content}\n\nQuestion: ${prompt}`
-                : `Analyze this Japanese text in detail:\n\n${content}` 
-              }
-            ]
-          }],
-          generationConfig: { response_mime_type: "application/json" }
-        }),
-      });
-
-      if (geminiResponse.ok) {
-        const geminiData = await geminiResponse.json();
-        const rawText = geminiData.candidates[0].content.parts[0].text;
-        const cleanedText = rawText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-        const result = JSON.parse(cleanedText);
-        return new Response(JSON.stringify({ format: 'structured', analysis: result, engine: 'gemini' }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // Helper for Gemini Text Analysis
+    async function tryGemini(systemPrompt, userContent, isGrammar) {
+      if (!GEMINI_API_KEY) return null;
+      console.log("Analysis using Gemini (Fallback)...");
+      try {
+        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ 
+          model: "gemini-2.0-flash",
+          generationConfig: { responseMimeType: "application/json" }
         });
+        const result = await model.generateContent(`${systemPrompt}\n\nContent: ${userContent}`);
+        const raw = result.response.text();
+        const parsed = JSON.parse(raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim());
+        return isGrammar 
+          ? { format: 'grammar', result: parsed }
+          : { format: 'structured', analysis: parsed };
+      } catch (e) {
+        console.error("Gemini analysis error:", e);
+        return null;
       }
-      console.error("Gemini fallback failed, trying Groq...");
     }
 
-    // Groq execution (Fallback or default)
-    const analysisMessages = [
-      { role: "user", content: ENHANCED_SYSTEM_PROMPT },
-      { 
-        role: "user", 
-        content: prompt 
-          ? `Analyze this Japanese text and answer the question.\n\nText: ${content}\n\nQuestion: ${prompt}`
-          : `Analyze this Japanese text in detail:\n\n${content}`
+    // 0. Image Analysis (Gemini only)
+    if (isImageAnalysis && image && GEMINI_API_KEY) {
+      engineUsed = "gemini";
+      console.log("Image analysis using Gemini 2.0 Flash...");
+      const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+      
+      const result = await model.generateContent([
+        VISION_SYSTEM_PROMPT,
+        { inlineData: { data: image, mimeType: "image/jpeg" } }
+      ]);
+      
+      const text = result.response.text();
+      resultData = { format: 'vision', result: JSON.parse(text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim()) };
+    } 
+    // 1. Text Analysis or Grammar
+    else {
+      const systemPrompt = isGrammar ? GRAMMAR_SYSTEM_PROMPT : ENHANCED_SYSTEM_PROMPT;
+      const userContent = prompt 
+        ? `Analyze this: ${content}\n\nQuestion: ${prompt}`
+        : content;
+      
+      // Execute Groq first for text tasks
+      resultData = await tryGroq(systemPrompt, userContent, isGrammar);
+      if (resultData) {
+        engineUsed = "groq";
+      } else {
+        console.log("Groq failed, trying Gemini fallback...");
+        resultData = await tryGemini(systemPrompt, userContent, isGrammar);
+        if (resultData) engineUsed = "gemini";
       }
-    ];
+    }
 
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GROQ_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: analysisMessages,
-        temperature: 0.3,
-        max_tokens: 4096,
-        response_format: { type: "json_object" }
-      }),
+    if (!resultData) throw new Error("AI analysis failed");
+
+    // 2. Save to history if requested and user exists (Save both structured and grammar)
+    if (saveToHistory && user && !isImageAnalysis) {
+      console.log("Saving analysis to history for user:", user.id);
+      const historyAnalysis = isGrammar ? resultData.result : resultData.analysis;
+      const { error: insertError } = await supabase.from('analysis_history').insert({
+        user_id: user.id,
+        content: content,
+        analysis: historyAnalysis,
+        engine: engineUsed
+      });
+      if (insertError) {
+        console.error("Error saving to history:", insertError);
+      } else {
+        console.log("Analysis saved to history successfully.");
+      }
+    }
+
+    return new Response(JSON.stringify({ ...resultData, engine: engineUsed }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Groq API error:", response.status, errorText);
-      throw new Error(`Groq API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const resultText = data.choices?.[0]?.message?.content || "No response generated.";
-
-    let parsedResponse = null;
-    let isStructured = false;
-
-    try {
-      const cleanedText = resultText
-        .replace(/```json\n?/g, '')
-        .replace(/```\n?/g, '')
-        .trim();
-      
-      parsedResponse = JSON.parse(cleanedText);
-      isStructured = true;
-    } catch (parseError) {
-      console.warn("Failed to parse JSON, returning as markdown text:", parseError);
-      isStructured = false;
-    }
-
-    if (isStructured && parsedResponse) {
-      return new Response(JSON.stringify({ format: 'structured', analysis: parsedResponse, engine: 'groq' }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    } else {
-      return new Response(JSON.stringify({ format: 'text', response: resultText, engine: 'groq' }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
   } catch (error) {
-    console.error("Analysis function error:", error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    console.error("Analysis error:", error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 200, // Return 200 even on error for some cases to handle in frontend
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
 
