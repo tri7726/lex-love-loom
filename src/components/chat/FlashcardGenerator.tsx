@@ -10,7 +10,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useTTS } from '@/hooks/useTTS';
 import { useProfile } from '@/hooks/useProfile';
 import { cn } from '@/lib/utils';
-import { useFlashcardFolders, VocabWord } from '@/hooks/useFlashcardFolders';
 
 interface SuggestedFlashcard {
   word: string;
@@ -23,6 +22,25 @@ interface SuggestedFlashcard {
   word_type?: string;
   notes?: string;
 }
+
+interface CustomFolder {
+  id: string;
+  name: string;
+  emoji: string;
+  words: VocabWord[];
+  createdAt: string;
+}
+
+interface VocabWord {
+  id: string;
+  word: string;
+  reading: string | null;
+  hanviet: string | null;
+  meaning: string;
+  mastery_level: number | null;
+}
+
+const CUSTOM_FOLDERS_KEY = 'lex-custom-folders';
 
 const JLPT_COLORS: Record<string, string> = {
   'N5': 'bg-green-500/20 text-green-700 dark:text-green-300',
@@ -41,11 +59,25 @@ export const FlashcardGenerator = () => {
   const { speak, isSpeaking } = useTTS();
   const { profile } = useProfile();
 
-  const { folders, createFolder, addWordToFolder } = useFlashcardFolders();
+  // Folder selection
+  const [folders, setFolders] = useState<CustomFolder[]>([]);
   const [showFolderPicker, setShowFolderPicker] = useState(false);
   const [pendingCards, setPendingCards] = useState<SuggestedFlashcard[]>([]);
   const [newFolderName, setNewFolderName] = useState('');
   const [addedCards, setAddedCards] = useState<Set<number>>(new Set());
+
+  // Load folders from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(CUSTOM_FOLDERS_KEY);
+      if (stored) setFolders(JSON.parse(stored));
+    } catch { /* ignore */ }
+  }, [showFolderPicker]);
+
+  const saveFolders = (updated: CustomFolder[]) => {
+    setFolders(updated);
+    localStorage.setItem(CUSTOM_FOLDERS_KEY, JSON.stringify(updated));
+  };
 
   const handleGenerate = async () => {
     if (!inputText.trim()) {
@@ -114,22 +146,27 @@ export const FlashcardGenerator = () => {
   };
 
   const addToFolder = (folderId: string) => {
-    const newWords: Omit<VocabWord, 'id'>[] = pendingCards.map((card) => ({
+    const stored = localStorage.getItem(CUSTOM_FOLDERS_KEY);
+    const allFolders: CustomFolder[] = stored ? JSON.parse(stored) : [];
+
+    const newWords: VocabWord[] = pendingCards.map((card, i) => ({
+      id: `ai-${Date.now()}-${i}`,
       word: card.word,
       reading: card.reading || null,
       hanviet: card.hanviet || null,
       meaning: card.meaning,
       mastery_level: null,
-      example_sentence: card.example_sentence,
-      example_translation: card.example_translation,
-      jlpt_level: card.jlpt_level,
-      word_type: card.word_type
     }));
 
-    newWords.forEach(word => addWordToFolder(folderId, word));
+    const updated = allFolders.map((f) =>
+      f.id === folderId ? { ...f, words: [...f.words, ...newWords] } : f
+    );
+
+    saveFolders(updated);
 
     // Track which cards were added
     if (pendingCards.length === flashcards.length) {
+      // Added all
       setAddedCards(new Set(flashcards.map((_, i) => i)));
     } else {
       const idx = flashcards.indexOf(pendingCards[0]);
@@ -147,39 +184,23 @@ export const FlashcardGenerator = () => {
 
   const createFolderAndAdd = () => {
     if (!newFolderName.trim()) return;
-    const newFolder = createFolder(newFolderName.trim(), '📚');
+    const stored = localStorage.getItem(CUSTOM_FOLDERS_KEY);
+    const allFolders: CustomFolder[] = stored ? JSON.parse(stored) : [];
+
+    const newFolder: CustomFolder = {
+      id: `custom-${Date.now()}`,
+      name: newFolderName.trim(),
+      emoji: '📚',
+      words: [],
+      createdAt: new Date().toISOString(),
+    };
+
+    const updated = [...allFolders, newFolder];
+    saveFolders(updated);
     setNewFolderName('');
-    
-    // Add cards to the new folder
-    const newWords: Omit<VocabWord, 'id'>[] = pendingCards.map((card) => ({
-      word: card.word,
-      reading: card.reading || null,
-      hanviet: card.hanviet || null,
-      meaning: card.meaning,
-      mastery_level: null,
-      example_sentence: card.example_sentence,
-      example_translation: card.example_translation,
-      jlpt_level: card.jlpt_level,
-      word_type: card.word_type
-    }));
-    
-    newWords.forEach(word => addWordToFolder(newFolder.id, word));
-    
-    // Track added cards
-    if (pendingCards.length === flashcards.length) {
-      setAddedCards(new Set(flashcards.map((_, i) => i)));
-    } else {
-      const idx = flashcards.indexOf(pendingCards[0]);
-      if (idx >= 0) setAddedCards((prev) => new Set([...prev, idx]));
-    }
 
-    toast({
-      title: '✅ Đã thêm thành công!',
-      description: `${pendingCards.length} từ đã được thêm vào thư mục mới.`,
-    });
-
-    setShowFolderPicker(false);
-    setPendingCards([]);
+    // Now add cards to the new folder
+    addToFolder(newFolder.id);
   };
 
   return (

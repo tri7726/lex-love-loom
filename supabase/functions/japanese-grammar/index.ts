@@ -1,6 +1,5 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,9 +13,9 @@ const SYSTEM_PROMPT = `あなたは日本語の文法チェッカーです。
 {
   "isCorrect": boolean, // 文法が正しいかどうか
   "corrected": "string", // 修正後の文章（正しい場合は元の文章）
-  "explanation": "string", // 修正 nội dung hay lỗi ngữ pháp (bằng tiếng Việt)
-  "rules": ["string"], // từ khóa quy tắc ngữ pháp liên quan (tiếng Nhật)
-  "suggestions": ["string"] // các cách diễn đạt tự nhiên khác (tiếng Nhật)
+  "explanation": "string", // 修正内容や文法ミスの解説（ベトナム語で）
+  "rules": ["string"], // 関連する文法ルールのキーワード（日本語）
+  "suggestions": ["string"] // 他の自然な言い回しの提案（日本語）
 }
 
 例：
@@ -28,8 +27,7 @@ const SYSTEM_PROMPT = `あなたは日本語の文法チェッカーです。
   "explanation": "Bạn nên dùng 'です' để kết thúc câu danh từ. 'います' dùng cho sự tồn tại của người/động vật.",
   "rules": ["名詞文", "です・ます"],
   "suggestions": ["私は学生をしています"]
-}
-`;
+}`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -38,11 +36,9 @@ serve(async (req) => {
 
   try {
     let text = "";
-    let preferredEngine = "gemini";
     try {
       const body = await req.json();
       text = body.text || "";
-      preferredEngine = body.engine || "gemini";
     } catch (e) {
       console.error("Error parsing request body:", e);
     }
@@ -63,73 +59,69 @@ serve(async (req) => {
     const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
+    // Smart routing: Use Gemini for longer texts or if Groq is likely to struggle
+    const isLongText = text.length > 100;
+    const useGemini = !!GEMINI_API_KEY && (isLongText || req.headers.get("x-ai-engine") === "gemini");
+
     let resultText = "";
-    let engineUsed = "none";
+    let engine = "groq";
 
-    // Helper for Groq
-    async function tryGroq(text) {
-      if (!GROQ_API_KEY) return null;
+    if (useGemini) {
+      engine = "gemini";
+      console.log("Routing grammar check to Gemini...");
+      const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_API_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: SYSTEM_PROMPT },
+              { text: `Check this Japanese text:\n\n${text}` }
+            ]
+          }],
+          generationConfig: { response_mime_type: "application/json" }
+        }),
+      });
+
+      if (geminiResponse.ok) {
+        const geminiData = await geminiResponse.json();
+        resultText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+      } else {
+        console.error("Gemini API failed, falling back to Groq...");
+        engine = "groq";
+      }
+    }
+
+    if (!resultText && GROQ_API_KEY) {
       console.log("Routing grammar check to Groq...");
-      try {
-        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${GROQ_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "llama-3.3-70b-versatile",
-            messages: [
-              { role: "system", content: SYSTEM_PROMPT },
-              { role: "user", content: text },
-            ],
-            temperature: 0.1,
-            max_tokens: 2048,
-            response_format: { type: "json_object" },
-          }),
-        });
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${GROQ_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: text },
+          ],
+          temperature: 0.1,
+          max_tokens: 2048,
+          response_format: { type: "json_object" },
+        }),
+      });
 
-        if (response.ok) {
-          const data = await response.json();
-          return data.choices?.[0]?.message?.content || null;
-        }
-        return null;
-      } catch (e) {
-        console.error("Groq grammar error:", e);
-        return null;
+      if (response.ok) {
+        const data = await response.json();
+        resultText = data.choices?.[0]?.message?.content || "";
+      } else {
+        const errorText = await response.text();
+        console.error("Groq API error:", response.status, errorText);
       }
     }
 
-    // Helper for Gemini
-    async function tryGemini(text) {
-      if (!GEMINI_API_KEY) return null;
-      console.log("Routing grammar check to Gemini 2.0 Flash...");
-      try {
-        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ 
-          model: "gemini-2.0-flash",
-          generationConfig: { responseMimeType: "application/json" }
-        });
-
-        const result = await model.generateContent(`${SYSTEM_PROMPT}\n\nCheck this Japanese text: ${text}`);
-        return result.response.text();
-      } catch (e) {
-        console.error("Gemini grammar error:", e);
-        return null;
-      }
-    }
-
-    // Execution Logic: Groq First
-    resultText = await tryGroq(text);
-    if (resultText) {
-      engineUsed = "groq";
-    } else {
-      console.log("Groq failed or key missing, trying Gemini as fallback...");
-      resultText = await tryGemini(text);
-      if (resultText) engineUsed = "gemini";
-    }
-
-    // Fallback if both fail
+    // Fallback if both AI engines fail or are not available
     if (!resultText || resultText === "{}") {
       return new Response(JSON.stringify({
         isCorrect: true,
@@ -163,7 +155,7 @@ serve(async (req) => {
       explanation: result.explanation || "Không có giải thích.",
       rules: Array.isArray(result.rules) ? result.rules : [],
       suggestions: Array.isArray(result.suggestions) ? result.suggestions : [],
-      engine: engineUsed
+      engine
     };
 
     return new Response(JSON.stringify(validatedResult), {
@@ -171,13 +163,13 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error("Grammar check error:", error);
+    console.error("Grammar check function technical error:", error);
     return new Response(
       JSON.stringify({ 
         error: error instanceof Error ? error.message : "Internal Server Error",
         isCorrect: true,
         corrected: text || "",
-        explanation: "Hệ thống AI đang quá tải. Vui lòng thử lại sau.",
+        explanation: "Hệ thống AI đang quá tải. Vui lòng thử lại sau giây lát.",
         rules: [],
         suggestions: []
       }),

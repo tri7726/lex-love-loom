@@ -8,9 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Plus, Loader2, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useProfile } from '@/hooks/useProfile';
 import { toast } from 'sonner';
-import { Switch } from '@/components/ui/switch';
 
 interface CreatePassageDialogProps {
   onCreated: () => void;
@@ -18,10 +16,8 @@ interface CreatePassageDialogProps {
 
 export function CreatePassageDialog({ onCreated }: CreatePassageDialogProps) {
   const { user } = useAuth();
-  const { profile } = useProfile();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [isSystem, setIsSystem] = useState(false);
   const [form, setForm] = useState({
     title: '',
     level: 'N5',
@@ -65,7 +61,7 @@ export function CreatePassageDialog({ onCreated }: CreatePassageDialogProps) {
           level: form.level,
           category: form.category || null,
           vocabulary_list,
-          user_id: isSystem ? null : user.id,
+          user_id: user.id,
         });
 
       if (insertError) throw insertError;
@@ -148,20 +144,6 @@ export function CreatePassageDialog({ onCreated }: CreatePassageDialogProps) {
               required
             />
           </div>
-
-          {profile?.role === 'admin' && (
-            <div className="flex items-center justify-between p-3 border rounded-lg bg-sakura/5 border-sakura/20">
-              <div className="space-y-0.5">
-                <Label className="text-sm font-medium">Bài đọc Hệ thống</Label>
-                <p className="text-xs text-muted-foreground">Công khai cho tất cả mọi người</p>
-              </div>
-              <Switch 
-                checked={isSystem} 
-                onCheckedChange={setIsSystem}
-                className="data-[state=checked]:bg-sakura"
-              />
-            </div>
-          )}
 
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>

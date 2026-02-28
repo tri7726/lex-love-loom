@@ -9,13 +9,11 @@ import { GrammarCheckInput } from '@/components/chat/GrammarCheckInput';
 import { GrammarHistory } from '@/components/chat/GrammarHistory';
 import { SnapLearn } from '@/components/chat/SnapLearn';
 import { HybridTutor } from '@/components/chat/HybridTutor';
-import { AnalysisHistory } from '@/components/chat/AnalysisHistory';
 import { FlashcardGenerator } from '@/components/chat/FlashcardGenerator';
 import { cn } from '@/lib/utils';
 
 export const AITutor = () => {
   const [reloadText, setReloadText] = useState('');
-  const [historyItem, setHistoryItem] = useState<any>(null);
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0 relative overflow-hidden">
@@ -58,20 +56,11 @@ export const AITutor = () => {
                 transition={{ duration: 0.2 }}
               >
                 <TabsContent value="hybrid" className="mt-0 focus-visible:outline-none">
-                  <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-                    <div className="lg:col-span-3">
-                      <Card className="border-sakura/10 shadow-soft bg-white/70 dark:bg-slate-900/70 backdrop-blur-md rounded-3xl overflow-hidden">
-                        <CardContent className="p-0">
-                          <HybridTutor initialData={historyItem} />
-                        </CardContent>
-                      </Card>
-                    </div>
-                    <div className="lg:col-span-1">
-                      <Card className="border-sakura/10 shadow-soft bg-white/70 dark:bg-slate-900/70 backdrop-blur-md rounded-2xl p-4 min-h-[400px]">
-                        <AnalysisHistory onSelect={setHistoryItem} />
-                      </Card>
-                    </div>
-                  </div>
+                  <Card className="border-sakura/10 shadow-soft bg-white/70 dark:bg-slate-900/70 backdrop-blur-md rounded-3xl overflow-hidden">
+                    <CardContent className="p-0">
+                      <HybridTutor />
+                    </CardContent>
+                  </Card>
                 </TabsContent>
 
                 {/* Grammar: 2-column layout */}

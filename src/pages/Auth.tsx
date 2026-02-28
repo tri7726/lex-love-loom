@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { toast } from 'sonner';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { z } from 'zod';
@@ -20,6 +20,7 @@ export const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -45,8 +46,10 @@ export const Auth = () => {
       return true;
     } catch (error) {
       if (error instanceof z.ZodError) {
-        toast.error('Lỗi xác thực', {
+        toast({
+          title: 'Lỗi xác thực',
           description: error.errors[0].message,
+          variant: 'destructive',
         });
       }
       return false;
@@ -74,12 +77,15 @@ export const Auth = () => {
         throw new Error(message);
       }
 
-      toast.success('Đăng nhập thành công!', {
+      toast({
+        title: 'Đăng nhập thành công!',
         description: 'Chào mừng bạn quay trở lại!',
       });
     } catch (error: any) {
-      toast.error('Lỗi đăng nhập', {
+      toast({
+        title: 'Lỗi đăng nhập',
         description: error.message,
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
@@ -113,12 +119,15 @@ export const Auth = () => {
         throw new Error(message);
       }
 
-      toast.success('Đăng ký thành công!', {
+      toast({
+        title: 'Đăng ký thành công!',
         description: 'Vui lòng kiểm tra email để xác nhận tài khoản.',
       });
     } catch (error: any) {
-      toast.error('Lỗi đăng ký', {
+      toast({
+        title: 'Lỗi đăng ký',
         description: error.message,
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
