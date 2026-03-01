@@ -204,7 +204,7 @@ export const useKanaInput = () => {
     const afterCursor = text.slice(cursorPos);
     
     // Find valid romaji suffix in beforeCursor
-    const match = beforeCursor.match(/[a-zA-Z\-]+$/);
+    const match = beforeCursor.match(/[a-zA-Z-]+$/);
     
     if (!match) {
       // Nothing to convert immediately before cursor

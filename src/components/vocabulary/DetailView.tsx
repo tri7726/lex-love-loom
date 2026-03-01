@@ -64,11 +64,11 @@ export const DetailView: React.FC<DetailViewProps> = ({
         <Button variant="ghost" size="sm" onClick={() => setActiveGame(null)} className="gap-1 text-muted-foreground">
           <ArrowLeft className="h-4 w-4" /> Quay lại bài học
         </Button>
-        {activeGame === 'classic' && <MultipleChoiceGame vocabulary={words} onComplete={() => setActiveGame(null)} onUpdateMastery={() => {}} onBack={() => setActiveGame(null)} />}
-        {activeGame === 'speed' && <SpeedGame vocabulary={words} onComplete={() => setActiveGame(null)} onUpdateMastery={() => {}} onBack={() => setActiveGame(null)} />}
-        {activeGame === 'listening' && <ListeningGame vocabulary={words} onComplete={() => setActiveGame(null)} onUpdateMastery={() => {}} onBack={() => setActiveGame(null)} />}
-        {activeGame === 'writing' && <WriteGame vocabulary={words} onComplete={() => setActiveGame(null)} onUpdateMastery={() => {}} onBack={() => setActiveGame(null)} />}
-        {activeGame === 'pronunciation' && <PronunciationGame words={words} onFinish={() => setActiveGame(null)} />}
+        {activeGame === 'classic' && <MultipleChoiceGame vocabulary={words as any} onComplete={() => setActiveGame(null)} onUpdateMastery={() => {}} onBack={() => setActiveGame(null)} />}
+        {activeGame === 'speed' && <SpeedGame vocabulary={words as any} onComplete={() => setActiveGame(null)} onUpdateMastery={() => {}} onBack={() => setActiveGame(null)} />}
+        {activeGame === 'listening' && <ListeningGame vocabulary={words as any} onComplete={() => setActiveGame(null)} onUpdateMastery={() => {}} onBack={() => setActiveGame(null)} />}
+        {activeGame === 'writing' && <WriteGame vocabulary={words as any} onComplete={() => setActiveGame(null)} onUpdateMastery={() => {}} onBack={() => setActiveGame(null)} />}
+        {activeGame === 'pronunciation' && <PronunciationGame words={words as any} onFinish={() => setActiveGame(null)} />}
       </motion.div>
     );
   }

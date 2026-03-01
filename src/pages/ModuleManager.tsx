@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Edit, Trash2, FolderOpen, ArrowLeft } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -44,18 +44,13 @@ export const ModuleManager = () => {
     color: '#3b82f6',
   });
 
-  useEffect(() => {
-    if (user) {
-      fetchModules();
-    }
-  }, [user]);
-
-  const fetchModules = async () => {
+  const fetchModules = useCallback(async () => {
+    if (!user) return;
     try {
       const { data, error } = await supabase
         .from('course_modules')
         .select('*')
-        .eq('user_id', user!.id)
+        .eq('user_id', user.id)
         .order('order_index', { ascending: true });
 
       if (error) throw error;
@@ -70,7 +65,13 @@ export const ModuleManager = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, toast]);
+
+  useEffect(() => {
+    if (user) {
+      fetchModules();
+    }
+  }, [user, fetchModules]);
 
   const handleCreateOrUpdate = async () => {
     if (!formData.name.trim()) {

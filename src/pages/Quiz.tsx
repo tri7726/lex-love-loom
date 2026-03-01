@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   CheckCircle, XCircle, Trophy, RotateCcw, Zap, Clock, 
@@ -175,62 +175,16 @@ export const Quiz = () => {
     setIsComplete(false);
   };
 
-  // Speed mode timer
-  useEffect(() => {
-    if (!isStarted || mode !== 'speed' || showResult || isComplete) return;
-
-    setTimeLeft(10);
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          handleSubmit();
-          return 10;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [currentQuestion, mode, showResult, isStarted, isComplete]);
-
-  // Auto-play for listening mode
-  useEffect(() => {
-    if (mode === 'listening' && question?.questionJp && isStarted && !showResult) {
-      // Small delay to ensure TTS is ready
-      const timer = setTimeout(() => {
-        speak(question.questionJp);
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [currentQuestion, mode, isStarted, showResult, question?.questionJp, speak]);
-
-  const handleSelectAnswer = (index: number) => {
-    if (showResult) return;
-    setSelectedAnswer(index);
-  };
-
-  const handleSubmit = () => {
-    if (mode === 'writing') {
-      const isCorrect = checkWrittenAnswer();
-      processAnswer(isCorrect);
-    } else {
-      if (selectedAnswer === null && mode !== 'speed') return;
-      const isCorrect = selectedAnswer === question?.correctAnswer;
-      processAnswer(isCorrect);
-    }
-    setShowResult(true);
-  };
-
-  const checkWrittenAnswer = (): boolean => {
+  const checkWrittenAnswer = useCallback((): boolean => {
     if (!question) return false;
     const correctOption = question.options[question.correctAnswer];
     const normalized = writtenAnswer.trim().toLowerCase();
     const correctNormalized = correctOption.toLowerCase();
     return normalized === correctNormalized || 
            (question.questionJp && normalized === question.questionJp.toLowerCase());
-  };
+  }, [question, writtenAnswer]);
 
-  const processAnswer = (isCorrect: boolean) => {
+  const processAnswer = useCallback((isCorrect: boolean) => {
     const xpEarned = isCorrect ? difficultyConfig[question?.difficulty || 'easy'].xp : 0;
     const streakBonus = isCorrect ? Math.floor(streak / 3) * 5 : 0;
 
@@ -247,7 +201,48 @@ export const Quiz = () => {
     }
 
     setAnswers(prev => [...prev, mode === 'writing' ? writtenAnswer : selectedAnswer ?? -1]);
-  };
+  }, [question?.difficulty, streak, mode, writtenAnswer, selectedAnswer]);
+
+  const handleSubmit = useCallback(() => {
+    if (mode === 'writing') {
+      const isCorrect = checkWrittenAnswer();
+      processAnswer(isCorrect);
+    } else {
+      if (selectedAnswer === null && mode !== 'speed') return;
+      const isCorrect = selectedAnswer === question?.correctAnswer;
+      processAnswer(isCorrect);
+    }
+    setShowResult(true);
+  }, [mode, checkWrittenAnswer, processAnswer, selectedAnswer, question?.correctAnswer]);
+
+  // Speed mode timer
+  useEffect(() => {
+    if (!isStarted || mode !== 'speed' || showResult || isComplete) return;
+
+    setTimeLeft(10);
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          handleSubmit();
+          return 10;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [currentQuestion, mode, showResult, isStarted, isComplete, handleSubmit]);
+
+  // Auto-play for listening mode
+  useEffect(() => {
+    if (mode === 'listening' && question?.questionJp && isStarted && !showResult) {
+      // Small delay to ensure TTS is ready
+      const timer = setTimeout(() => {
+        speak(question.questionJp);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [currentQuestion, mode, isStarted, showResult, question?.questionJp, speak]);
 
   const handleNext = () => {
     if (currentQuestion < shuffledQuestions.length - 1) {
@@ -341,7 +336,7 @@ export const Quiz = () => {
                     max={25}
                     min={1}
                     step={1}
-                    value={lessonRange as any}
+                    value={lessonRange as number[]}
                     onValueChange={(v) => setLessonRange(v as [number, number])}
                     className="py-4"
                   />
@@ -729,7 +724,7 @@ export const Quiz = () => {
                           key={index}
                           whileHover={{ scale: showResult ? 1 : 1.01 }}
                           whileTap={{ scale: showResult ? 1 : 0.99 }}
-                          onClick={() => handleSelectAnswer(index)}
+                          onClick={() => setSelectedAnswer(index)}
                           className={cn(
                             'w-full p-4 rounded-xl border-2 text-left transition-all flex items-center justify-between bg-card',
                             !showResult && isSelected && 'border-primary bg-primary/10',

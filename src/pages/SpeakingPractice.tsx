@@ -104,7 +104,33 @@ const QUESTION_PROMPTS = [
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/japanese-chat`;
 
 // Speech Recognition setup
-const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+  resultIndex: number;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+  message: string;
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: (event: SpeechRecognitionEvent) => void;
+  onerror: (event: SpeechRecognitionErrorEvent) => void;
+  onend: () => void;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+}
+
+interface SpeechRecognitionConstructor {
+  new (): SpeechRecognition;
+}
+
+const SpeechRecognition = ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) as SpeechRecognitionConstructor | undefined;
 
 export const SpeakingPractice = () => {
   // State
@@ -130,7 +156,7 @@ export const SpeakingPractice = () => {
   const [showStrokeOrder, setShowStrokeOrder] = useState<KanjiSuggestion | null>(null);
   
   // Refs
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Hooks
@@ -143,21 +169,7 @@ export const SpeakingPractice = () => {
   const { saveWord } = useWordHistory();
   const [selectedPersona, setSelectedPersona] = useState<PersonaId>('sensei');
 
-  // Check auth
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate('/auth');
-    }
-  }, [user, loading, navigate]);
-
-  // Load stats
-  useEffect(() => {
-    if (user) {
-      loadStats();
-    }
-  }, [user]);
-
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     if (!user) return;
     
     try {
@@ -183,7 +195,7 @@ export const SpeakingPractice = () => {
     } catch (error) {
       console.error('Error loading stats:', error);
     }
-  };
+  }, [user]);
 
   // Scroll to bottom in chat
   useEffect(() => {
@@ -204,7 +216,21 @@ export const SpeakingPractice = () => {
     } else if (message.length < 2) {
       clearSuggestions();
     }
-  }, [message, localSuggestions.length, isLoading]);
+  }, [message, localSuggestions.length, isLoading, lookupKanji, clearSuggestions]);
+
+  // Check auth
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/auth');
+    }
+  }, [user, loading, navigate]);
+
+  // Load stats
+  useEffect(() => {
+    if (user) {
+      loadStats();
+    }
+  }, [user, loadStats]);
 
   // Speech Recognition functions
   const startRecording = useCallback(async () => {
@@ -226,16 +252,18 @@ export const SpeakingPractice = () => {
       recognition.continuous = true;
       recognition.interimResults = true;
       
-      recognition.onresult = (event: any) => {
-        const fullTranscript = Array.from(event.results)
-          .map((result: any) => result[0].transcript)
+      recognition.onresult = (event: unknown) => {
+        const results = (event as { results: SpeechRecognitionResultList }).results;
+        const fullTranscript = Array.from(results)
+          .map((result) => result[0].transcript)
           .join('');
         setRecognizedText(fullTranscript);
       };
       
-      recognition.onerror = (event: any) => {
-        console.error('Speech recognition error:', event.error);
-        switch (event.error) {
+      recognition.onerror = (event: unknown) => {
+        const error = (event as { error: string }).error;
+        console.error('Speech recognition error:', error);
+        switch (error) {
           case 'no-speech':
             toast({
               title: 'Không nghe thấy',
@@ -295,54 +323,8 @@ export const SpeakingPractice = () => {
     setIsRecording(false);
   }, []);
 
-  // Analyze pronunciation
-  const analyzeResponse = useCallback(async () => {
-    if (!recognizedText.trim() || !user) return;
-    
-    setIsAnalyzing(true);
-    stopRecording();
-    
-    try {
-      const original = activeMode === 'shadowing' 
-        ? currentSentence.japanese 
-        : activeMode === 'question' 
-          ? currentQuestion.japanese 
-          : '';
-      
-      // Calculate scores
-      const scores = calculateDetailedScores(original, recognizedText);
-      
-      // Save to database
-      await supabase.from('pronunciation_results').insert({
-        user_id: user.id,
-        original_text: original,
-        recognized_text: recognizedText,
-        score: scores.overall,
-        feedback: scores.feedback,
-        mode: activeMode,
-        accuracy_score: scores.accuracy,
-        duration_score: scores.duration,
-        rhythm_score: scores.rhythm,
-        fluency_score: scores.fluency,
-      });
-      
-      setScoreResult(scores);
-      loadStats();
-      
-    } catch (error) {
-      console.error('Error analyzing:', error);
-      toast({
-        title: 'Lỗi',
-        description: 'Không thể phân tích kết quả.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsAnalyzing(false);
-    }
-  }, [recognizedText, user, activeMode, currentSentence, currentQuestion, stopRecording, toast]);
-
   // Calculate detailed scores
-  const calculateDetailedScores = (original: string, recognized: string): ScoreResult => {
+  const calculateDetailedScores = useCallback((original: string, recognized: string): ScoreResult => {
     const normalizeJapanese = (text: string) => 
       text.replace(/\s+/g, '').replace(/[。、！？]/g, '').toLowerCase();
     
@@ -389,7 +371,53 @@ export const SpeakingPractice = () => {
     const details = analyzeWords(original, recognized);
     
     return { accuracy, duration, rhythm, fluency, overall, feedback, details };
-  };
+  }, []);
+
+  // Analyze pronunciation
+  const analyzeResponse = useCallback(async () => {
+    if (!recognizedText.trim() || !user) return;
+    
+    setIsAnalyzing(true);
+    stopRecording();
+    
+    try {
+      const original = activeMode === 'shadowing' 
+        ? currentSentence.japanese 
+        : activeMode === 'question' 
+          ? currentQuestion.japanese 
+          : '';
+      
+      // Calculate scores
+      const scores = calculateDetailedScores(original, recognizedText);
+      
+      // Save to database
+      await supabase.from('pronunciation_results').insert({
+        user_id: user.id,
+        original_text: original,
+        recognized_text: recognizedText,
+        score: scores.overall,
+        feedback: scores.feedback,
+        mode: activeMode,
+        accuracy_score: scores.accuracy,
+        duration_score: scores.duration,
+        rhythm_score: scores.rhythm,
+        fluency_score: scores.fluency,
+      });
+      
+      setScoreResult(scores);
+      loadStats();
+      
+    } catch (error) {
+      console.error('Error analyzing:', error);
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể phân tích kết quả.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [recognizedText, user, activeMode, currentSentence.japanese, currentQuestion.japanese, stopRecording, calculateDetailedScores, loadStats, toast]);
 
   const analyzeWords = (original: string, recognized: string): WordAnalysis[] => {
     const originalWords = original.split(/[\s、。！？]+/).filter(Boolean);
@@ -586,11 +614,11 @@ export const SpeakingPractice = () => {
         const { japanese } = parseResponse(assistantContent);
         speak(japanese);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Chat error:', error);
       toast({
         title: 'Lỗi',
-        description: error.message || 'Không thể gửi tin nhắn.',
+        description: error instanceof Error ? error.message : 'Không thể gửi tin nhắn.',
         variant: 'destructive',
       });
       setConversation(prev => {

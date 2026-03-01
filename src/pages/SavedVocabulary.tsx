@@ -34,7 +34,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import Navigation from '@/components/Navigation';
+import { Navigation } from '@/components/Navigation';
 import { useWordHistory } from '@/hooks/useWordHistory';
 import { useTTS } from '@/hooks/useTTS';
 import { useAuth } from '@/hooks/useAuth';

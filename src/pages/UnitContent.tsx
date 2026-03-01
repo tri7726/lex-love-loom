@@ -39,14 +39,41 @@ import { toast } from 'sonner';
 import { GRAMMAR_DB } from '../data/grammar-db';
 import { KANJI_DB } from '../data/kanji-db';
 
+interface Vocabulary {
+  id: string;
+  word: string;
+  reading: string;
+  meaning: string;
+  hanviet?: string;
+  jlpt_level?: string;
+}
+
+interface Grammar {
+  title: string;
+  usage: string;
+  explanation: string;
+  example: string;
+  lesson?: number;
+  level?: string;
+}
+
+interface Kanji {
+  id: string;
+  character: string;
+  meaning_vi: string;
+  hanviet: string;
+  lesson?: number;
+  level?: string;
+}
+
 export const UnitContent = () => {
   const { level, unitId } = useParams<{ level: string; unitId: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('vocabulary');
   const [loading, setLoading] = useState(true);
-  const [vocabData, setVocabData] = useState<any[]>([]);
-  const [kanjiData, setKanjiData] = useState<any[]>([]);
-  const [grammarData, setGrammarData] = useState<any[]>([]);
+  const [vocabData, setVocabData] = useState<Vocabulary[]>([]);
+  const [kanjiData, setKanjiData] = useState<Kanji[]>([]);
+  const [grammarData, setGrammarData] = useState<Grammar[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -164,7 +191,7 @@ export const UnitContent = () => {
             <div className="flex-1 space-y-6">
               <TabsContent value="vocabulary" className="mt-0 focus-visible:outline-none">
                 <div className="grid gap-3">
-                  {vocabData.map((vocab: any, i: number) => (
+                  {vocabData.map((vocab, i) => (
                     <motion.div
                       key={vocab.id}
                       initial={{ opacity: 0, x: -10 }}
@@ -202,7 +229,7 @@ export const UnitContent = () => {
 
               <TabsContent value="grammar" className="mt-0 focus-visible:outline-none">
                 <div className="space-y-4">
-                  {grammarData.map((gram: any, i: number) => (
+                  {grammarData.map((gram, i) => (
                     <Card key={i} className="shadow-soft overflow-hidden border-l-4 border-l-sakura">
                       <CardHeader className="bg-muted/30 pb-3">
                         <CardTitle className="text-lg font-jp text-sakura">{gram.title}</CardTitle>
@@ -227,7 +254,7 @@ export const UnitContent = () => {
 
               <TabsContent value="kanji" className="mt-0 focus-visible:outline-none">
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  {kanjiData.map((k: any, i: number) => (
+                  {kanjiData.map((k, i) => (
                     <Dialog key={k.id}>
                       <DialogTrigger asChild>
                         <Card className="text-center hover:border-indigo-500/50 transition-all cursor-pointer group shadow-soft">

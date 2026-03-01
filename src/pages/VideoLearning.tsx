@@ -110,14 +110,7 @@ export const VideoLearning = () => {
     }
   }, [user, authLoading, navigate]);
 
-  useEffect(() => {
-    if (user) {
-      fetchVideos();
-      fetchFavorites();
-    }
-  }, [user]);
-
-  const fetchVideos = async () => {
+  const fetchVideos = useCallback(async () => {
     try {
       // Sử dụng view video_sources_public để ẩn trường created_by (bảo mật)
       const { data, error } = await supabase
@@ -132,9 +125,9 @@ export const VideoLearning = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchFavorites = async () => {
+  const fetchFavorites = useCallback(async () => {
     if (!user) return;
     try {
       const { data, error } = await supabase
@@ -147,7 +140,14 @@ export const VideoLearning = () => {
     } catch (error) {
       console.error('Error fetching favorites:', error);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      fetchVideos();
+      fetchFavorites();
+    }
+  }, [user, fetchVideos, fetchFavorites]);
 
   const toggleFavorite = async (videoId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -201,7 +201,7 @@ export const VideoLearning = () => {
       const trimmed = line.trim();
       
       // SRT format: timestamp line
-      const timeMatch = trimmed.match(/(\d{2}:\d{2}:\d{2}[,\.]\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}[,\.]\d{3})/);
+      const timeMatch = trimmed.match(/(\d{2}:\d{2}:\d{2}[,.]\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}[,.]\d{3})/);
       if (timeMatch) {
         const parseTime = (t: string) => {
           const [h, m, s] = t.replace(',', '.').split(':');
@@ -325,11 +325,12 @@ export const VideoLearning = () => {
         description: `Đã lấy ${data.segments_count} đoạn phụ đề (${data.language})`,
       });
 
-    } catch (error: any) {
+      } catch (error: unknown) {
       console.error('Error fetching captions:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Không thể lấy phụ đề từ YouTube';
       toast({
         title: 'Lỗi lấy phụ đề',
-        description: error.message || 'Không thể lấy phụ đề từ YouTube',
+        description: errorMessage,
         variant: 'destructive',
       });
       setInputMode('manual');
@@ -394,11 +395,12 @@ export const VideoLearning = () => {
       setNewVideoSubtitles('');
       setCaptionLanguage('');
       fetchVideos();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error processing video:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Vui lòng thử lại sau';
       toast({
         title: 'Lỗi xử lý video',
-        description: error.message || 'Vui lòng thử lại sau',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {

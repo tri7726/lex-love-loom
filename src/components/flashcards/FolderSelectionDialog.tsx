@@ -52,7 +52,7 @@ export const FolderSelectionDialog: React.FC<FolderSelectionDialogProps> = ({
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('vocabulary_folders')
         .select('id, name, icon, color, parent_id')
         .eq('user_id', session.user.id)
@@ -76,7 +76,7 @@ export const FolderSelectionDialog: React.FC<FolderSelectionDialogProps> = ({
         if (!session) return;
 
         const recentIds: string[] = JSON.parse(recent);
-        const { data, error } = await (supabase as any)
+        const { data, error } = await supabase
           .from('vocabulary_folders')
           .select('id, name, icon, color, parent_id')
           .eq('user_id', session.user.id)

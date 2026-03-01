@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -94,7 +93,7 @@ Không dùng markdown.
 Không thêm bất kỳ văn bản nào ngoài JSON.
 `;
 
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
@@ -178,7 +177,7 @@ serve(async (req) => {
 
       for (const [sectionKey, type] of Object.entries(sectionMapping)) {
         if (parsed.sections[sectionKey] && Array.isArray(parsed.sections[sectionKey])) {
-          parsed.sections[sectionKey].forEach(q => {
+          (parsed.sections[sectionKey] as any[]).forEach(q => {
             questions.push({
               ...q,
               question_type: type,
@@ -212,13 +211,15 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Quiz generation error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorStack = error instanceof Error ? error.stack : undefined;
     // Return 200 with error property so it avoids the generic "non-2xx" message in Supabase client
     return new Response(JSON.stringify({ 
       success: false, 
-      error: error.message,
-      details: error.stack
+      error: errorMessage,
+      details: errorStack
     }), {
       status: 200, // Change to 200 to ensure we can read the JSON body
       headers: { ...corsHeaders, "Content-Type": "application/json" }

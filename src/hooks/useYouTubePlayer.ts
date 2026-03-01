@@ -20,10 +20,10 @@ export const useYouTubePlayer = ({
   onReady,
   onStateChange,
 }: UseYouTubePlayerProps) => {
-  const [player, setPlayer] = useState<any>(null);
+  const [player, setPlayer] = useState<unknown>(null);
   const [isReady, setIsReady] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const playerRef = useRef<any>(null);
+  const playerRef = useRef<unknown>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load YouTube IFrame API
@@ -44,13 +44,13 @@ export const useYouTubePlayer = ({
 
     const initPlayer = () => {
       if (playerRef.current) {
-        playerRef.current.destroy?.();
+        (playerRef.current as { destroy?: () => void }).destroy?.();
       }
 
       const container = document.getElementById(containerId);
       if (!container) return;
 
-      playerRef.current = new window.YT.Player(containerId, {
+      playerRef.current = new (window.YT as { Player: new (id: string, opts: object) => unknown }).Player(containerId, {
         videoId,
         playerVars: {
           controls: 1,
@@ -59,12 +59,12 @@ export const useYouTubePlayer = ({
           cc_load_policy: 0,
         },
         events: {
-          onReady: (event: any) => {
+          onReady: (event: { target: unknown }) => {
             setPlayer(event.target);
             setIsReady(true);
             onReady?.();
           },
-          onStateChange: (event: any) => {
+          onStateChange: (event: { data: number }) => {
             onStateChange?.(event.data);
           },
         },
@@ -84,7 +84,7 @@ export const useYouTubePlayer = ({
   useEffect(() => {
     if (isReady && player) {
       intervalRef.current = setInterval(() => {
-        const time = player.getCurrentTime?.() || 0;
+        const time = (player as { getCurrentTime?: () => number }).getCurrentTime?.() || 0;
         setCurrentTime(time);
       }, 100);
     }
@@ -97,15 +97,15 @@ export const useYouTubePlayer = ({
   }, [isReady, player]);
 
   const play = useCallback(() => {
-    player?.playVideo?.();
+    (player as { playVideo?: () => void })?.playVideo?.();
   }, [player]);
 
   const pause = useCallback(() => {
-    player?.pauseVideo?.();
+    (player as { pauseVideo?: () => void })?.pauseVideo?.();
   }, [player]);
 
   const seekTo = useCallback((seconds: number, allowSeekAhead = true) => {
-    player?.seekTo?.(seconds, allowSeekAhead);
+    (player as { seekTo?: (s: number, a: boolean) => void })?.seekTo?.(seconds, allowSeekAhead);
   }, [player]);
 
   const playSegment = useCallback((startTime: number, endTime: number) => {
@@ -117,7 +117,7 @@ export const useYouTubePlayer = ({
     // Set up timeout to pause at end time
     const duration = (endTime - startTime) * 1000;
     setTimeout(() => {
-      const current = player.getCurrentTime?.() || 0;
+      const current = (player as { getCurrentTime?: () => number }).getCurrentTime?.() || 0;
       if (current >= startTime && current <= endTime + 0.5) {
         pause();
       }

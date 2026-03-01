@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Flame, Trophy, Star, Target, Zap, Crown } from 'lucide-react';

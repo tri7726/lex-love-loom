@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { BookOpen, Volume2, Loader2, Zap, Database, Globe, Filter, Sparkles, History, Trash2, User as UserIcon } from 'lucide-react';
@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Navigation } from '@/components/Navigation';
 import { CreatePassageDialog } from '@/components/CreatePassageDialog';
 import { WordLookupPanel } from '@/components/WordLookupPanel';
-import { AnalysisHistory } from '@/components/chat/AnalysisHistory';
+import { AnalysisHistory, type AnalysisItem } from '@/components/chat/AnalysisHistory';
 import { AnalysisPanel } from '@/components/video/AnalysisPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -94,17 +94,67 @@ export const Reading = () => {
   // Analysis state
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [analysisContent, setAnalysisContent] = useState<string | null>(null);
-  const [structuredAnalysis, setStructuredAnalysis] = useState<any>(null);
+  
+  interface WordBreakdown {
+    word: string;
+    reading: string;
+    hanviet?: string;
+    meaning: string;
+    word_type: string;
+    jlpt_level?: string;
+  }
+
+  interface GrammarPattern {
+    pattern: string;
+    meaning: string;
+    usage: string;
+  }
+
+  interface SentenceAnalysis {
+    japanese: string;
+    vietnamese: string;
+    breakdown: {
+      words: WordBreakdown[];
+      grammar_patterns: GrammarPattern[];
+    };
+  }
+
+  interface SuggestedFlashcard {
+    word: string;
+    reading: string;
+    hanviet?: string;
+    meaning: string;
+    example_sentence: string;
+    example_translation: string;
+    jlpt_level?: string;
+    word_type?: string;
+    notes?: string;
+  }
+
+  interface StructuredAnalysis {
+    overall_analysis: {
+      jlpt_level: string;
+      politeness_level: string;
+      text_type: string;
+      summary: string;
+    };
+    sentences: SentenceAnalysis[];
+    suggested_flashcards: SuggestedFlashcard[];
+    grammar_summary: {
+      particles_used: string[];
+      verb_forms: string[];
+      key_patterns: string[];
+    };
+    cultural_notes: string[];
+  }
+
+  const [structuredAnalysis, setStructuredAnalysis] = useState<StructuredAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
 
   // Fetch passages
-  useEffect(() => {
-    fetchPassages();
-  }, []);
-
-  const fetchPassages = async () => {
+  const fetchPassages = useCallback(async () => {
     setLoading(true);
     try {
       // Fetch all passages (System + Personal)
@@ -143,13 +193,17 @@ export const Reading = () => {
         const firstSystem = sorted.find(p => !p.user_id);
         if (firstSystem) setSelectedPassage(firstSystem);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching passages:', error);
       toast.error('Không thể tải bài đọc');
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id, selectedPassage]);
+
+  useEffect(() => {
+    fetchPassages();
+  }, [fetchPassages]);
 
   const deletePassage = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -168,15 +222,15 @@ export const Reading = () => {
         setSelectedPassage(null);
       }
       fetchPassages();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting passage:', error);
       toast.error('Không thể xóa bài đọc');
     }
   };
 
 
-  const handleApplyHistory = (item: any) => {
-    setStructuredAnalysis(item.analysis);
+  const handleApplyHistory = (item: AnalysisItem) => {
+    setStructuredAnalysis(item.analysis as StructuredAnalysis);
     setShowAnalysis(true);
     setHistoryOpen(false);
   };
@@ -243,9 +297,9 @@ export const Reading = () => {
       } else {
         throw new Error('Invalid response format');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      const errorMessage = err.message || 'Failed to analyze. Please try again.';
+      const errorMessage = err instanceof Error ? err.message : 'Failed to analyze. Please try again.';
       setAnalysisError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -332,7 +386,7 @@ export const Reading = () => {
 
       if (error) throw error;
       setWordData(data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error looking up word:', error);
       toast.error('Không thể tra từ');
     } finally {

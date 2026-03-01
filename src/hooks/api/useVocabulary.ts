@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { vocabularyService, InsertVocabulary, UpdateVocabulary } from '@/services/vocabularyService';
+import { vocabularyService } from '@/services/vocabularyService';
+import { type InsertVocabulary, type UpdateVocabulary } from '@/types/vocabulary';
 import { useAuth } from '@/hooks/useAuth';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 export const useVocabulary = () => {

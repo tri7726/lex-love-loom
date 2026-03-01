@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Navigation } from '@/components/Navigation';
 import { FlashcardSRS } from '@/components/FlashcardSRS';
@@ -46,19 +46,7 @@ export const FlashcardReview = () => {
   const [loading, setLoading] = useState(true);
   const [selectedFolder, setSelectedFolder] = useState<string>(folderId || '');
 
-  useEffect(() => {
-    if (user) {
-      fetchFolders();
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (user && selectedFolder) {
-      fetchFlashcards(selectedFolder);
-    }
-  }, [user, selectedFolder]);
-
-  const fetchFolders = async () => {
+  const fetchFolders = useCallback(async () => {
     try {
       const { data, error } = await (supabase as any)
         .from('vocabulary_folders')
@@ -71,7 +59,7 @@ export const FlashcardReview = () => {
 
       // Auto-select first folder if none selected
       if (!selectedFolder && data && data.length > 0) {
-        setSelectedFolder((data as any[])[0].id);
+        setSelectedFolder((data as Folder[])[0].id);
       }
     } catch (error) {
       console.error('Error fetching folders:', error);
@@ -81,9 +69,9 @@ export const FlashcardReview = () => {
         variant: 'destructive',
       });
     }
-  };
+  }, [user, selectedFolder, toast]);
 
-  const fetchFlashcards = async (folderId: string) => {
+  const fetchFlashcards = useCallback(async (folderId: string) => {
     setLoading(true);
     try {
       // Fetch flashcards in this folder
@@ -101,7 +89,7 @@ export const FlashcardReview = () => {
         return;
       }
 
-      const flashcardIds = (folderItems as any[]).map(item => item.flashcard_id);
+      const flashcardIds = (folderItems as { flashcard_id: string }[]).map(item => item.flashcard_id);
 
       const { data: flashcardsData, error: flashcardsError } = await supabase
         .from('flashcards')
@@ -127,7 +115,19 @@ export const FlashcardReview = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, toast]);
+
+  useEffect(() => {
+    if (user) {
+      fetchFolders();
+    }
+  }, [user, fetchFolders]);
+
+  useEffect(() => {
+    if (user && selectedFolder) {
+      fetchFlashcards(selectedFolder);
+    }
+  }, [user, selectedFolder, fetchFlashcards]);
 
   const handleUpdateFlashcard = async (id: string, updates: Partial<Flashcard>) => {
     try {
