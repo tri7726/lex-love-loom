@@ -46,7 +46,7 @@ export const AnalysisHistory: React.FC<AnalysisHistoryProps> = ({
     }
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('analysis_history')
         .select('*')
         .eq('user_id', user.id)
@@ -69,7 +69,7 @@ export const AnalysisHistory: React.FC<AnalysisHistoryProps> = ({
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     try {
-      const { error } = await supabase.from('analysis_history').delete().eq('id', id);
+      const { error } = await (supabase as any).from('analysis_history').delete().eq('id', id);
       if (error) throw error;
       setHistory(prev => prev.filter(item => item.id !== id));
       toast.success('Đã xóa lịch sử');
