@@ -14,33 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      analysis_history: {
-        Row: {
-          analysis: Json
-          content: string
-          created_at: string
-          engine: string | null
-          id: string
-          user_id: string
-        }
-        Insert: {
-          analysis: Json
-          content: string
-          created_at?: string
-          engine?: string | null
-          id?: string
-          user_id: string
-        }
-        Update: {
-          analysis?: Json
-          content?: string
-          created_at?: string
-          engine?: string | null
-          id?: string
-          user_id?: string
-        }
-        Relationships: []
-      },
       chat_history: {
         Row: {
           content: string
@@ -472,10 +445,10 @@ export type Database = {
           id: string
           jlpt_level: string | null
           longest_streak: number | null
+          role: string | null
           total_xp: number | null
           updated_at: string
           user_id: string
-          role: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -485,10 +458,10 @@ export type Database = {
           id?: string
           jlpt_level?: string | null
           longest_streak?: number | null
+          role?: string | null
           total_xp?: number | null
           updated_at?: string
           user_id: string
-          role?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -498,10 +471,10 @@ export type Database = {
           id?: string
           jlpt_level?: string | null
           longest_streak?: number | null
+          role?: string | null
           total_xp?: number | null
           updated_at?: string
           user_id?: string
-          role?: string | null
         }
         Relationships: []
       }
