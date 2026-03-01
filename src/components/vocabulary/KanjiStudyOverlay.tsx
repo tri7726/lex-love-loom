@@ -24,7 +24,7 @@ import { KANJI_DB } from '@/data/kanji-db';
 interface KanjiStudyOverlayProps {
   isOpen: boolean;
   onClose: () => void;
-  unitKanji: any[];
+  unitKanji: { character: string; lesson: number; hanviet: string; meaning_vi: string; level: string; on_reading?: string; kun_reading?: string; mnemonic?: string }[];
   onCompleteUnit?: () => void;
 }
 
@@ -36,7 +36,7 @@ export const KanjiStudyOverlay: React.FC<KanjiStudyOverlayProps> = ({
   unitKanji,
   onCompleteUnit,
 }) => {
-  const [shuffledKanji, setShuffledKanji] = useState<any[]>([]);
+  const [shuffledKanji, setShuffledKanji] = useState<{ character: string; lesson: number; hanviet: string; meaning_vi: string; level: string; on_reading?: string; kun_reading?: string; mnemonic?: string }[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentPhase, setCurrentPhase] = useState<StudyPhase>('LEARN');
   const [quizOptions, setQuizOptions] = useState<string[]>([]);
@@ -76,20 +76,7 @@ export const KanjiStudyOverlay: React.FC<KanjiStudyOverlayProps> = ({
     setCurrentPhase('QUIZ');
   };
 
-  // Timer logic
-  React.useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (timerActive && timeLeft > 0 && !quizAnswered) {
-      interval = setInterval(() => {
-        setTimeLeft(prev => prev - 1);
-      }, 1000);
-    } else if (timeLeft === 0 && !quizAnswered) {
-      handleQuizAnswer(''); // Fail for timeout
-    }
-    return () => clearInterval(interval);
-  }, [timerActive, timeLeft, quizAnswered]);
-
-  const handleQuizAnswer = (meaning: string) => {
+  const handleQuizAnswer = React.useCallback((meaning: string) => {
     if (quizAnswered) return;
     const isCorrect = meaning === currentKanji.meaning_vi;
     setQuizAnswered(true);
@@ -104,7 +91,20 @@ export const KanjiStudyOverlay: React.FC<KanjiStudyOverlayProps> = ({
       // Let user see correct answer before they can retry or go back to learn
       setTimeout(() => setCurrentPhase('LEARN'), 2000);
     }
-  };
+  }, [quizAnswered, currentKanji]);
+
+  // Timer logic
+  React.useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (timerActive && timeLeft > 0 && !quizAnswered) {
+      interval = setInterval(() => {
+        setTimeLeft(prev => prev - 1);
+      }, 1000);
+    } else if (timeLeft === 0 && !quizAnswered) {
+      handleQuizAnswer(''); // Fail for timeout
+    }
+    return () => clearInterval(interval);
+  }, [timerActive, timeLeft, quizAnswered, handleQuizAnswer]);
 
   const handleWriteGuidedComplete = () => {
     setCurrentPhase('WRITE_BLIND');

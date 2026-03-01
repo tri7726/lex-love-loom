@@ -17,7 +17,7 @@ export interface KanjiData {
   components: string[];
   svg_data?: string;
   svg_url?: string;
-  stroke_order?: any;
+  stroke_order?: unknown;
   conversion_rules?: string;
   mnemonic?: string;
 }

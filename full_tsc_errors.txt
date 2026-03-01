@@ -1,0 +1,65 @@
+﻿src/components/DictationPlayer.tsx(581,21): error TS2578: Unused '@ts-expect-error' directive.
+src/components/video/DictationMode.tsx(31,50): error TS2339: Property 'word' does not exist on type 'unknown'.
+src/components/video/DictationMode.tsx(31,66): error TS2339: Property 'word' does not exist on type 'unknown'.
+src/components/video/DictationMode.tsx(41,42): error TS2339: Property 'word' does not exist on type 'unknown'.
+src/components/video/DictationMode.tsx(45,35): error TS2339: Property 'word' does not exist on type 'unknown'.
+src/components/video/DictationMode.tsx(45,53): error TS2339: Property 'reading' does not exist on type 'unknown'.
+src/components/video/SpeakingMode.tsx(32,50): error TS2339: Property 'word' does not exist on type 'unknown'.
+src/components/video/SpeakingMode.tsx(32,66): error TS2339: Property 'word' does not exist on type 'unknown'.
+src/components/video/SpeakingMode.tsx(42,42): error TS2339: Property 'word' does not exist on type 'unknown'.
+src/components/video/SpeakingMode.tsx(46,35): error TS2339: Property 'word' does not exist on type 'unknown'.
+src/components/video/SpeakingMode.tsx(46,53): error TS2339: Property 'reading' does not exist on type 'unknown'.
+src/components/video/SubtitlePanel.tsx(22,50): error TS2339: Property 'word' does not exist on type 'unknown'.
+src/components/video/SubtitlePanel.tsx(22,66): error TS2339: Property 'word' does not exist on type 'unknown'.
+src/components/video/SubtitlePanel.tsx(32,42): error TS2339: Property 'word' does not exist on type 'unknown'.
+src/components/video/SubtitlePanel.tsx(36,35): error TS2339: Property 'word' does not exist on type 'unknown'.
+src/components/video/SubtitlePanel.tsx(36,53): error TS2339: Property 'reading' does not exist on type 'unknown'.
+src/components/vocabulary/DetailView.tsx(67,58): error TS2322: Type 'import("C:/Users/Pheo/OneDrive/Documents/GitHub/lex-love-loom/src/hooks/useFlashcardFolders").VocabWord[]' is not assignable to type 'import("C:/Users/Pheo/OneDrive/Documents/GitHub/lex-love-loom/src/types/vocabulary").VocabWord[]'.
+  Type 'import("C:/Users/Pheo/OneDrive/Documents/GitHub/lex-love-loom/src/hooks/useFlashcardFolders").VocabWord' is not assignable to type 'import("C:/Users/Pheo/OneDrive/Documents/GitHub/lex-love-loom/src/types/vocabulary").VocabWord'.
+    Property 'mastery_level' is optional in type 'VocabWord' but required in type 'VocabWord'.
+src/components/vocabulary/DetailView.tsx(68,47): error TS2322: Type 'import("C:/Users/Pheo/OneDrive/Documents/GitHub/lex-love-loom/src/hooks/useFlashcardFolders").VocabWord[]' is not assignable to type 'import("C:/Users/Pheo/OneDrive/Documents/GitHub/lex-love-loom/src/types/vocabulary").VocabWord[]'.
+  Type 'import("C:/Users/Pheo/OneDrive/Documents/GitHub/lex-love-loom/src/hooks/useFlashcardFolders").VocabWord' is not assignable to type 'import("C:/Users/Pheo/OneDrive/Documents/GitHub/lex-love-loom/src/types/vocabulary").VocabWord'.
+    Property 'mastery_level' is optional in type 'VocabWord' but required in type 'VocabWord'.
+src/components/vocabulary/DetailView.tsx(69,55): error TS2322: Type 'import("C:/Users/Pheo/OneDrive/Documents/GitHub/lex-love-loom/src/hooks/useFlashcardFolders").VocabWord[]' is not assignable to type 'import("C:/Users/Pheo/OneDrive/Documents/GitHub/lex-love-loom/src/types/vocabulary").VocabWord[]'.
+  Type 'import("C:/Users/Pheo/OneDrive/Documents/GitHub/lex-love-loom/src/hooks/useFlashcardFolders").VocabWord' is not assignable to type 'import("C:/Users/Pheo/OneDrive/Documents/GitHub/lex-love-loom/src/types/vocabulary").VocabWord'.
+    Property 'mastery_level' is optional in type 'VocabWord' but required in type 'VocabWord'.
+src/components/vocabulary/DetailView.tsx(70,49): error TS2322: Type 'import("C:/Users/Pheo/OneDrive/Documents/GitHub/lex-love-loom/src/hooks/useFlashcardFolders").VocabWord[]' is not assignable to type 'import("C:/Users/Pheo/OneDrive/Documents/GitHub/lex-love-loom/src/types/vocabulary").VocabWord[]'.
+  Type 'import("C:/Users/Pheo/OneDrive/Documents/GitHub/lex-love-loom/src/hooks/useFlashcardFolders").VocabWord' is not assignable to type 'import("C:/Users/Pheo/OneDrive/Documents/GitHub/lex-love-loom/src/types/vocabulary").VocabWord'.
+    Property 'mastery_level' is optional in type 'VocabWord' but required in type 'VocabWord'.
+src/components/vocabulary/DetailView.tsx(71,63): error TS2322: Type 'import("C:/Users/Pheo/OneDrive/Documents/GitHub/lex-love-loom/src/hooks/useFlashcardFolders").VocabWord[]' is not assignable to type 'import("C:/Users/Pheo/OneDrive/Documents/GitHub/lex-love-loom/src/types/vocabulary").VocabWord[]'.
+  Type 'import("C:/Users/Pheo/OneDrive/Documents/GitHub/lex-love-loom/src/hooks/useFlashcardFolders").VocabWord' is not assignable to type 'import("C:/Users/Pheo/OneDrive/Documents/GitHub/lex-love-loom/src/types/vocabulary").VocabWord'.
+    Property 'mastery_level' is optional in type 'VocabWord' but required in type 'VocabWord'.
+src/components/vocabulary/KanjiReview.tsx(341,9): error TS2322: Type 'KanjiPoint[]' is not assignable to type '{ character: string; lesson: string; hanviet: string; meaning_vi: string; level: string; on_reading?: string; kun_reading?: string; mnemonic?: string; }[]'.
+  Type 'KanjiPoint' is not assignable to type '{ character: string; lesson: string; hanviet: string; meaning_vi: string; level: string; on_reading?: string; kun_reading?: string; mnemonic?: string; }'.
+    Types of property 'lesson' are incompatible.
+      Type 'number' is not assignable to type 'string'.
+src/components/vocabulary/KanjiStudyOverlay.tsx(90,44): error TS2448: Block-scoped variable 'handleQuizAnswer' used before its declaration.
+src/components/vocabulary/SeriesView.tsx(214,29): error TS2339: Property 'id' does not exist on type 'unknown'.
+src/components/vocabulary/SeriesView.tsx(215,31): error TS2339: Property 'word' does not exist on type 'unknown'.
+src/components/vocabulary/SeriesView.tsx(216,34): error TS2339: Property 'reading' does not exist on type 'unknown'.
+src/components/vocabulary/SeriesView.tsx(217,34): error TS2339: Property 'meaning' does not exist on type 'unknown'.
+src/components/vocabulary/SeriesView.tsx(219,40): error TS2339: Property 'mastery_level' does not exist on type 'unknown'.
+src/hooks/api/useVocabulary.ts(2,29): error TS2459: Module '"@/services/vocabularyService"' declares 'InsertVocabulary' locally, but it is not exported.
+src/hooks/api/useVocabulary.ts(2,47): error TS2459: Module '"@/services/vocabularyService"' declares 'UpdateVocabulary' locally, but it is not exported.
+src/hooks/api/useVocabulary.ts(22,43): error TS2345: Argument of type '{ user_id: string; }' is not assignable to parameter of type 'InsertVocabulary'.
+  Type '{ user_id: string; }' is missing the following properties from type 'InsertVocabulary': meaning, reading, word, mastery_level
+src/hooks/useYouTubePlayer.ts(32,34): error TS2339: Property 'Player' does not exist on type 'unknown'.
+src/pages/EditProfile.tsx(48,26): error TS2304: Cannot find name 'Profile'.
+src/pages/FlashcardGames.tsx(107,13): error TS2448: Block-scoped variable 'fetchVocabulary' used before its declaration.
+src/pages/FlashcardGames.tsx(109,27): error TS2304: Cannot find name 'useCallback'.
+src/pages/FlashcardReview.tsx(53,13): error TS2448: Block-scoped variable 'fetchFolders' used before its declaration.
+src/pages/FlashcardReview.tsx(59,29): error TS2448: Block-scoped variable 'fetchFlashcards' used before its declaration.
+src/pages/FlashcardReview.tsx(61,24): error TS2304: Cannot find name 'useCallback'.
+src/pages/FlashcardReview.tsx(86,27): error TS2304: Cannot find name 'useCallback'.
+src/pages/Flashcards.tsx(7,8): error TS2613: Module '"C:/Users/Pheo/OneDrive/Documents/GitHub/lex-love-loom/src/components/Navigation"' has no default export. Did you mean to use 'import { Navigation } from "C:/Users/Pheo/OneDrive/Documents/GitHub/lex-love-loom/src/components/Navigation"' instead?
+src/pages/FolderManager.tsx(145,23): error TS2448: Block-scoped variable 'fetchFolders' used before its declaration.
+src/pages/FolderManager.tsx(147,24): error TS2304: Cannot find name 'useCallback'.
+src/pages/Index.tsx(155,27): error TS2448: Block-scoped variable 'fetchLeaderboard' used before its declaration.
+src/pages/Index.tsx(157,28): error TS2304: Cannot find name 'useCallback'.
+src/pages/KanjiDetail.tsx(138,11): error TS2322: Type 'RelatedKanjiData[]' is not assignable to type '(KanjiData & { relationship_type: string; strength?: number; })[]'.
+  Type 'RelatedKanjiData' is not assignable to type 'KanjiData & { relationship_type: string; strength?: number; }'.
+    Type 'RelatedKanjiData' is missing the following properties from type 'KanjiData': onyomi, kunyomi, components
+src/pages/Pronunciation.tsx(7,8): error TS2613: Module '"C:/Users/Pheo/OneDrive/Documents/GitHub/lex-love-loom/src/components/Navigation"' has no default export. Did you mean to use 'import { Navigation } from "C:/Users/Pheo/OneDrive/Documents/GitHub/lex-love-loom/src/components/Navigation"' instead?
+src/pages/Quiz.tsx(178,30): error TS2304: Cannot find name 'useCallback'.
+src/pages/Quiz.tsx(187,25): error TS2304: Cannot find name 'useCallback'.
+src/pages/Quiz.tsx(206,24): error TS2304: Cannot find name 'useCallback'.

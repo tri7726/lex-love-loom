@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Edit, Trash2, FolderPlus, ChevronRight, ChevronDown } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -138,15 +138,9 @@ export const FolderManager = () => {
     parent_id: null as string | null,
   });
 
-  useEffect(() => {
-    if (user) {
-      fetchFolders();
-    }
-  }, [user, moduleId]);
-
-  const fetchFolders = async () => {
+  const fetchFolders = useCallback(async () => {
     try {
-      let query = (supabase as any)
+      let query = supabase
         .from('vocabulary_folders')
         .select('*')
         .eq('user_id', user!.id)
@@ -158,17 +152,17 @@ export const FolderManager = () => {
 
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) throw (error as unknown);
       
       // Build tree structure
       const folderMap = new Map<string, Folder>();
       const rootFolders: Folder[] = [];
 
-      (data as any[])?.forEach((folder: any) => {
+      (data as Folder[])?.forEach((folder: Folder) => {
         folderMap.set(folder.id, { ...folder, children: [] } as Folder);
       });
 
-      (data as any[])?.forEach((folder: any) => {
+      (data as Folder[])?.forEach((folder: Folder) => {
         const folderNode = folderMap.get(folder.id)!;
         if (folder.parent_id) {
           const parent = folderMap.get(folder.parent_id);
@@ -191,7 +185,7 @@ export const FolderManager = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, moduleId, toast]);
 
   const handleCreateOrUpdate = async () => {
     if (!formData.name.trim()) {

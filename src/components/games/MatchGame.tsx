@@ -44,20 +44,7 @@ export const MatchGame: React.FC<MatchGameProps> = ({
     return shuffled.slice(0, Math.min(8, vocabulary.length));
   }, [vocabulary]);
 
-  useEffect(() => {
-    initializeGame();
-  }, [gameWords]);
-
-  useEffect(() => {
-    if (!gameComplete && cards.length > 0) {
-      const timer = setInterval(() => {
-        setTimeElapsed((prev) => prev + 1);
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [gameComplete, cards.length]);
-
-  const initializeGame = () => {
+  const initializeGame = React.useCallback(() => {
     const newCards: MatchCard[] = [];
 
     gameWords.forEach((word) => {
@@ -87,7 +74,20 @@ export const MatchGame: React.FC<MatchGameProps> = ({
     setTimeElapsed(0);
     setGameComplete(false);
     setWrongMatch([]);
-  };
+  }, [gameWords]);
+
+  useEffect(() => {
+    initializeGame();
+  }, [initializeGame]);
+
+  useEffect(() => {
+    if (!gameComplete && cards.length > 0) {
+      const timer = setInterval(() => {
+        setTimeElapsed((prev) => prev + 1);
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [gameComplete, cards.length]);
 
   const handleCardClick = (card: MatchCard) => {
     if (

@@ -15,10 +15,10 @@ import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { useTTS } from '@/hooks/useTTS';
 
-const renderTextWithFurigana = (text: string, vocabulary: any[], show: boolean) => {
+const renderTextWithFurigana = (text: string, vocabulary: { word: string; reading: string; meaning: string }[] | unknown[], show: boolean) => {
   if (!show || !vocabulary || vocabulary.length === 0) return text;
   
-  const vocab = [...vocabulary].sort((a, b) => b.word.length - a.word.length);
+  const vocab = [...(vocabulary as any[])].sort((a, b) => (b.word?.length || 0) - (a.word?.length || 0));
   let parts: Array<{ text: string, furigana?: string }> = [{ text }];
   
   vocab.forEach(v => {
@@ -41,7 +41,7 @@ const renderTextWithFurigana = (text: string, vocabulary: any[], show: boolean) 
 
   return parts.map((part, i) => (
     <span key={i} className="inline-block">
-      {part.furigana ? (
+      {(part.furigana) ? (
         <ruby>
           {part.text}
           <rt className="text-[10px] opacity-70">{part.furigana}</rt>

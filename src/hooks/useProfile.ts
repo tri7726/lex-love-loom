@@ -47,7 +47,7 @@ export const useProfile = () => {
           throw error;
         }
       } else {
-        const raw = data as any;
+        const raw = data as Record<string, unknown>;
         setProfile({
           ...raw,
           full_name: raw.display_name,
@@ -57,7 +57,7 @@ export const useProfile = () => {
           role: raw.role || 'user',
         } as Profile);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching profile:', error);
     } finally {
       setLoading(false);
@@ -72,16 +72,16 @@ export const useProfile = () => {
       const channel = supabase
         .channel(`profile:${user.id}`)
         .on(
-          'postgres_changes' as any,
+          'postgres_changes' as never,
           { 
             event: '*', 
             schema: 'public', 
             table: 'profiles', 
             filter: `user_id=eq.${user.id}` 
           },
-          (payload: any) => {
+          (payload: { new: Record<string, unknown> }) => {
             if (payload.new) {
-              const raw = payload.new as any;
+              const raw = payload.new;
               setProfile({
                 ...raw,
                 full_name: raw.display_name,
@@ -120,11 +120,11 @@ export const useProfile = () => {
         title: `+${amount} XP!`,
         description: `Bạn đã nhận thêm ${amount} kinh nghiệm.`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error adding XP:', error);
       toast({
         title: 'Lỗi cập nhật XP',
-        description: error.message,
+        description: error instanceof Error ? error.message : 'Unknown error',
         variant: 'destructive',
       });
     }

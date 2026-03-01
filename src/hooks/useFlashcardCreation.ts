@@ -74,7 +74,7 @@ export function useFlashcardCreation() {
       if (flashcardError) throw flashcardError;
 
       // Link to folder
-      const { error: linkError } = await (supabase as any)
+      const { error: linkError } = await (supabase as unknown as { from: (s: string) => { insert: (o: object) => Promise<{ error: unknown }> } })
         .from('vocabulary_folder_items')
         .insert({
           folder_id: folderId,
@@ -158,7 +158,7 @@ export function useFlashcardCreation() {
           if (flashcardError) throw flashcardError;
 
           // Link to folder
-          await (supabase as any)
+          await (supabase as unknown as { from: (s: string) => { insert: (o: object) => Promise<{ error: unknown }> } })
             .from('vocabulary_folder_items')
             .insert({
               folder_id: folderId,

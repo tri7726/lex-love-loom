@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Gamepad2, 
@@ -98,15 +98,7 @@ export const FlashcardGames = () => {
     streak: 0,
   });
 
-  useEffect(() => {
-    if (user) {
-      fetchVocabulary();
-    } else {
-      setLoading(false);
-    }
-  }, [user]);
-
-  const fetchVocabulary = async () => {
+  const fetchVocabulary = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('saved_vocabulary')
@@ -121,7 +113,15 @@ export const FlashcardGames = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      fetchVocabulary();
+    } else {
+      setLoading(false);
+    }
+  }, [user, fetchVocabulary]);
 
   const updateMasteryLevel = async (wordId: string, correct: boolean) => {
     const word = vocabulary.find(v => v.id === wordId);

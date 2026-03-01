@@ -1,35 +1,51 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   BookOpen,
-  Brain, // Keeping Brain as it can be used for general learning/AI tutor
-  Mic, // Keeping Mic as pronunciation might still be a feature or part of AI tutor
+  Brain,
   Trophy,
-  Sparkles, // Can be used for AI Tutor
+  Sparkles,
   TrendingUp,
   ChevronRight,
+  ArrowRight,
   Loader2,
-  Layers,
   Book,
-  Video, // Added for Video Learning
-  Search, // Added as per user's partial edit
-  Bell, // Added as per user's partial edit
+  Search,
   Settings,
+  Target,
+  Users,
+  MessageSquare,
+  Globe,
+  CheckCircle2,
+  Clock,
+  Sword,
+  Award,
   Zap,
+  User,
+  Video,
   FileText,
+  Flame,
+  Calendar,
+  Gift,
+  Timer
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DailyQuests } from '@/components/dashboard/DailyQuests';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Navigation } from '@/components/Navigation';
 import { DailyPractice } from '@/components/DailyPractice';
+import { SkillHeatmap } from '@/components/analytics/SkillHeatmap';
 import { JapaneseText } from '@/components/JapaneseText';
 import { StreakBadge, AchievementBadge, achievements } from '@/components/StreakBadge';
 import { Leaderboard } from '@/components/Leaderboard';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link, useNavigate } from 'react-router-dom';
 import { useProfile } from '@/hooks/useProfile';
 import { useWordHistory } from '@/hooks/useWordHistory';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 
 import { MINNA_N5_VOCAB } from '@/data/minna-n5';
 
@@ -128,17 +144,10 @@ export const Index = () => {
   const { user } = useAuth();
   const { profile, loading: profileLoading, updateStreak } = useProfile();
   const { history, isLoading: historyLoading } = useWordHistory();
-  const [leaderboard, setLeaderboard] = React.useState<any[]>([]);
+  const [leaderboard, setLeaderboard] = React.useState<{ rank: number; userId: string; username: string; xp: number; streak: number; avatar?: string; isCurrentUser: boolean }[]>([]);
   const [leaderboardLoading, setLeaderboardLoading] = React.useState(true);
 
-  useEffect(() => {
-    if (user) {
-      updateStreak();
-      fetchLeaderboard();
-    }
-  }, [user, updateStreak]);
-
-  const fetchLeaderboard = async () => {
+  const fetchLeaderboard = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -154,7 +163,7 @@ export const Index = () => {
         username: p.display_name || 'Anonymous',
         xp: p.total_xp || 0,
         streak: p.current_streak || 0,
-        avatar: p.avatar_url,
+        avatar: p.avatar_url || undefined,
         isCurrentUser: p.user_id === user?.id
       }));
 
@@ -164,7 +173,14 @@ export const Index = () => {
     } finally {
       setLeaderboardLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      updateStreak();
+      fetchLeaderboard();
+    }
+  }, [user, updateStreak, fetchLeaderboard]);
 
   const userStats = useMemo(() => {
     if (!profile) return {
@@ -249,20 +265,22 @@ export const Index = () => {
                 Bạn đang đạt cấp độ <strong>{userStats.level}</strong>. Hãy tiếp tục lộ trình chinh phục JLPT nhé!
               </p>
               
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                 {[
-                  { level: 'N5', progress: userStats.jlptProgress.N5, color: 'sakura' },
-                  { level: 'N4', progress: userStats.jlptProgress.N4, color: 'indigo' },
-                  { level: 'N3', progress: userStats.jlptProgress.N3, color: 'matcha' },
+                  { level: 'N5', progress: userStats.jlptProgress.N5, color: 'bg-sakura' },
+                  { level: 'N4', progress: userStats.jlptProgress.N4, color: 'bg-indigo-jp' },
+                  { level: 'N3', progress: userStats.jlptProgress.N3 || 0, color: 'bg-matcha' },
+                  { level: 'N2', progress: 0, color: 'bg-red-500' },
+                  { level: 'N1', progress: 0, color: 'bg-slate-900' },
                 ].map((item) => (
-                  <Link key={item.level} to={`/learning-path/${item.level.toLowerCase()}`} className="group block space-y-2">
-                    <div className="flex justify-between text-sm items-end">
-                      <span className="font-bold text-lg group-hover:text-primary transition-colors">{item.level}</span>
-                      <span className="text-muted-foreground">{Math.floor(item.progress)}%</span>
+                  <Link key={item.level} to={`/learning-path/${item.level.toLowerCase()}`} className="group block space-y-1">
+                    <div className="flex justify-between text-[10px] items-end px-1 font-bold">
+                      <span>{item.level}</span>
+                      <span className="text-muted-foreground opacity-70">{Math.floor(item.progress)}%</span>
                     </div>
                     <div className="h-2 bg-background/50 rounded-full overflow-hidden">
                       <motion.div
-                        className={`h-full bg-${item.color}`}
+                        className={cn("h-full", item.color)}
                         initial={{ width: 0 }}
                         animate={{ width: `${item.progress}%` }}
                         transition={{ duration: 1, delay: 0.5 }}
@@ -329,6 +347,194 @@ export const Index = () => {
           </Card>
         </motion.section>
 
+        {/* Advanced AI Tools Section */}
+        <section className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold flex items-center gap-2">
+              <Sparkles className="h-6 w-6 text-primary" />
+              Công cụ AI nâng cao
+            </h2>
+          </div>
+          <div className="grid md:grid-cols-2 gap-6">
+            <Link to="/roleplay">
+              <Card className="group overflow-hidden border-2 border-transparent hover:border-primary/20 transition-all hover:shadow-elevated bg-card/60">
+                <CardContent className="p-0 flex flex-col sm:flex-row h-full">
+                  <div className="sm:w-1/3 relative h-40 sm:h-auto overflow-hidden">
+                    <img 
+                      src="https://images.unsplash.com/photo-1543269865-cbf427effbad?w=800&auto=format&fit=crop" 
+                      alt="AI Roleplay" 
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    />
+                    <div className="absolute inset-0 bg-black/20" />
+                  </div>
+                  <div className="p-6 flex-1 space-y-4">
+                    <div className="space-y-2">
+                      <h3 className="text-xl font-bold flex items-center gap-2">
+                        <MessageSquare className="h-5 w-5 text-primary" />
+                        AI Roleplay Studio
+                      </h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Nhập vai vào các tình huống thực tế tại Nhật Bản. Luyện tập phản xạ giao tiếp tự nhiên với Sensei.
+                      </p>
+                    </div>
+                    <Button variant="outline" className="w-full sm:w-auto font-bold text-xs uppercase tracking-widest gap-2">
+                      Bắt đầu ngay <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link to="/news">
+              <Card className="group overflow-hidden border-2 border-transparent hover:border-primary/20 transition-all hover:shadow-elevated bg-card/60">
+                <CardContent className="p-0 flex flex-col sm:flex-row h-full">
+                  <div className="sm:w-1/3 relative h-40 sm:h-auto overflow-hidden">
+                    <img 
+                      src="https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800&auto=format&fit=crop" 
+                      alt="Japanese News" 
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    />
+                    <div className="absolute inset-0 bg-black/20" />
+                  </div>
+                  <div className="p-6 flex-1 space-y-4">
+                    <div className="space-y-2">
+                      <h3 className="text-xl font-bold flex items-center gap-2">
+                        <Globe className="h-5 w-5 text-indigo-jp" />
+                        Tin tức thời gian thực
+                      </h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Cập nhật tin tức Nhật Bản phiên bản dễ nghe, đọc. Vừa học từ vựng vừa nắm bắt tình hình thế giới.
+                      </p>
+                    </div>
+                    <Button variant="outline" className="w-full sm:w-auto font-bold text-xs uppercase tracking-widest gap-2">
+                      Đọc tin tức <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
+        </section>
+
+        {/* Social Activity Section */}
+        <section className="space-y-6 pt-4">
+          <div className="flex items-center justify-between px-1 border-l-4 border-primary pl-4">
+            <h2 className="text-2xl font-display font-bold">Cộng đồng & Mục tiêu</h2>
+            <Badge variant="outline" className="text-primary border-primary/20 bg-primary/5">Social Hub</Badge>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <DailyQuests />
+            
+            <Card className="lg:col-span-2 border-2 border-primary/20 bg-card/40 backdrop-blur-sm shadow-soft overflow-hidden flex flex-col group transition-all hover:bg-card/60">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  Hoạt động học tập
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1">
+                <SkillHeatmap />
+              </CardContent>
+            </Card>
+
+            <Card className="border-2 border-gold/20 bg-card/40 backdrop-blur-sm shadow-soft overflow-hidden flex flex-col group hover:shadow-elevated transition-all">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Trophy className="h-5 w-5 text-gold" />
+                  Bảng xếp hạng
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 space-y-4">
+                <div className="text-center py-2">
+                  <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Hạng hiện tại</p>
+                  <p className="text-4xl font-black text-gold">#4</p>
+                  <Badge className="bg-slate-400 mt-2 text-[10px] font-bold">GIẢI BẠC</Badge>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-[10px] font-bold">
+                    <span>Lên TOP 3</span>
+                    <span className="text-primary font-black">+250 XP</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-primary" style={{ width: '75%' }} />
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter className="pt-0 border-t border-border/50 mt-auto">
+                <Link to="/leagues" className="w-full">
+                  <Button variant="ghost" className="w-full text-xs font-bold gap-2 hover:bg-gold/5">
+                    Ghé thăm League <ArrowRight className="h-3 w-3" />
+                  </Button>
+                </Link>
+              </CardFooter>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="border-2 border-primary/10 bg-card/40 backdrop-blur-sm overflow-hidden flex flex-col transition-all hover:bg-card/60">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  Hoạt động Squad
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 p-0">
+                <div className="divide-y divide-border/50">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="flex gap-3 items-start p-4 hover:bg-muted/30 transition-colors">
+                      <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                        <Users className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs font-bold leading-none">N3 Warriors</p>
+                        <p className="text-[10px] text-muted-foreground leading-snug tracking-tight">Vũ Hải vừa cộng thêm 500 XP cho mục tiêu chung!</p>
+                        <p className="text-[9px] text-muted-foreground/60 uppercase">10 phút trước</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+              <CardFooter className="pt-0 border-t border-border/50">
+                <Link to="/squads" className="w-full pt-4">
+                  <Button variant="ghost" className="w-full text-xs font-bold gap-2 hover:bg-primary/5">
+                    Quản lý Squad <ArrowRight className="h-3 w-3" />
+                  </Button>
+                </Link>
+              </CardFooter>
+            </Card>
+
+            <Card className="border-2 border-secondary/10 bg-card/40 backdrop-blur-sm overflow-hidden flex flex-col transition-all hover:bg-card/60">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <User className="h-5 w-5 text-secondary" />
+                  Bạn bè
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 space-y-6 pt-4">
+                <div className="flex -space-x-3 overflow-hidden justify-center py-2">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Avatar key={i} className="inline-block h-12 w-12 rounded-2xl ring-4 ring-background shadow-md">
+                      <AvatarFallback className="text-xs bg-secondary/10 text-secondary font-bold">U{i}</AvatarFallback>
+                    </Avatar>
+                  ))}
+                </div>
+                <div className="text-center space-y-1">
+                  <p className="text-sm font-medium">Bạn đang theo dõi <strong>16 người</strong></p>
+                  <p className="text-xs text-muted-foreground">Có <span className="text-green-500 font-bold">3 người</span> đang trực tuyến học tập.</p>
+                </div>
+              </CardContent>
+              <CardFooter className="pt-0 border-t border-border/50">
+                <Link to="/friends" className="w-full pt-4">
+                  <Button variant="ghost" className="w-full text-xs font-bold gap-2 hover:bg-secondary/5">
+                    Quản lý bạn bè <ArrowRight className="h-3 w-3" />
+                  </Button>
+                </Link>
+              </CardFooter>
+            </Card>
+          </div>
+        </section>
+
         {/* Main Content Grid */}
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Daily Practice - Takes 2 columns */}
@@ -336,7 +542,7 @@ export const Index = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="lg:col-span-2"
+            className="lg:col-span-2 space-y-6"
           >
             <DailyPractice
               tasks={dailyTasks}

@@ -42,7 +42,7 @@ interface UnitAIAssistantProps {
   unitId: string;
   level: string;
   unitTitle: string;
-  contextData?: any;
+  contextData?: unknown;
 }
 
 export const UnitAIAssistant = ({ unitId, level, unitTitle, contextData }: UnitAIAssistantProps) => {

@@ -25,10 +25,9 @@ import { useKanjiLookup } from '@/hooks/useKanjiLookup';
 import { cn } from '@/lib/utils';
 import { compareStrings, calculateScore, DiffResult } from '@/lib/stringComparison';
 
-const renderTextWithFurigana = (text: string, vocabulary: any[], show: boolean) => {
+const renderTextWithFurigana = (text: string, vocabulary: { word: string; reading: string; meaning: string }[] | unknown[], show: boolean) => {
   if (!show || !vocabulary || vocabulary.length === 0) return text;
-  
-  const vocab = [...vocabulary].sort((a, b) => b.word.length - a.word.length);
+    const vocab = [...(vocabulary as any[])].sort((a, b) => (b.word?.length || 0) - (a.word?.length || 0));
   let parts: Array<{ text: string, furigana?: string }> = [{ text }];
   
   vocab.forEach(v => {
@@ -131,7 +130,7 @@ export const DictationMode: React.FC<DictationModeProps> = ({
     } else if (userInput.length < 2) {
       clearSuggestions();
     }
-  }, [userInput, localSuggestions.length, hasChecked]);
+  }, [userInput, localSuggestions.length, hasChecked, lookupKanji, clearSuggestions]);
 
   // Reset state when segment changes
   useEffect(() => {

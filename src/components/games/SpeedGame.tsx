@@ -62,23 +62,6 @@ export const SpeedGame: React.FC<SpeedGameProps> = ({
 
   const currentQuestion = questions[currentIndex];
 
-  // Timer
-  useEffect(() => {
-    if (gameComplete || showFeedback) return;
-
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 0.1) {
-          handleAnswer(-1);
-          return QUESTION_TIME;
-        }
-        return Math.max(0, prev - 0.1);
-      });
-    }, 100);
-
-    return () => clearInterval(timer);
-  }, [currentIndex, showFeedback, gameComplete]);
-
   const handleAnswer = useCallback((index: number) => {
     if (showFeedback) return;
 
@@ -123,6 +106,23 @@ export const SpeedGame: React.FC<SpeedGameProps> = ({
       }
     }, 600);
   }, [currentIndex, currentQuestion, combo, timeLeft, showFeedback, questions.length, correctCount, onComplete, onUpdateMastery]);
+
+  // Timer
+  useEffect(() => {
+    if (gameComplete || showFeedback) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 0.1) {
+          handleAnswer(-1);
+          return QUESTION_TIME;
+        }
+        return Math.max(0, prev - 0.1);
+      });
+    }, 100);
+
+    return () => clearInterval(timer);
+  }, [currentIndex, showFeedback, gameComplete, handleAnswer]);
 
   const restartGame = () => {
     setCurrentIndex(0);
