@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface VocabItem {
   word: string;
@@ -94,6 +95,10 @@ export const Reading = () => {
   // Analysis state
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [analysisContent, setAnalysisContent] = useState<string | null>(null);
+  
+  // Translation state
+  const [translatedText, setTranslatedText] = useState<string | null>(null);
+  const [isTranslating, setIsTranslating] = useState(false);
   
   interface WordBreakdown {
     word: string;
@@ -265,6 +270,31 @@ export const Reading = () => {
     });
   }, [passages, levelFilter, categoryFilter, passageType, user, profile]);
 
+  const handleTranslate = async () => {
+    if (!selectedPassage) return;
+    
+    if (translatedText) {
+      setTranslatedText(null);
+      return;
+    }
+
+    setIsTranslating(true);
+    try {
+      const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=vi&dt=t&q=${encodeURIComponent(selectedPassage.content)}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Translation API failed');
+      const data = await res.json();
+      
+      const translation = data[0].map((item: any) => item[0]).join('');
+      setTranslatedText(translation);
+    } catch (err) {
+      console.error(err);
+      toast.error('Gặp lỗi khi dịch văn bản. Vui lòng thử lại.');
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
   const handleDeepAnalysis = async () => {
     if (!selectedPassage) return;
     
@@ -380,15 +410,47 @@ export const Reading = () => {
 
       // Step 3: Call API (will check cache → Jisho → AI)
       console.log('Calling lookup API...');
-      const { data, error } = await supabase.functions.invoke('lookup-word', {
-        body: { word, context: selectedPassage?.content }
-      });
+      let finalData: WordData | null = null;
+      
+      try {
+        const { data, error } = await supabase.functions.invoke('lookup-word', {
+          body: { word, context: selectedPassage?.content }
+        });
+        
+        if (!error && data) {
+          finalData = data;
+        }
+      } catch (err) {
+        console.warn('Supabase lookup-word failed, using fallback:', err);
+      }
+      
+      // Step 4: Fallback if API fails or returns no meaning
+      if (!finalData || (!finalData.meaning && !finalData.translation && !finalData.vietnamese)) {
+        console.log('Using Translate API Fallback for word:', word);
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=vi&dt=t&q=${encodeURIComponent(word)}`;
+        const res = await fetch(url);
+        
+        if (res.ok) {
+          const tData = await res.json();
+          const translation = tData[0].map((item: any) => item[0]).join('');
+          
+          finalData = {
+            ...finalData,
+            word: finalData?.word || word,
+            reading: finalData?.reading || word,
+            meaning: translation,
+            source: 'Translate API',
+            cached: false
+          } as WordData;
+        } else {
+          throw new Error('Both primary and fallback APIs failed');
+        }
+      }
 
-      if (error) throw error;
-      setWordData(data);
+      setWordData(finalData);
     } catch (error: unknown) {
       console.error('Error looking up word:', error);
-      toast.error('Không thể tra từ');
+      toast.error('Không thể tra từ do lỗi mạng hoặc API.');
     } finally {
       setLookupLoading(false);
     }
@@ -544,6 +606,7 @@ export const Reading = () => {
                         setSelectedPassage(passage);
                         setWordData(null);
                         setSelectedWord(null);
+                        setTranslatedText(null);
                       }}
                     >
                       <CardContent className="p-4">
@@ -606,6 +669,16 @@ export const Reading = () => {
                   </Tabs>
                   <div className="flex gap-2">
                     <Button
+                      variant={translatedText ? "default" : "outline"}
+                      size="sm"
+                      onClick={handleTranslate}
+                      disabled={isTranslating}
+                      className={cn("gap-2", translatedText ? "bg-sakura hover:bg-sakura-dark text-white" : "border-sakura/30 text-sakura hover:bg-sakura/10")}
+                    >
+                      {isTranslating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
+                      Dịch
+                    </Button>
+                    <Button
                       variant="outline"
                       size="sm"
                       onClick={handleDeepAnalysis}
@@ -648,6 +721,18 @@ export const Reading = () => {
                         displayMode === 'furigana' && !!selectedPassage.content_with_furigana
                       )}
                     </div>
+                    {translatedText && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-4 p-5 rounded-lg bg-sakura/5 border border-sakura/20"
+                      >
+                        <h4 className="text-sm font-bold text-sakura mb-2 flex items-center gap-2">
+                          <Globe className="h-4 w-4" /> Bản dịch (Translate API)
+                        </h4>
+                        <p className="text-foreground/90 leading-relaxed font-medium">{translatedText}</p>
+                      </motion.div>
+                    )}
 
                     {/* Vocabulary List */}
                     {selectedPassage.vocabulary_list && selectedPassage.vocabulary_list.length > 0 && (

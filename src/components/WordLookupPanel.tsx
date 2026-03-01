@@ -13,7 +13,9 @@ import { useToast } from '@/hooks/use-toast';
 interface WordData {
   word: string;
   reading: string;
-  meaning: string;
+  meaning?: string;
+  translation?: string;
+  vietnamese?: string;
   word_type?: string;
   examples?: Array<{ japanese: string; vietnamese: string }>;
   notes?: string;
@@ -38,9 +40,9 @@ export function WordLookupPanel({ wordData, loading, onClose, onSpeak }: WordLoo
     if (!wordData) return;
 
     addWordToFolder(folderId, {
-      word: wordData.word,
-      reading: wordData.reading,
-      meaning: wordData.meaning,
+      word: wordData.word || '',
+      reading: wordData.reading || '',
+      meaning: wordData.meaning || wordData.translation || wordData.vietnamese || '',
       word_type: wordData.word_type,
       example_sentence: wordData.examples?.[0]?.japanese || '',
       example_translation: wordData.examples?.[0]?.vietnamese || '',
@@ -124,7 +126,7 @@ export function WordLookupPanel({ wordData, loading, onClose, onSpeak }: WordLoo
                 <div className="space-y-1">
                   <p className="text-sm text-slate-400 dark:text-slate-500 font-medium">Nghĩa</p>
                   <div className="text-slate-800 dark:text-slate-200 text-lg leading-relaxed font-medium">
-                    {wordData.meaning}
+                    {wordData.meaning || wordData.translation || wordData.vietnamese || "Không có dữ liệu"}
                   </div>
                 </div>
 

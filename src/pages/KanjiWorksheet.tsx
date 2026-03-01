@@ -26,10 +26,12 @@ type CellGuide   = 'cross' | 'diagonal' | 'both';
 type SheetTheme  = 'white' | 'cream';
 type LayoutMode  = 'compact' | 'onePerPage';
 type SettingsTab = 'layout' | 'style' | 'display' | 'export';
+type StrokeSource = 'kanjivg' | 'manual';
 
 interface KanjiEntry {
   character: string; hanviet: string; meaning: string;
   strokeCount?: number; onReading?: string; kunReading?: string;
+  svgData?: string | null;
 }
 interface SheetSettings {
   ghostCells: number; practiceCells: number; cellSize: number;
@@ -37,7 +39,7 @@ interface SheetSettings {
   ghostOpacityMax: number; ghostOpacityMin: number;
   ghostColor: GhostColor; borderWeight: number; borderStyle: BorderStyle;
   sheetTheme: SheetTheme; cellGuide: CellGuide; showCellNumbers: boolean;
-  showStrokeOrder: boolean; showHanViet: boolean; showMeaning: boolean;
+  showStrokeOrder: boolean; strokeSource: StrokeSource; showHanViet: boolean; showMeaning: boolean;
   showStrokeCount: boolean; showReadings: boolean; showVocabRows: boolean; showPageFooter: boolean;
 }
 
@@ -57,7 +59,7 @@ const DEFAULT: SheetSettings = {
   ghostOpacityMax: 0.75, ghostOpacityMin: 0.08,
   ghostColor: 'gray', borderWeight: 1.5, borderStyle: 'solid',
   sheetTheme: 'white', cellGuide: 'cross', showCellNumbers: false,
-  showStrokeOrder: true, showHanViet: true, showMeaning: true,
+  showStrokeOrder: true, strokeSource: 'kanjivg' as StrokeSource, showHanViet: true, showMeaning: true,
   showStrokeCount: true, showReadings: false, showVocabRows: false, showPageFooter: true,
 };
 
@@ -80,6 +82,80 @@ const ensureFonts = async () => {
   try { await document.fonts.load('700 48px "Noto Sans JP"'); await document.fonts.ready; } catch { await new Promise(r => setTimeout(r, 1500)); }
 };
 
+// KanjiVG SVG Fetcher
+const fetchKanjiVG = async (char: string): Promise<string | null> => {
+  try {
+    const code = char.charCodeAt(0).toString(16).padStart(5, '0');
+    const url = `https://cdn.jsdelivr.net/gh/KanjiVG/kanjivg@master/kanji/${code}.svg`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    let text = await res.text();
+    
+    // Strip XML definitions and DOCTYPE which causes the `]>` visual bug in browsers
+    const svgStart = text.indexOf('<svg');
+    if (svgStart !== -1) {
+      text = text.substring(svgStart);
+    }
+    
+    let svg = text
+      .replace(/<svg[^>]*>/, '<svg viewBox="0 0 109 109" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" style="display:block;">')
+      .replace(/<!--[\s\S]*?-->/g, '') // Remove comments safely
+      .replace(/<g id="kvg:StrokeNumbers[\s\S]*?<\/g>/, '') // Remove stroke numbers group
+      .replace(/<text[\s\S]*?<\/text>/g, '') // Aggressively remove any leftover text elements (stroke numbers)
+      .replace(/style="[^"]*"/g, ''); // Clear inline styles on groups
+      
+    // Guarantee that every path explicitly carries its stroke attributes so we can easily mutate it.
+    svg = svg.replace(/<path /g, '<path fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" ');
+    
+    return svg;
+  } catch (error) {
+    console.error(`Failed to fetch KanjiVG for ${char}:`, error);
+    return null;
+  }
+};
+
+/* ──────── SVG Steps Renderer ──────── */
+const SVGStepsRow: React.FC<{ svgData: string, cellSize: number, showStrokeCount: boolean }> = ({ svgData, cellSize, showStrokeCount }) => {
+  const pathsMatch = svgData.match(/<path[^>]*\/>/g) || [];
+  if (pathsMatch.length === 0) return null;
+
+  const maxSteps = 15;
+  const stepInterval = Math.ceil(pathsMatch.length / maxSteps);
+  
+  const stepsToShow = [];
+  for (let i = 0; i < pathsMatch.length; i += stepInterval) {
+    stepsToShow.push(i + 1);
+  }
+  if (!stepsToShow.includes(pathsMatch.length)) {
+    if (stepsToShow.length >= maxSteps) stepsToShow.pop();
+    stepsToShow.push(pathsMatch.length);
+  }
+
+  const stepSize = Math.max(20, Math.min(30, cellSize * 0.45));
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6, flexWrap: 'wrap' }}>
+      {stepsToShow.map((numPaths, idx) => {
+        const currentPaths = pathsMatch.slice(0, numPaths).map((p, pIdx) => {
+           if (pIdx === numPaths - 1) {
+             return p.replace('currentColor', '#e11d48').replace('stroke-width="3"', 'stroke-width="4"');
+           }
+           return p.replace('currentColor', '#cbd5e1'); // Previous strokes are light grayish-blue
+        }).join('');
+
+        return (
+          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <div style={{ width: stepSize, height: stepSize, border: '1px dashed #e2e8f0', backgroundColor: '#f8fafc', borderRadius: 3, position: 'relative' }}
+                 dangerouslySetInnerHTML={{ __html: `<svg viewBox="0 0 109 109" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" style="position:absolute;inset:10%">${currentPaths}</svg>` }}
+            />
+          </div>
+        );
+      })}
+      {showStrokeCount && <span style={{ fontSize: 10, color: '#94a3b8', marginLeft: 4, fontFamily: 'Arial', fontWeight: 'bold' }}>({pathsMatch.length} nét)</span>}
+    </div>
+  );
+};
+
 /* ──────── Cell guide SVG ──────── */
 const Guide: React.FC<{ guide: CellGuide; size: number }> = ({ guide, size }) => (
   <svg style={{ position:'absolute',top:0,left:0,width:'100%',height:'100%',pointerEvents:'none' }} viewBox={`0 0 ${size} ${size}`} preserveAspectRatio="none">
@@ -90,39 +166,65 @@ const Guide: React.FC<{ guide: CellGuide; size: number }> = ({ guide, size }) =>
 
 /* ──────── WorksheetRow ──────── */
 const WorksheetRow: React.FC<{ entry: KanjiEntry; s: SheetSettings }> = ({ entry, s }) => {
-  const steps = getStrokeOrder(entry.character);
+  const manualSteps = getStrokeOrder(entry.character);
+  const useSVG = s.strokeSource === 'kanjivg' && entry.svgData;
+  const showTextSteps = s.showStrokeOrder && (!useSVG && manualSteps);
   const total = 1 + s.ghostCells + s.practiceCells;
+  
   const gc = GHOST_COLORS[s.ghostColor];
   const bg = SHEET_THEMES[s.sheetTheme];
   const ob = `${s.borderWeight}px solid #222`;
   const ib = s.borderStyle==='dashed'?'1px dashed #ccc':'1px solid #d4d4d4';
   const cell: React.CSSProperties = { position:'relative',display:'inline-flex',alignItems:'center',justifyContent:'center',width:`${s.cellSize}px`,height:`${s.cellSize}px`,flexShrink:0,overflow:'hidden',boxSizing:'border-box' };
+  
   return (
-    <div style={{ marginBottom:20, pageBreakAfter:s.layoutMode==='onePerPage'?'always':'auto', breakInside:'avoid' }}>
-      {(s.showHanViet||s.showMeaning||s.showStrokeCount)&&(
-        <div style={{ display:'flex',gap:6,alignItems:'baseline',fontFamily:'Arial,sans-serif',marginBottom:1 }}>
-          {s.showHanViet&&<span style={{ fontWeight:900,fontSize:12,letterSpacing:'0.1em',textTransform:'uppercase' }}>{entry.hanviet||entry.character}</span>}
-          {s.showMeaning&&entry.meaning&&<span style={{ fontSize:10,color:'#666' }}>({entry.meaning})</span>}
-          {s.showStrokeCount&&!steps&&entry.strokeCount&&<span style={{ fontSize:9,color:'#aaa' }}>{entry.strokeCount} nét</span>}
+    <div style={{ marginBottom:22, pageBreakAfter:s.layoutMode==='onePerPage'?'always':'auto', breakInside:'avoid' }}>
+      {(s.showHanViet||s.showMeaning||(s.showStrokeCount && !s.showStrokeOrder))&&(
+        <div style={{ display:'flex',gap:6,alignItems:'baseline',fontFamily:'Arial,sans-serif',marginBottom:2 }}>
+          {s.showHanViet&&<span style={{ fontWeight:900,fontSize:13,letterSpacing:'0.1em',textTransform:'uppercase' }}>{entry.hanviet||entry.character}</span>}
+          {s.showMeaning&&entry.meaning&&<span style={{ fontSize:11,color:'#555' }}>({entry.meaning})</span>}
+          {s.showStrokeCount&&!s.showStrokeOrder&&entry.strokeCount&&<span style={{ fontSize:9,color:'#aaa' }}>{entry.strokeCount} nét</span>}
         </div>
       )}
       {s.showReadings&&(entry.onReading||entry.kunReading)&&(
-        <div style={{ fontSize:10,color:'#888',fontFamily:KANJI_FONT,marginBottom:1,display:'flex',gap:6 }}>
-          {entry.onReading&&<span>音: <b>{entry.onReading}</b></span>}
-          {entry.kunReading&&<span>訓: <b>{entry.kunReading}</b></span>}
+        <div style={{ fontSize:11,color:'#777',fontFamily:KANJI_FONT,marginBottom:3,display:'flex',gap:8 }}>
+          {entry.onReading&&<span>音: <b style={{color: '#444'}}>{entry.onReading}</b></span>}
+          {entry.kunReading&&<span>訓: <b style={{color: '#444'}}>{entry.kunReading}</b></span>}
         </div>
       )}
-      {s.showStrokeOrder&&steps&&(
-        <div style={{ display:'flex',alignItems:'center',gap:4,marginBottom:3,fontFamily:KANJI_FONT,fontSize:13,color:'#444',lineHeight:1 }}>
-          {steps.map((x,i)=><span key={i}>{x}</span>)}
-          {s.showStrokeCount&&entry.strokeCount&&<span style={{ fontSize:8,color:'#bbb',marginLeft:2,fontFamily:'Arial' }}>{entry.strokeCount} nét</span>}
-        </div>
+      
+      {/* Stroke Order Display */}
+      {s.showStrokeOrder && (
+        useSVG ? (
+          <SVGStepsRow svgData={entry.svgData!} cellSize={s.cellSize} showStrokeCount={s.showStrokeCount} />
+        ) : showTextSteps ? (
+          <div style={{ display:'flex',alignItems:'center',gap:4,marginBottom:6,fontFamily:KANJI_FONT,fontSize:14,color:'#333',lineHeight:1 }}>
+            {manualSteps.map((x,i)=><span key={i}>{x}</span>)}
+            {s.showStrokeCount&&entry.strokeCount&&<span style={{ fontSize:9,color:'#aaa',marginLeft:4,fontFamily:'Arial' }}>{entry.strokeCount} nét</span>}
+          </div>
+        ) : (
+          <div style={{ fontSize: 10, color: '#aaa', marginBottom: 6, fontFamily: 'Arial' }}>
+            (Chưa có dữ liệu nét chữ cho từ này)
+          </div>
+        )
       )}
+
+      {/* Grid */}
       <div style={{ display:'flex',border:ob,width:`${s.cellSize*total}px`,boxSizing:'border-box',backgroundColor:bg }}>
+        {/* Main Character Cell */}
         <div style={{ ...cell,borderRight:ob,backgroundColor:bg }}>
           <Guide guide={s.cellGuide} size={s.cellSize}/>
-          <span style={{ fontFamily:KANJI_FONT,fontSize:`${s.cellSize*.44}px`,fontWeight:900,color:'#111',lineHeight:1,position:'relative' }}>{entry.character}</span>
+          {useSVG ? (
+            <div 
+              style={{ position: 'absolute', inset: 0, padding: `${s.cellSize * 0.12}px`, color: '#111', boxSizing: 'border-box' }}
+              dangerouslySetInnerHTML={{ __html: entry.svgData! }}
+            />
+          ) : (
+            <span style={{ fontFamily:KANJI_FONT,fontSize:`${s.cellSize*.72}px`,fontWeight:900,color:'#111',lineHeight:1,position:'relative' }}>{entry.character}</span>
+          )}
         </div>
+        
+        {/* Ghost Cells */}
         {Array.from({length:s.ghostCells}).map((_,i)=>{
           const t=s.ghostCells===1?1:i/(s.ghostCells-1);
           const op=s.ghostOpacityMax-t*(s.ghostOpacityMax-s.ghostOpacityMin);
@@ -130,18 +232,28 @@ const WorksheetRow: React.FC<{ entry: KanjiEntry; s: SheetSettings }> = ({ entry
             <div key={`g${i}`} style={{ ...cell,borderRight:i===s.ghostCells-1?ob:ib,backgroundColor:bg }}>
               <Guide guide={s.cellGuide} size={s.cellSize}/>
               {s.showCellNumbers&&<span style={{ position:'absolute',top:2,left:3,fontSize:8,color:'#bbb',fontFamily:'Arial',lineHeight:1 }}>{i+1}</span>}
-              <span style={{ fontFamily:KANJI_FONT,fontSize:`${s.cellSize*.37}px`,fontWeight:400,color:gc,opacity:op,lineHeight:1,position:'relative' }}>{entry.character}</span>
+              {useSVG ? (
+                <div 
+                  style={{ position: 'absolute', inset: 0, padding: `${s.cellSize * 0.12}px`, opacity: op, color: gc, boxSizing: 'border-box' }}
+                  dangerouslySetInnerHTML={{ __html: entry.svgData! }}
+                />
+              ) : (
+                <span style={{ fontFamily:KANJI_FONT,fontSize:`${s.cellSize*.72}px`,fontWeight:400,color:gc,opacity:op,lineHeight:1,position:'relative' }}>{entry.character}</span>
+              )}
             </div>
           );
         })}
+        {/* Empty Practice Cells */}
         {Array.from({length:s.practiceCells}).map((_,i)=>(
           <div key={`e${i}`} style={{ ...cell,borderLeft:i>0?ib:undefined,backgroundColor:bg }}><Guide guide={s.cellGuide} size={s.cellSize}/></div>
         ))}
       </div>
+      
+      {/* Vocab Rows */}
       {s.showVocabRows&&(
-        <div style={{ width:`${s.cellSize*total}px`,marginTop:3 }}>
-          <div style={{ fontSize:8,color:'#ccc',fontFamily:'Arial',marginBottom:2 }}>TỪ VỰNG</div>
-          {[0,1].map(i=><div key={i} style={{ height:`${s.cellSize*.44}px`,borderBottom:'1px solid #ddd',marginBottom:4 }}/>)}
+        <div style={{ width:`${s.cellSize*total}px`,marginTop:4 }}>
+          <div style={{ fontSize:9,color:'#aaa',fontFamily:'Arial',marginBottom:2, letterSpacing: '0.05em' }}>TỪ VỰNG:</div>
+          {[0,1].map(i=><div key={i} style={{ height:`${s.cellSize*.46}px`,borderBottom:'1px dashed #ccc',marginBottom:4 }}/>)}
         </div>
       )}
     </div>
@@ -269,11 +381,35 @@ export const KanjiWorksheet = () => {
     setLoading(true); setList([]);
     try {
       const r=await Promise.all(chars.map(async(ch):Promise<KanjiEntry>=>{
-        try{const{data}=await supabase.functions.invoke('kanji-details',{body:{character:ch}});const k=data?.kanji;
-          return{character:ch,hanviet:k?.hanviet||ch,meaning:k?.meaning_vi||k?.meaning||'',strokeCount:k?.stroke_count,onReading:k?.on_reading,kunReading:k?.kun_reading};
+        try{
+          const{data}=await supabase.functions.invoke('kanji-details',{body:{character:ch}});
+          const k=data?.kanji;
+          
+          let svgData = null;
+          if (s.strokeSource === 'kanjivg') {
+            svgData = await fetchKanjiVG(ch);
+          }
+
+          return{
+            character:ch,
+            hanviet:k?.hanviet||ch,
+            meaning:k?.meaning_vi||k?.meaning||'',
+            strokeCount:k?.stroke_count,
+            onReading:k?.on_reading,
+            kunReading:k?.kun_reading,
+            svgData
+          };
         }catch{return{character:ch,hanviet:ch,meaning:''};}
       }));
       setList(r);
+      
+      const failedSVG = r.filter(entry => s.strokeSource === 'kanjivg' && !entry.svgData).length;
+      if (failedSVG > 0) {
+        toast({
+          title: 'Thông báo',
+          description: `Không tìm thấy nét viết tự động (KanjiVG) cho ${failedSVG} từ. Đã chuyển về chế độ chữ ký tự thủ công cho các từ này.`,
+        });
+      }
     } finally { setLoading(false); }
   };
 
@@ -291,8 +427,8 @@ export const KanjiWorksheet = () => {
       await ensureFonts();
       const el=ref.current;
       el.style.cssText='position:fixed;top:-99999px;left:0;z-index:-1;display:block;';
-      await new Promise(r=>setTimeout(r,400));
-      const cv=await html2canvas(el,{useCORS:true,allowTaint:false,backgroundColor:SHEET_THEMES[s.sheetTheme],logging:false,
+      await new Promise(r=>setTimeout(r,800));
+      const cv=await html2canvas(el,{useCORS:true,allowTaint:false,backgroundColor:SHEET_THEMES[s.sheetTheme],logging:false,scale: 2,
         onclone:(doc)=>{const l=doc.createElement('link');l.rel='stylesheet';l.href=NOTO_URL;doc.head.appendChild(l);}
       } as Parameters<typeof html2canvas>[1]);
       el.style.cssText='';
@@ -517,6 +653,17 @@ export const KanjiWorksheet = () => {
 
                         {tab === 'display' && (
                           <div className="grid grid-cols-1 divide-y divide-slate-50">
+                            <div className="py-3 px-2 border-b border-sakura-light/30">
+                              <Label className="text-[12px] font-bold text-slate-700 block mb-2">Nguồn dữ liệu nét viết</Label>
+                              <SChips 
+                                val={s.strokeSource} 
+                                on={(v) => {
+                                  set('strokeSource', v as StrokeSource);
+                                  if (v === 'kanjivg' && list.some(k => !k.svgData)) toast({title: 'Vui lòng nhấn Tạo Worksheet lại để lấy nét SVG', description: 'Đã đổi sang chế độ Tự động từ KanjiVG'});
+                                }} 
+                                opts={[{ v: 'kanjivg', l: 'Tự động SVG (KanjiVG)' }, { v: 'manual', l: 'Ký tự Thủ công' }]} 
+                              />
+                            </div>
                             <SToggle label="Thứ tự nét viết" desc="Hiện các bước vẽ chữ nhỏ phía trên" checked={s.showStrokeOrder} on={v => set('showStrokeOrder', v)} />
                             <SToggle label="Đánh số ô" desc="Số thứ tự ở góc mỗi ô" checked={s.showCellNumbers} on={v => set('showCellNumbers', v)} />
                             <SToggle label="Hán Việt & Nghĩa" checked={s.showHanViet} on={v => set('showHanViet', v)} />

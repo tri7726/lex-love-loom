@@ -44,6 +44,7 @@ import {
 import { StreakBadge } from './StreakBadge';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
+import { JishoSearch } from './JishoSearch';
 
 const navItems = [
   { path: '/', icon: Home, label: 'Trang chủ' },
@@ -243,6 +244,10 @@ export const Navigation: React.FC<NavigationProps> = ({
 
           {/* User section */}
           <div className="flex items-center gap-4">
+            <div className="hidden md:block">
+              <JishoSearch />
+            </div>
+            
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full">
