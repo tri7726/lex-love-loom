@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      analysis_history: {
+        Row: {
+          analysis: Json | null
+          content: string
+          created_at: string
+          engine: string | null
+          id: string
+          language: string | null
+          user_id: string
+        }
+        Insert: {
+          analysis?: Json | null
+          content: string
+          created_at?: string
+          engine?: string | null
+          id?: string
+          language?: string | null
+          user_id: string
+        }
+        Update: {
+          analysis?: Json | null
+          content?: string
+          created_at?: string
+          engine?: string | null
+          id?: string
+          language?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       chat_history: {
         Row: {
           content: string
