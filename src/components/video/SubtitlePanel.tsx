@@ -16,10 +16,10 @@ interface Segment {
   vocabulary: Array<{ word: string; reading: string; meaning: string }>;
 }
 
-const renderTextWithFurigana = (text: string, vocabulary: { word: string; reading: string; meaning: string }[] | unknown[], show: boolean) => {
+const renderTextWithFurigana = (text: string, vocabulary: any[], show: boolean) => {
   if (!show || !vocabulary || vocabulary.length === 0) return text;
   
-  const vocab = [...(vocabulary as any[])].sort((a, b) => (b.word?.length || 0) - (a.word?.length || 0));
+  const vocab = [...vocabulary].sort((a, b) => b.word.length - a.word.length);
   let parts: Array<{ text: string, furigana?: string }> = [{ text }];
   
   vocab.forEach(v => {
@@ -88,6 +88,8 @@ export const SubtitlePanel: React.FC<SubtitlePanelProps> = ({
   const [search, setSearch] = React.useState('');
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
+  if (!isOpen) return null;
+
   // Find currently playing segment based on time
   const playingIndex = segments.findIndex(
     (seg) => currentTime >= seg.start_time && currentTime <= seg.end_time
@@ -100,15 +102,13 @@ export const SubtitlePanel: React.FC<SubtitlePanelProps> = ({
 
   // Auto-scroll to currently playing segment
   React.useEffect(() => {
-    if (isOpen && playingIndex !== -1 && !search) {
+    if (playingIndex !== -1 && !search) {
       const element = document.getElementById(`segment-${playingIndex}`);
       if (element) {
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }
-  }, [playingIndex, search, isOpen]);
-
-  if (!isOpen) return null;
+  }, [playingIndex, search]);
 
   return (
     <div className={cn(

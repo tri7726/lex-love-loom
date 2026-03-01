@@ -53,7 +53,7 @@ const levels = [
     vocabulary: 3000,
     kanji: 600,
     progress: 0,
-    unlocked: true,
+    unlocked: false,
     color: 'matcha',
     gradient: 'from-matcha/20 to-matcha/5',
   },
@@ -65,21 +65,9 @@ const levels = [
     vocabulary: 6000,
     kanji: 1000,
     progress: 0,
-    unlocked: true,
+    unlocked: false,
     color: 'gold',
     gradient: 'from-gold/20 to-gold/5',
-  },
-  {
-    level: 'N1',
-    title: 'Thượng cấp 2',
-    description: 'Trình độ cao nhất, thông thạo tiếng Nhật như người bản xứ.',
-    lessons: 10,
-    vocabulary: 10000,
-    kanji: 2000,
-    progress: 0,
-    unlocked: true,
-    color: 'crimson',
-    gradient: 'from-crimson/20 to-crimson/5',
   }
 ];
 
@@ -104,7 +92,7 @@ export const JLPTPortal = () => {
             animate={{ opacity: 1, y: 0 }}
             className="text-4xl md:text-5xl font-display font-bold tracking-tight"
           >
-            Chinh phục <span className="text-primary">JLPT</span> theo cách của bạn
+            Chinh phục <span className="text-gradient-sakura">JLPT</span> theo cách của bạn
           </motion.h1>
           <motion.p 
             initial={{ opacity: 0, y: 20 }}

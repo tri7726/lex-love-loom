@@ -40,7 +40,7 @@ interface AnalysisData {
   cultural_notes: string[];
 }
 
-export const HybridTutor = ({ initialData }: { initialData?: { content?: string; analysis?: AnalysisData; engine?: 'groq' | 'gemini' | null } }) => {
+export const HybridTutor = ({ initialData }: { initialData?: any }) => {
   const [content, setContent] = useState(initialData?.content || '');
   const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);

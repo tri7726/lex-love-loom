@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, ChevronDown, ChevronUp, RefreshCcw, Trash2, X, Volume2, BookOpen, Inbox } from 'lucide-react';
@@ -136,12 +135,12 @@ export const GrammarHistory: React.FC<GrammarHistoryProps> = ({ onReload }) => {
   const handleDelete = (id: number) => {
     const updated = saved.filter(s => s.id !== id);
     setSaved(updated);
-    try { localStorage.setItem(GRAMMAR_SAVED_KEY, JSON.stringify(updated)); } catch (e) { console.error('Error deleting grammar exercise:', e); }
+    try { localStorage.setItem(GRAMMAR_SAVED_KEY, JSON.stringify(updated)); } catch {}
   };
 
   const handleClearAll = () => {
     setSaved([]);
-    try { localStorage.removeItem(GRAMMAR_SAVED_KEY); } catch (e) { console.error('Error clearing grammar exercises:', e); }
+    try { localStorage.removeItem(GRAMMAR_SAVED_KEY); } catch {}
   };
 
   return (

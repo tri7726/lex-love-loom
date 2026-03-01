@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 
 export const AITutor = () => {
   const [reloadText, setReloadText] = useState('');
-  const [historyItem, setHistoryItem] = useState<unknown>(null);
+  const [historyItem, setHistoryItem] = useState<any>(null);
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0 relative overflow-hidden">

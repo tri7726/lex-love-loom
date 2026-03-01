@@ -43,7 +43,7 @@ interface CustomDetailViewProps {
   setShowAddWordForm: (s: boolean) => void;
   setShowImportDialog: (s: boolean) => void;
   newWord: { word: string; reading: string; hanviet: string; meaning: string };
-  setNewWord: (w: { word: string; reading: string; hanviet: string; meaning: string }) => void;
+  setNewWord: (w: any) => void;
   handleAddWord: () => void;
 }
 

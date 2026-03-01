@@ -7,7 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 
 interface SimplifiedCanvasProps {
   kanji: string;
-  onStrokeComplete?: (strokes: number[]) => void;
+  onStrokeComplete?: (strokes: any[]) => void;
   onValidate?: () => void;
 }
 
@@ -18,7 +18,7 @@ export const SimplifiedCanvas: React.FC<SimplifiedCanvasProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [strokes, setStrokes] = useState<number[]>([]);
+  const [strokes, setStrokes] = useState<any[]>([]);
   const [context, setContext] = useState<CanvasRenderingContext2D | null>(null);
   const { toast } = useToast();
 

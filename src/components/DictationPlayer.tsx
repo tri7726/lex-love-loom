@@ -20,7 +20,7 @@ import { Progress } from '@/components/ui/progress';
 import { Navigation } from '@/components/Navigation';
 import { VideoLearningTabs, VideoTab } from '@/components/video/VideoLearningTabs';
 import { SubtitlePanel } from '@/components/video/SubtitlePanel';
-import { AnalysisPanel, type StructuredAnalysis } from '@/components/video/AnalysisPanel';
+import { AnalysisPanel } from '@/components/video/AnalysisPanel';
 import { VideoMode } from '@/components/video/VideoMode';
 import { DictationMode } from '@/components/video/DictationMode';
 import { SpeakingMode } from '@/components/video/SpeakingMode';
@@ -58,13 +58,6 @@ interface Question {
   difficulty?: string;
 }
 
-interface YouTubePlayerInstance {
-  getCurrentTime?: () => number;
-  seekTo: (time: number, allowSeekAhead: boolean) => void;
-  playVideo: () => void;
-  pauseVideo: () => void;
-}
-
 interface DictationPlayerProps {
   video: VideoSource;
   onBack: () => void;
@@ -83,7 +76,7 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
   const [isPlayerCollapsed, setIsPlayerCollapsed] = useState(false);
   
   // YouTube player state  
-  const [player, setPlayer] = useState<YouTubePlayerInstance | null>(null);
+  const [player, setPlayer] = useState<any>(null);
   const [playerReady, setPlayerReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -98,7 +91,7 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
   // Analysis state
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [analysisContent, setAnalysisContent] = useState<string | null>(null);
-  const [structuredAnalysis, setStructuredAnalysis] = useState<StructuredAnalysis | null>(null);
+  const [structuredAnalysis, setStructuredAnalysis] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   
@@ -262,7 +255,7 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
 
     // Save progress to database
     if (user && currentSegment) {
-      supabase.from('user_video_progress').upsert({
+      (supabase as any).from('user_video_progress').upsert({
         user_id: user.id,
         segment_id: currentSegment.id,
         score,
@@ -270,7 +263,7 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
         last_practiced_at: new Date().toISOString(),
       }, {
         onConflict: 'user_id,segment_id',
-      }).then(({ error }) => {
+      }).then(({ error }: { error: any }) => {
         if (error) console.error('Error saving progress:', error);
       });
     }
@@ -368,14 +361,13 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
       } else {
         throw new Error('Server không phản hồi thành công');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating quiz:', error);
-      let errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
+      let errorMessage = error.message || 'Lỗi không xác định';
       
       // If it's a Supabase error object, try to extract more info
-      const supabaseError = error as { status?: number; message?: string };
-      if (supabaseError.status) {
-        errorMessage = `(Lỗi ${supabaseError.status}) ${errorMessage}`;
+      if (error.status) {
+        errorMessage = `(Lỗi ${error.status}) ${errorMessage}`;
       }
       
       toast({ 
@@ -578,6 +570,7 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
                     onReady={onPlayerReady}
                     onStateChange={onPlayerStateChange}
                     className="w-full h-full"
+                    // @ts-ignore
                     iframeClassName="w-full h-full"
                   />
                 </div>

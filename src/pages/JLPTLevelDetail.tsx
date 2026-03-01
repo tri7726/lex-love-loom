@@ -29,29 +29,8 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 
-interface LevelItem {
-  title: string;
-  type: string;
-  completed: boolean;
-  link: string;
-}
-
-interface LevelUnit {
-  id: number;
-  title: string;
-  description: string;
-  items: LevelItem[];
-}
-
-interface LevelData {
-  title: string;
-  description: string;
-  color: string;
-  units: LevelUnit[];
-}
-
 // Mock data for units - in a real app, this would come from a DB
-const levelData: Record<string, LevelData> = {
+const levelData: Record<string, any> = {
   n5: {
     title: 'JLPT N5 - Sơ cấp 1',
     description: 'Hành trình bắt đầu từ những điều cơ bản nhất. Làm quen với bảng chữ cái và các mẫu câu sơ đẳng.',
@@ -117,9 +96,9 @@ export const JLPTLevelDetail = () => {
   
   if (!data) return <div>Cấp độ không tồn tại.</div>;
 
-  const totalItems = data.units.reduce((acc: number, unit: LevelUnit) => acc + unit.items.length, 0);
-  const completedItems = data.units.reduce((acc: number, unit: LevelUnit) => 
-    acc + unit.items.filter((item: LevelItem) => item.completed).length, 0);
+  const totalItems = data.units.reduce((acc: number, unit: any) => acc + unit.items.length, 0);
+  const completedItems = data.units.reduce((acc: number, unit: any) => 
+    acc + unit.items.filter((item: any) => item.completed).length, 0);
   const overallProgress = (completedItems / totalItems) * 100;
 
   const getIcon = (type: string) => {
@@ -183,7 +162,7 @@ export const JLPTLevelDetail = () => {
             </h2>
             
             <Accordion type="single" collapsible className="space-y-4 w-full" defaultValue="unit-1">
-              {data.units.map((unit: LevelUnit) => (
+              {data.units.map((unit: any) => (
                 <AccordionItem 
                   key={unit.id} 
                   value={`unit-${unit.id}`}
@@ -202,7 +181,7 @@ export const JLPTLevelDetail = () => {
                   </AccordionTrigger>
                   <AccordionContent className="pb-4 pt-2">
                     <div className="grid gap-3">
-                      {unit.items.map((item: LevelItem, idx: number) => (
+                      {unit.items.map((item: any, idx: number) => (
                         <Link key={idx} to={`/learning-path/${level}/unit/${unit.id}`}>
                           <div className={`
                             group flex items-center justify-between p-3 rounded-lg border-2 transition-all

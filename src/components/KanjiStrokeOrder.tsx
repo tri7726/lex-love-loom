@@ -68,7 +68,7 @@ export const KanjiStrokeOrder = forwardRef<HTMLDivElement, KanjiStrokeOrderProps
     };
 
     fetchKanjiInfo();
-  }, [kanji, kanjiCharacters]);
+  }, [kanji]);
 
   const handleSave = () => {
     if (onSaveToVocabulary && reading && meaning) {

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
 
@@ -32,7 +33,7 @@ Return the result in the following JSON format:
 
 Levels: N5, N4, N3, N2, N1. Use appropriate vocabulary and kanji for the level.`;
 
-serve(async (req: Request) => {
+serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
@@ -45,7 +46,7 @@ serve(async (req: Request) => {
     let engineUsed = "none";
 
     // Helper for Groq
-    async function tryGroq(level: string, topic: string) {
+    async function tryGroq(level, topic) {
       if (!GROQ_API_KEY) return null;
       console.log(`Generating ${level} reading about "${topic}" using Groq (Primary)...`);
       try {
@@ -70,7 +71,7 @@ serve(async (req: Request) => {
     }
 
     // Helper for Gemini
-    async function tryGemini(level: string, topic: string) {
+    async function tryGemini(level, topic) {
       if (!GEMINI_API_KEY) return null;
       console.log(`Generating ${level} reading about "${topic}" using Gemini (Fallback)...`);
       try {
@@ -105,8 +106,7 @@ serve(async (req: Request) => {
 
   } catch (error) {
     console.error("Generation error:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    return new Response(JSON.stringify({ error: errorMessage }), {
+    return new Response(JSON.stringify({ error: error.message }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

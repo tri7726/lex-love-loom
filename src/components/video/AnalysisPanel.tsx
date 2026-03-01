@@ -27,7 +27,7 @@ interface GrammarPattern {
   usage: string;
 }
 
-export interface SentenceAnalysis {
+interface SentenceAnalysis {
   japanese: string;
   vietnamese: string;
   breakdown: {
@@ -48,7 +48,7 @@ interface SuggestedFlashcard {
   notes?: string;
 }
 
-export interface StructuredAnalysis {
+interface StructuredAnalysis {
   overall_analysis: {
     jlpt_level: string;
     politeness_level: string;

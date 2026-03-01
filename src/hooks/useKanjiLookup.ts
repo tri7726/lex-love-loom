@@ -70,7 +70,7 @@ export const useKanjiLookup = (options: UseKanjiLookupOptions = {}) => {
         setIsLoading(false);
       }
     }, debounceMs);
-  }, [debounceMs]);
+  }, [debounceMs, maxResults]);
 
   const clearSuggestions = useCallback(() => {
     setSuggestions([]);

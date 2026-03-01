@@ -29,6 +29,8 @@ export interface GrammarCheckInputProps {
   initialValue?: string;
   className?: string;
   onClear?: () => void;
+  /** Called when user asks to reload a saved exercise text */
+  onTextRequest?: (text: string) => void;
 }
 
 /* ──────── Highlight Japanese text in 「」 ──────── */
@@ -94,7 +96,7 @@ export const GrammarCheckInput: React.FC<GrammarCheckInputProps> = ({
         toast({ title: 'Sensei Note', description: data.error });
       }
       setResult(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Grammar check error:', error);
       toast({ title: 'Lỗi Sensei', description: 'Sensei đang bận, vui lòng thử lại sau.', variant: 'destructive' });
     } finally {
@@ -120,7 +122,7 @@ export const GrammarCheckInput: React.FC<GrammarCheckInputProps> = ({
     const prev = loadSavedExercises();
     const entry = { id: Date.now(), text: text.trim(), result, savedAt: new Date().toISOString() };
     const updated = [entry, ...prev].slice(0, 30);
-    try { localStorage.setItem(GRAMMAR_SAVED_KEY, JSON.stringify(updated)); } catch (e) { console.error('Error saving grammar exercise:', e); }
+    try { localStorage.setItem(GRAMMAR_SAVED_KEY, JSON.stringify(updated)); } catch {}
     window.dispatchEvent(new Event(GRAMMAR_SAVED_EVENT));
     toast({ title: '✅ Đã lưu bài!', description: `"${text.trim().slice(0, 30)}${text.length > 30 ? '...' : ''}"` });
   };

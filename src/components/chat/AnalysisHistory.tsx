@@ -11,17 +11,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
-export interface AnalysisItem {
-  id: string;
-  content: string;
-  created_at: string;
-  engine: string | null;
-  analysis: unknown;
-  user_id: string;
-}
-
 interface AnalysisHistoryProps {
-  onSelect: (item: AnalysisItem) => void;
+  onSelect: (item: any) => void;
   title?: string;
   maxItems?: number;
   className?: string;
@@ -36,10 +27,10 @@ export const AnalysisHistory: React.FC<AnalysisHistoryProps> = ({
   variant = 'vertical'
 }) => {
   const { user } = useAuth();
-  const [history, setHistory] = useState<AnalysisItem[]>([]);
+  const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchHistory = React.useCallback(async () => {
+  const fetchHistory = async () => {
     if (!user) {
       setHistory([]);
       return;
@@ -60,11 +51,11 @@ export const AnalysisHistory: React.FC<AnalysisHistoryProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [user, maxItems]);
+  };
 
   useEffect(() => {
     fetchHistory();
-  }, [fetchHistory]);
+  }, [user]);
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();

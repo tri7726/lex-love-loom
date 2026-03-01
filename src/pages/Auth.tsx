@@ -77,9 +77,9 @@ export const Auth = () => {
       toast.success('Đăng nhập thành công!', {
         description: 'Chào mừng bạn quay trở lại!',
       });
-    } catch (error: unknown) {
+    } catch (error: any) {
       toast.error('Lỗi đăng nhập', {
-        description: error instanceof Error ? error.message : 'Unknown error',
+        description: error.message,
       });
     } finally {
       setIsLoading(false);
@@ -116,9 +116,9 @@ export const Auth = () => {
       toast.success('Đăng ký thành công!', {
         description: 'Vui lòng kiểm tra email để xác nhận tài khoản.',
       });
-    } catch (error: unknown) {
+    } catch (error: any) {
       toast.error('Lỗi đăng ký', {
-        description: error instanceof Error ? error.message : 'Unknown error',
+        description: error.message,
       });
     } finally {
       setIsLoading(false);

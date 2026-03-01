@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRight, RotateCcw, Volume2, Check, X } from 'lucide-reac
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Navigation } from '@/components/Navigation';
+import Navigation from '@/components/Navigation';
 
 interface FlashCard {
   id: string;

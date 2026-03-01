@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 import React from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle2, XCircle, AlertTriangle, Volume2, TrendingUp } from 'lucide-react';

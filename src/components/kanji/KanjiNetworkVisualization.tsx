@@ -23,8 +23,8 @@ interface NetworkLink extends d3.SimulationLinkDatum<NetworkNode> {
 }
 
 interface KanjiNetworkProps {
-  centerKanji: { id: string; character: string; hanviet: string; jlpt_level: string };
-  relatedKanji: { id: string; character: string; hanviet: string; jlpt_level: string; relationship_type: string; strength?: number }[];
+  centerKanji: KanjiData;
+  relatedKanji: any[];
   onKanjiClick: (character: string) => void;
 }
 
@@ -98,7 +98,7 @@ export const KanjiNetworkVisualization: React.FC<KanjiNetworkProps> = ({
         g.attr('transform', event.transform);
       });
 
-    svg.call(zoom as d3.ZoomBehavior<SVGSVGElement, unknown>);
+    svg.call(zoom as any);
 
     // Create force simulation
     const simulation = d3
@@ -135,7 +135,7 @@ export const KanjiNetworkVisualization: React.FC<KanjiNetworkProps> = ({
         d3.drag<SVGGElement, NetworkNode>()
           .on('start', dragStarted)
           .on('drag', dragged)
-          .on('end', dragEnded) as d3.DragBehavior<SVGGElement, NetworkNode, NetworkNode | d3.SubjectPosition>
+          .on('end', dragEnded) as any
       );
 
     // Node circles
@@ -171,14 +171,14 @@ export const KanjiNetworkVisualization: React.FC<KanjiNetworkProps> = ({
         d3.select(this).select('circle')
           .transition()
           .duration(200)
-          .attr('r', (data: NetworkNode) => (data.isCurrent ? 40 : 30));
+          .attr('r', (data: any) => (data.isCurrent ? 40 : 30));
       })
       .on('mouseleave', function (event, d) {
         setHoveredNode(null);
         d3.select(this).select('circle')
           .transition()
           .duration(200)
-          .attr('r', (data: NetworkNode) => (data.isCurrent ? 35 : 25));
+          .attr('r', (data: any) => (data.isCurrent ? 35 : 25));
       })
       .on('click', (event, d) => {
         if (!d.isCurrent) {
@@ -189,27 +189,27 @@ export const KanjiNetworkVisualization: React.FC<KanjiNetworkProps> = ({
     // Update positions on simulation tick
     simulation.on('tick', () => {
       link
-        .attr('x1', (d: NetworkLink) => (d.source as NetworkNode).x!)
-        .attr('y1', (d: NetworkLink) => (d.source as NetworkNode).y!)
-        .attr('x2', (d: NetworkLink) => (d.target as NetworkNode).x!)
-        .attr('y2', (d: NetworkLink) => (d.target as NetworkNode).y!);
+        .attr('x1', (d: any) => d.source.x)
+        .attr('y1', (d: any) => d.source.y)
+        .attr('x2', (d: any) => d.target.x)
+        .attr('y2', (d: any) => d.target.y);
 
-      node.attr('transform', (d: NetworkNode) => `translate(${d.x},${d.y})`);
+      node.attr('transform', (d) => `translate(${d.x},${d.y})`);
     });
 
     // Drag functions
-    function dragStarted(event: d3.D3DragEvent<SVGGElement, NetworkNode, NetworkNode>, d: NetworkNode) {
+    function dragStarted(event: any, d: NetworkNode) {
       if (!event.active) simulation.alphaTarget(0.3).restart();
       d.fx = d.x;
       d.fy = d.y;
     }
 
-    function dragged(event: d3.D3DragEvent<SVGGElement, NetworkNode, NetworkNode>, d: NetworkNode) {
+    function dragged(event: any, d: NetworkNode) {
       d.fx = event.x;
       d.fy = event.y;
     }
 
-    function dragEnded(event: d3.D3DragEvent<SVGGElement, NetworkNode, NetworkNode>, d: NetworkNode) {
+    function dragEnded(event: any, d: NetworkNode) {
       if (!event.active) simulation.alphaTarget(0);
       d.fx = null;
       d.fy = null;

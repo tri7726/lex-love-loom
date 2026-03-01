@@ -18,13 +18,13 @@ export interface RelatedKanjiResponse {
     reason?: string;
   }>;
   grouped_by_type: {
-    radical: unknown[];
-    reading: unknown[];
-    meaning: unknown[];
-    component: unknown[];
-    compound: unknown[];
-    antonym: unknown[];
-    synonym: unknown[];
+    radical: any[];
+    reading: any[];
+    meaning: any[];
+    component: any[];
+    compound: any[];
+    antonym: any[];
+    synonym: any[];
   };
   total: number;
 }

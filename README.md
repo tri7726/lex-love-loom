@@ -10,19 +10,15 @@ There are several ways of editing your application.
 
 **Use Lovable**
 
-Simply visit the
-[Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and
-start prompting.
+Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
 
 Changes made via Lovable will be committed automatically to this repo.
 
 **Use your preferred IDE**
 
-If you want to work locally using your own IDE, you can clone this repo and push
-changes. Pushed changes will also be reflected in Lovable.
+If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
 
-The only requirement is having Node.js & npm installed -
-[install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
 Follow these steps:
 
@@ -52,8 +48,7 @@ npm run dev
 - Click on the "Code" button (green button) near the top right.
 - Select the "Codespaces" tab.
 - Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once
-  you're done.
+- Edit files directly within the Codespace and commit and push your changes once you're done.
 
 ## What technologies are used for this project?
 
@@ -67,38 +62,12 @@ This project is built with:
 
 ## How can I deploy this project?
 
-### Lovable (Recommended)
+Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and
-click on Share -> Publish.
+## Can I connect a custom domain to my Lovable project?
 
-### Vercel (Manual/Automated)
+Yes, you can!
 
-This project is optimized for deployment on [Vercel](https://vercel.com/):
+To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
-1. Import your GitHub repository into Vercel.
-2. The build command (`npm run build`) and output directory (`dist`) will be
-   automatically detected.
-3. Configure your Environment Variables (from your local `.env` or Supabase
-   project settings).
-
-## CI/CD Pipeline
-
-We have implemented a GitHub Actions pipeline to ensure code quality:
-
-1. **CI Pipeline** (`.github/workflows/ci.yml`): Runs on every push/PR to
-   `main`.
-   - Linting with ESLint.
-   - Type-checking with TypeScript.
-   - Unit tests with Vitest.
-   - Production build verification.
-2. **Supabase Deployment** (`.github/workflows/supabase-deploy.yml`):
-   - Automatically deploys Supabase Edge Functions when files in
-     `supabase/functions/` are modified.
-   - Requires `SUPABASE_ACCESS_TOKEN` secret in GitHub.
-
-## Custom Domain
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect
-Domain.
-[Read more here](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)

@@ -21,8 +21,7 @@ interface UseSpeechToTextReturn {
 // Check if SpeechRecognition is available
 const getSpeechRecognition = () => {
   if (typeof window === 'undefined') return null;
-  return (window as unknown as { SpeechRecognition: unknown; webkitSpeechRecognition: unknown }).SpeechRecognition || 
-         (window as unknown as { SpeechRecognition: unknown; webkitSpeechRecognition: unknown }).webkitSpeechRecognition;
+  return (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 };
 
 export const useSpeechToText = (options: UseSpeechToTextOptions = {}): UseSpeechToTextReturn => {
@@ -37,7 +36,7 @@ export const useSpeechToText = (options: UseSpeechToTextOptions = {}): UseSpeech
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const recognitionRef = useRef<unknown>(null);
+  const recognitionRef = useRef<any>(null);
 
   const SpeechRecognition = getSpeechRecognition();
   const isSupported = !!SpeechRecognition;
@@ -45,7 +44,7 @@ export const useSpeechToText = (options: UseSpeechToTextOptions = {}): UseSpeech
   useEffect(() => {
     if (!isSupported) return;
 
-    const recognition = new (SpeechRecognition as { new (): any })(); // eslint-disable-line @typescript-eslint/no-explicit-any
+    const recognition = new SpeechRecognition();
     recognition.lang = lang;
     recognition.continuous = continuous;
     recognition.interimResults = interimResults;
@@ -59,7 +58,7 @@ export const useSpeechToText = (options: UseSpeechToTextOptions = {}): UseSpeech
       setIsListening(false);
     };
 
-    recognition.onerror = (event: { error: string }) => {
+    recognition.onerror = (event: any) => {
       let errorMessage = 'Lỗi nhận diện giọng nói';
       
       switch (event.error) {
@@ -85,7 +84,7 @@ export const useSpeechToText = (options: UseSpeechToTextOptions = {}): UseSpeech
       onError?.(errorMessage);
     };
 
-    recognition.onresult = (event: { resultIndex: number, results: Array<{ isFinal: boolean, [key: number]: { transcript: string } }> }) => {
+    recognition.onresult = (event: any) => {
       let finalTranscript = '';
       let interimTranscript = '';
 
@@ -108,7 +107,7 @@ export const useSpeechToText = (options: UseSpeechToTextOptions = {}): UseSpeech
     return () => {
       recognition.abort();
     };
-  }, [isSupported, lang, continuous, interimResults, onResult, onError, SpeechRecognition]);
+  }, [isSupported, lang, continuous, interimResults, onResult, onError]);
 
   const startListening = useCallback(() => {
     if (!isSupported) {
@@ -120,7 +119,7 @@ export const useSpeechToText = (options: UseSpeechToTextOptions = {}): UseSpeech
     setError(null);
     
     try {
-      (recognitionRef.current as { start: () => void })?.start();
+      recognitionRef.current?.start();
     } catch (e) {
       // Already started
     }
@@ -128,7 +127,7 @@ export const useSpeechToText = (options: UseSpeechToTextOptions = {}): UseSpeech
 
   const stopListening = useCallback(() => {
     try {
-      (recognitionRef.current as { stop: () => void })?.stop();
+      recognitionRef.current?.stop();
     } catch (e) {
       // Already stopped
     }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   CheckCircle, XCircle, Trophy, RotateCcw, Zap, Clock, 
@@ -175,46 +175,6 @@ export const Quiz = () => {
     setIsComplete(false);
   };
 
-  const checkWrittenAnswer = useCallback((): boolean => {
-    if (!question) return false;
-    const correctOption = question.options[question.correctAnswer];
-    const normalized = writtenAnswer.trim().toLowerCase();
-    const correctNormalized = correctOption.toLowerCase();
-    return normalized === correctNormalized || 
-           (question.questionJp && normalized === question.questionJp.toLowerCase());
-  }, [question, writtenAnswer]);
-
-  const processAnswer = useCallback((isCorrect: boolean) => {
-    const xpEarned = isCorrect ? difficultyConfig[question?.difficulty || 'easy'].xp : 0;
-    const streakBonus = isCorrect ? Math.floor(streak / 3) * 5 : 0;
-
-    if (isCorrect) {
-      setScore(prev => prev + 1);
-      setStreak(prev => {
-        const newStreak = prev + 1;
-        setMaxStreak(m => Math.max(m, newStreak));
-        return newStreak;
-      });
-      setTotalXP(prev => prev + xpEarned + streakBonus);
-    } else {
-      setStreak(0);
-    }
-
-    setAnswers(prev => [...prev, mode === 'writing' ? writtenAnswer : selectedAnswer ?? -1]);
-  }, [question?.difficulty, streak, mode, writtenAnswer, selectedAnswer]);
-
-  const handleSubmit = useCallback(() => {
-    if (mode === 'writing') {
-      const isCorrect = checkWrittenAnswer();
-      processAnswer(isCorrect);
-    } else {
-      if (selectedAnswer === null && mode !== 'speed') return;
-      const isCorrect = selectedAnswer === question?.correctAnswer;
-      processAnswer(isCorrect);
-    }
-    setShowResult(true);
-  }, [mode, checkWrittenAnswer, processAnswer, selectedAnswer, question?.correctAnswer]);
-
   // Speed mode timer
   useEffect(() => {
     if (!isStarted || mode !== 'speed' || showResult || isComplete) return;
@@ -231,7 +191,7 @@ export const Quiz = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [currentQuestion, mode, showResult, isStarted, isComplete, handleSubmit]);
+  }, [currentQuestion, mode, showResult, isStarted, isComplete]);
 
   // Auto-play for listening mode
   useEffect(() => {
@@ -243,6 +203,51 @@ export const Quiz = () => {
       return () => clearTimeout(timer);
     }
   }, [currentQuestion, mode, isStarted, showResult, question?.questionJp, speak]);
+
+  const handleSelectAnswer = (index: number) => {
+    if (showResult) return;
+    setSelectedAnswer(index);
+  };
+
+  const handleSubmit = () => {
+    if (mode === 'writing') {
+      const isCorrect = checkWrittenAnswer();
+      processAnswer(isCorrect);
+    } else {
+      if (selectedAnswer === null && mode !== 'speed') return;
+      const isCorrect = selectedAnswer === question?.correctAnswer;
+      processAnswer(isCorrect);
+    }
+    setShowResult(true);
+  };
+
+  const checkWrittenAnswer = (): boolean => {
+    if (!question) return false;
+    const correctOption = question.options[question.correctAnswer];
+    const normalized = writtenAnswer.trim().toLowerCase();
+    const correctNormalized = correctOption.toLowerCase();
+    return normalized === correctNormalized || 
+           (question.questionJp && normalized === question.questionJp.toLowerCase());
+  };
+
+  const processAnswer = (isCorrect: boolean) => {
+    const xpEarned = isCorrect ? difficultyConfig[question?.difficulty || 'easy'].xp : 0;
+    const streakBonus = isCorrect ? Math.floor(streak / 3) * 5 : 0;
+
+    if (isCorrect) {
+      setScore(prev => prev + 1);
+      setStreak(prev => {
+        const newStreak = prev + 1;
+        setMaxStreak(m => Math.max(m, newStreak));
+        return newStreak;
+      });
+      setTotalXP(prev => prev + xpEarned + streakBonus);
+    } else {
+      setStreak(0);
+    }
+
+    setAnswers(prev => [...prev, mode === 'writing' ? writtenAnswer : selectedAnswer ?? -1]);
+  };
 
   const handleNext = () => {
     if (currentQuestion < shuffledQuestions.length - 1) {
@@ -336,7 +341,7 @@ export const Quiz = () => {
                     max={25}
                     min={1}
                     step={1}
-                    value={lessonRange as number[]}
+                    value={lessonRange as any}
                     onValueChange={(v) => setLessonRange(v as [number, number])}
                     className="py-4"
                   />
@@ -724,7 +729,7 @@ export const Quiz = () => {
                           key={index}
                           whileHover={{ scale: showResult ? 1 : 1.01 }}
                           whileTap={{ scale: showResult ? 1 : 0.99 }}
-                          onClick={() => setSelectedAnswer(index)}
+                          onClick={() => handleSelectAnswer(index)}
                           className={cn(
                             'w-full p-4 rounded-xl border-2 text-left transition-all flex items-center justify-between bg-card',
                             !showResult && isSelected && 'border-primary bg-primary/10',

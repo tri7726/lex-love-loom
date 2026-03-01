@@ -245,23 +245,11 @@ export const KanjiWorksheet = () => {
 
   /* localStorage */
   useEffect(() => {
-    try { 
-      const d = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); 
-      if (d.s) setS({ ...DEFAULT, ...d.s }); 
-      if (d.input) setInput(d.input); 
-      if (d.list) setList(d.list); 
-      if (d.title) setTitle(d.title); 
-    } catch {
-      // Ignore initial load errors
-    }
+    try { const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}'); if(d.s)setS({...DEFAULT,...d.s}); if(d.input)setInput(d.input); if(d.list)setList(d.list); if(d.title)setTitle(d.title); } catch {}
   }, []);
   useEffect(() => {
-    try { 
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ s, input, list, title })); 
-    } catch {
-      // Ignore save errors
-    }
-  }, [s, input, list, title]);
+    try { localStorage.setItem(STORAGE_KEY,JSON.stringify({s,input,list,title})); } catch {}
+  }, [s,input,list,title]);
 
   const generate = async () => {
     const chars=parseKanji(input);

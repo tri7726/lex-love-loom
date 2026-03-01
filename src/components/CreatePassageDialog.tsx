@@ -56,7 +56,7 @@ export function CreatePassageDialog({ onCreated }: CreatePassageDialogProps) {
       }
 
       // Insert into database
-      const { error: insertError } = await supabase
+      const { error: insertError } = await (supabase as any)
         .from('reading_passages')
         .insert({
           title: form.title,
@@ -74,9 +74,9 @@ export function CreatePassageDialog({ onCreated }: CreatePassageDialogProps) {
       setOpen(false);
       setForm({ title: '', level: 'N5', category: '', content: '' });
       onCreated();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating passage:', error);
-      toast.error('Không thể tạo bài đọc: ' + (error instanceof Error ? error.message : String(error)));
+      toast.error('Không thể tạo bài đọc: ' + error.message);
     } finally {
       setLoading(false);
     }

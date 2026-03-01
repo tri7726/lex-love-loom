@@ -12,18 +12,17 @@ interface SubtitleSegment {
 }
 
 // Parse transcript from innertube response
-function parseTranscriptSegments(transcriptData: unknown): SubtitleSegment[] {
+function parseTranscriptSegments(transcriptData: any): SubtitleSegment[] {
   const segments: SubtitleSegment[] = [];
   
   try {
-    const data = transcriptData as { actions?: unknown[] };
-    const actions = (data?.actions?.[0] as any)?.updateEngagementPanelAction?.content
+    const actions = transcriptData?.actions?.[0]?.updateEngagementPanelAction?.content
       ?.transcriptRenderer?.content?.transcriptSearchPanelRenderer?.body
       ?.transcriptSegmentListRenderer?.initialSegments;
     
     if (!actions) {
       // Try alternative path
-      const altActions = (transcriptData as any)?.actions;
+      const altActions = transcriptData?.actions;
       if (altActions) {
         for (const action of altActions) {
           const segments_data = action?.updateEngagementPanelAction?.content
@@ -36,7 +35,7 @@ function parseTranscriptSegments(transcriptData: unknown): SubtitleSegment[] {
                 const startMs = parseInt(cue.startOffsetMs || '0');
                 const durationMs = parseInt(cue.durationMs || '3000');
                 const text = cue.cue?.simpleText || 
-                  cue.cue?.runs?.map((r: { text: string }) => r.text).join('') || '';
+                  cue.cue?.runs?.map((r: any) => r.text).join('') || '';
                 
                 if (text.trim()) {
                   segments.push({
@@ -56,7 +55,7 @@ function parseTranscriptSegments(transcriptData: unknown): SubtitleSegment[] {
         if (cue) {
           const startMs = parseInt(cue.startMs || '0');
           const endMs = parseInt(cue.endMs || startMs + 3000);
-          const text = cue.snippet?.runs?.map((r: { text: string }) => r.text).join('') || '';
+          const text = cue.snippet?.runs?.map((r: any) => r.text).join('') || '';
           
           if (text.trim()) {
             segments.push({
@@ -107,7 +106,7 @@ async function fetchWithInnertube(videoId: string): Promise<{
     const timedtextMatch = html.match(/"baseUrl":"(https:\/\/www\.youtube\.com\/api\/timedtext[^"]+)"/);
     
     if (timedtextMatch) {
-      const captionUrl = timedtextMatch[1]
+      let captionUrl = timedtextMatch[1]
         .replace(/\\u0026/g, '&')
         .replace(/\\\//g, '/')
         .replace(/\\"/g, '"');
@@ -153,11 +152,11 @@ async function fetchWithInnertube(videoId: string): Promise<{
         const captionTracks = playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
         
         if (captionTracks && captionTracks.length > 0) {
-          console.log('Found caption tracks:', captionTracks.map((t: { languageCode: string }) => t.languageCode));
+          console.log('Found caption tracks:', captionTracks.map((t: any) => t.languageCode));
           
           // Prefer Japanese
-          const track = captionTracks.find((t: { languageCode: string }) => t.languageCode === 'ja') || 
-                       captionTracks.find((t: { languageCode: string }) => t.languageCode?.startsWith('ja')) ||
+          const track = captionTracks.find((t: any) => t.languageCode === 'ja') || 
+                       captionTracks.find((t: any) => t.languageCode?.startsWith('ja')) ||
                        captionTracks[0];
           
           let captionUrl = track.baseUrl.replace(/\\u0026/g, '&');
@@ -216,7 +215,7 @@ function parseContent(content: string): SubtitleSegment[] {
       for (const event of events) {
         if (event.segs) {
           const text = event.segs
-            .map((s: { utf8?: string }) => s.utf8 || '')
+            .map((s: any) => s.utf8 || '')
             .join('')
             .replace(/\n/g, ' ')
             .trim();
@@ -251,7 +250,7 @@ function parseContent(content: string): SubtitleSegment[] {
     while ((match = regex.exec(content)) !== null) {
       const start = parseFloat(match[1]);
       const dur = parseFloat(match[2]);
-      const text = match[3]
+      let text = match[3]
         .replace(/<[^>]+>/g, '')
         .replace(/&amp;/g, '&')
         .replace(/&lt;/g, '<')
@@ -279,7 +278,7 @@ function parseContent(content: string): SubtitleSegment[] {
   return segments;
 }
 
-serve(async (req: Request) => {
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
