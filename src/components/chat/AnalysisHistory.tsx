@@ -46,7 +46,7 @@ export const AnalysisHistory: React.FC<AnalysisHistoryProps> = ({
     }
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('analysis_history')
         .select('*')
         .eq('user_id', user.id)
