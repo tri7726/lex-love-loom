@@ -34,61 +34,76 @@ Trả về dữ liệu dưới dạng JSON duy nhất, không thêm văn bản n
 `;
 
 serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
 
   try {
     const { grammar_point, level, explanation } = await req.json();
-    const keys = [
-      Deno.env.get("GROQ_API_KEY_1"),
-      Deno.env.get("GROQ_API_KEY_2"),
-      Deno.env.get("GROQ_API_KEY_3")
-    ].filter(Boolean);
+    const GROQ_API_KEY = (Deno as any).env.get("GROQ_API_KEY");
 
-    if (keys.length === 0) throw new Error("Groq API keys are not configured");
+    if (!GROQ_API_KEY) {
+      throw new Error("Missing GROQ_API_KEY");
+    }
 
-    console.log(`Generating grammar quiz for ${grammar_point} using Groq Rotation...`);
+    console.log(`Generating grammar quiz for ${grammar_point} using Groq...`);
 
     const userPrompt = `Hãy tạo 3 câu hỏi luyện tập cho cấu trúc ngữ pháp sau:
 Cấu trúc: ${grammar_point}
 Trình độ: ${level}
-Giải nghĩa: ${explanation}`;
+Giải nghĩa: ${explanation}
 
-    let resultData = null;
-    for (let i = 0; i < keys.length; i++) {
-        const apiKey = keys[i];
-        try {
-            const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-                method: "POST",
-                headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    model: "llama-3.3-70b-versatile",
-                    messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: userPrompt }],
-                    response_format: { type: "json_object" },
-                    temperature: 0.7
-                }),
-            });
-            if (response.ok) {
-                const data = await response.json();
-                resultData = JSON.parse(data.choices[0]?.message?.content || "{}");
-                break;
-            }
-            if (response.status === 429) continue;
-        } catch (e) {
-            console.error(`Groq Key ${i + 1} error in generate-grammar-quiz:`, e);
-        }
+Yêu cầu các câu hỏi phải sát với thực tế và giúp người dùng hiểu rõ cách dùng.`;
+
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${GROQ_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.7,
+        max_tokens: 2048,
+        response_format: { type: "json_object" },
+      }),
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Groq API error: ${response.status} ${errorText}`);
     }
 
-    if (!resultData) throw new Error("AI quiz generation failed on all keys");
+    const data = await response.json();
+    const resultText = data.choices?.[0]?.message?.content || "";
+    
+    const cleanedText = resultText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    
+    // Verify it's valid JSON
+    let parsedData;
+    try {
+      parsedData = JSON.parse(cleanedText);
+    } catch (e) {
+      console.error("Parse failed for:", cleanedText);
+      throw new Error("AI returned invalid JSON");
+    }
 
-    return new Response(JSON.stringify(resultData), {
+    return new Response(JSON.stringify(parsedData), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
   } catch (error: any) {
     console.error("Error generating grammar quiz:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   }
 });

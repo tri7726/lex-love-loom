@@ -5,7 +5,6 @@ import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 interface SubtitleSegment {
@@ -148,69 +147,81 @@ YÊU CẦU DỮ LIỆU:
 }
 `;
 
-async function callGroqRotation(keys: string[], prompt: string, title: string, isQuizBatch: boolean = false) {
+async function callGemini(apiKey: string, prompt: string, title: string, isQuizBatch: boolean = false) {
   const currentSystemPrompt = isQuizBatch ? QUIZ_SYSTEM_PROMPT : SEGMENT_SYSTEM_PROMPT;
   
   const body = {
-    model: "llama-3.3-70b-versatile",
-    messages: [{
-      role: "system",
-      content: currentSystemPrompt
-    }, {
+    contents: [{
       role: "user",
-      content: `Video: ${title}\n\n${isQuizBatch ? "Nội dung video" : "Dữ liệu segments"}:\n${prompt}\n\n${isQuizBatch ? "HÃY TẠO ĐỀ THI JLPT (PHẢI TRẢ VỀ DẠNG JSON) DỰA TRÊN TOÀN BỘ NỘI DUNG TRÊN." : "HÃY PHÂN TÍCH VÀ TRẢ VỀ JSON CHO CÁC SEGMENTS NÀY."}`
+      parts: [{
+        text: `${currentSystemPrompt}\n\nVideo: ${title}\n\n${isQuizBatch ? "Nội dung video" : "Dữ liệu segments"}:\n${prompt}\n\n${isQuizBatch ? "HÃY TẠO ĐỀ THI JLPT (PHẢI TRẢ VỀ DẠNG JSON) DỰA TRÊN TOÀN BỘ NỘI DUNG TRÊN." : "HÃY PHÂN TÍCH VÀ TRẢ VỀ JSON CHO CÁC SEGMENTS NÀY."}`
+      }]
     }],
-    response_format: { type: "json_object" },
-    temperature: 0.7,
+    generationConfig: { 
+      response_mime_type: "application/json",
+      temperature: 0.7,
+      topP: 0.95
+    }
   };
 
-  for (let i = 0; i < keys.length; i++) {
-    const apiKey = keys[i];
-    try {
-      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: { 
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json" 
-        },
-        body: JSON.stringify(body),
-      });
+  let response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
 
-      if (response.ok) {
-        const data = await response.json();
-        const resultText = data.choices[0]?.message?.content;
-        if (!resultText) throw new Error("AI không trả về nội dung");
-        
-        const parsed = JSON.parse(resultText);
-        if (isQuizBatch && parsed.sections) {
-          const questions = [];
-          const sectionMapping = {
-            'A_vocabulary': 'vocabulary',
-            'B_grammar': 'grammar',
-            'C_reading': 'comprehension'
-          };
-
-          for (const [sectionKey, type] of Object.entries(sectionMapping)) {
-            if (parsed.sections[sectionKey] && Array.isArray(parsed.sections[sectionKey])) {
-              parsed.sections[sectionKey].forEach(q => {
-                questions.push({ 
-                  ...q, 
-                  question_type: type,
-                  jlpt_level: q.jlpt_level || null
-                });
-              });
-            }
-          }
-          return { questions };
-        }
-        return parsed;
-      }
-      if (response.status === 429) continue;
-    } catch (e) {
-      console.error(`Key ${i + 1} failed in process-video:`, e);
-    }
+  if (!response.ok) {
+    console.warn("Gemini 2.0-flash failed in process-video, trying 1.5-flash...");
+    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
   }
-  throw new Error("All Groq keys failed in process-video");
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gemini API error: ${response.status} ${errorText}`);
+  }
+
+  const data = await response.json();
+  const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!resultText) throw new Error("AI không trả về nội dung");
+  
+  let cleanJson = resultText.trim();
+  const jsonMatch = resultText.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    cleanJson = jsonMatch[0];
+  }
+
+  try {
+    const parsed = JSON.parse(cleanJson);
+    if (isQuizBatch && parsed.sections) {
+      const questions = [];
+      const sectionMapping = {
+        'A_vocabulary': 'vocabulary',
+        'B_grammar': 'grammar',
+        'C_reading': 'comprehension'
+      };
+
+      for (const [sectionKey, type] of Object.entries(sectionMapping)) {
+        if (parsed.sections[sectionKey] && Array.isArray(parsed.sections[sectionKey])) {
+          parsed.sections[sectionKey].forEach(q => {
+            questions.push({ 
+              ...q, 
+              question_type: type,
+              jlpt_level: q.jlpt_level || null
+            });
+          });
+        }
+      }
+      return { questions };
+    }
+    return parsed;
+  } catch (e) {
+    console.error("JSON parse error in process-video:", e);
+    throw e;
+  }
 }
 
 async function processVideoInBackground(
@@ -218,9 +229,9 @@ async function processVideoInBackground(
   videoId: string,
   title: string,
   subtitles: SubtitleSegment[],
-  keys: string[]
+  apiKey: string
 ) {
-  console.log(`Background: Processing ${subtitles.length} segments using Groq`);
+  console.log(`Background: Processing ${subtitles.length} segments`);
   
   const allSegments: ProcessedSegment[] = [];
   const fullText = subtitles.map(s => s.text).join(" ");
@@ -230,17 +241,17 @@ async function processVideoInBackground(
     const batch = subtitles.slice(i, i + BATCH_SIZE);
     const prompt = batch.map((s, idx) => `[${i + idx}] ${s.text}`).join("\n");
     try {
-      const result = await callGroqRotation(keys, prompt, title);
+      const result = await callGemini(apiKey, prompt, title);
       if (result.segments) allSegments.push(...result.segments);
     } catch (error) {
       console.error(`Error processing segments batch ${i}:`, error);
     }
   }
 
-  // 2. Generate Quiz
+  // 2. Generate Quiz (using the sample of context if too long)
   let quizQuestions: QuizQuestion[] = [];
   try {
-    const quizResult = await callGroqRotation(keys, fullText.substring(0, 15000), title, true);
+    const quizResult = await callGemini(apiKey, fullText.substring(0, 10000), title, true);
     if (quizResult.questions) quizQuestions = quizResult.questions;
   } catch (error) {
     console.error("Error generating quiz:", error);
@@ -287,13 +298,9 @@ serve(async (req) => {
 
   try {
     const { youtube_id, title, subtitles } = await req.json();
-    const keys = [
-      Deno.env.get("GROQ_API_KEY_1"),
-      Deno.env.get("GROQ_API_KEY_2"),
-      Deno.env.get("GROQ_API_KEY_3")
-    ].filter(Boolean);
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     
-    if (keys.length === 0) throw new Error("Groq API keys are not configured");
+    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
@@ -310,7 +317,7 @@ serve(async (req) => {
 
     // Process in background
     // @ts-ignore
-    EdgeRuntime.waitUntil(processVideoInBackground(supabase, videoSource.id, title, subtitles, keys));
+    EdgeRuntime.waitUntil(processVideoInBackground(supabase, videoSource.id, title, subtitles, GEMINI_API_KEY));
 
     return new Response(JSON.stringify({ success: true, video_id: videoSource.id, processing: true }), { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
