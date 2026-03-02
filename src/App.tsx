@@ -82,6 +82,7 @@ function App() {
                   <Route path="/edit-profile" element={<EditProfile />} />
                   <Route path="/messages" element={<Messages />} />
                   <Route path="/leagues" element={<Leagues />} />
+                  <Route path="/admin/import" element={<AdminImport />} />
 
                   <Route path="*" element={<NotFound />} />
                 </Routes>
