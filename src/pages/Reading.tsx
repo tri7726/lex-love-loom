@@ -425,7 +425,7 @@ export const Reading = () => {
       }
       
       // Step 4: Fallback if API fails or returns no meaning
-      if (!finalData || (!finalData.meaning && !finalData.translation && !finalData.vietnamese)) {
+      if (!finalData || (!finalData.meaning && !(finalData as any).translation && !(finalData as any).vietnamese)) {
         console.log('Using Translate API Fallback for word:', word);
         const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=vi&dt=t&q=${encodeURIComponent(word)}`;
         const res = await fetch(url);
