@@ -37,7 +37,7 @@ import { UserProfile } from "./pages/UserProfile";
 import { EditProfile } from "./pages/EditProfile";
 import { Messages } from "./pages/Messages";
 import { Leagues } from "./pages/Leagues";
-
+import { AdminImport } from "./pages/AdminImport";
 
 const queryClient = new QueryClient();
 
