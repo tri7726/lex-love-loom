@@ -14,8 +14,12 @@ import {
   BarChart3,
   ChevronDown,
   Play,
+  Search,
+  ArrowUp,
+  X,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -45,10 +49,11 @@ interface KanjiReviewProps {
 
 export const KanjiReview: React.FC<KanjiReviewProps> = ({ onBack }) => {
   const [activeTab, setActiveTab] = useState<'path' | 'stats'>('path');
-  const [expandedLevels, setExpandedLevels] = useState<string[]>(['N5']);
+  const [expandedLevels, setExpandedLevels] = useState<string[]>(['SPECIAL']);
   const [selectedKanji, setSelectedKanji] = useState<KanjiPoint | null>(null);
   const [isStudyOverlayOpen, setIsStudyOverlayOpen] = useState(false);
   const [studyUnit, setStudyUnit] = useState<KanjiPoint[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   
   const [masteredIds, setMasteredIds] = useState<string[]>([]);
   const [learningIds, setLearningIds] = useState<string[]>([]);
@@ -56,73 +61,102 @@ export const KanjiReview: React.FC<KanjiReviewProps> = ({ onBack }) => {
   const [allKanji, setAllKanji] = useState<KanjiPoint[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch Kanji from Supabase
+  // Fetch Kanji from local JSON or Supabase
   React.useEffect(() => {
     const fetchKanji = async () => {
       try {
         setLoading(true);
-        // Fetch kanji from kanji_details
-        const { data, error } = await (supabase as any)
-          .from('kanji_details')
-          .select('character, meaning, on_reading, kun_reading, grade, jlpt')
-          .order('grade', { ascending: true })
-          .limit(1000);
+        let finalData: KanjiPoint[] = [];
 
-        if (error) throw error;
+        // 1. Try fetching from LOCAL JSON first (Fast, Offline-first)
+        try {
+          const response = await fetch('/data/kanji-data.json');
+          if (response.ok) {
+            const localData = await response.json();
+            console.log(`Loaded ${localData.length} kanji from local storage.`);
+            finalData = localData.map((k: any, index: number) => {
+              // Map JLPT level
+              let level = 'N5';
+              if (k.j) level = `N${k.j}`;
+              else if (k.g === 1 || k.g === 2) level = 'N5';
+              else if (k.g === 3 || k.g === 4) level = 'N4';
+              else if (k.g === 5 || k.g === 6) level = 'N3';
+              else if (k.g === 8) level = 'N2';
+              else if (k.g >= 9 || k.g === 0) level = 'N1';
 
-        if (data && data.length > 0) {
-          const mapped: KanjiPoint[] = data.map((k: any, index: number) => {
-            // Determine level: use jlpt if exists, else map grade
-            let level = 'N5';
-            if (k.jlpt) level = `N${k.jlpt}`;
-            else if (k.grade === 1 || k.grade === 2) level = 'N5';
-            else if (k.grade === 3 || k.grade === 4) level = 'N4';
-            else if (k.grade === 5 || k.grade === 6) level = 'N3';
-            else if (k.grade === 8) level = 'N2';
-            else if (k.grade >= 9 || k.grade === 0) level = 'N1';
-            
-            // Artificial lesson grouping (20 per lesson)
-            const lesson = Math.floor(index / 20) + 1;
+              return {
+                id: k.c,
+                lesson: Math.floor(index / 10) + 1, // Changed from 20 to 10
+                level,
+                character: k.c,
+                meaning_vi: k.m || '',
+                hanviet: k.h || '', // Use the 'h' field from JSON
+                on_reading: Array.isArray(k.o) ? k.o.join(', ') : (k.o || ''),
+                kun_reading: Array.isArray(k.k) ? k.k.join(', ') : (k.k || ''),
+              };
+            });
+          }
+        } catch (localErr) {
+          console.log('Local kanji data not found, falling back to Supabase...');
+        }
 
-            return {
-              id: k.character,
-              lesson,
-              level,
-              character: k.character,
-              meaning_vi: k.meaning || '',
-              hanviet: '',
-              on_reading: k.on_reading || '',
-              kun_reading: k.kun_reading || '',
-            };
-          });
-          setAllKanji(mapped);
+        // 2. Fallback to Supabase if local data is empty
+        if (finalData.length === 0) {
+          const { data, error } = await (supabase as any)
+            .from('kanji_details')
+            .select('character, meaning, on_reading, kun_reading, grade, jlpt')
+            .order('grade', { ascending: true })
+            .limit(1000);
+
+          if (!error && data && data.length > 0) {
+            finalData = data.map((k: any, index: number) => {
+              let level = 'N5';
+              if (k.jlpt) level = `N${k.jlpt}`;
+              else if (k.grade === 1 || k.grade === 2) level = 'N5';
+              else if (k.grade === 3 || k.grade === 4) level = 'N4';
+              else if (k.grade === 5 || k.grade === 6) level = 'N3';
+              else if (k.grade === 8) level = 'N2';
+              else if (k.grade >= 9 || k.grade === 0) level = 'N1';
+              
+              return {
+                id: k.character,
+                lesson: Math.floor(index / 10) + 1, // Consistently 10 per lesson
+                level,
+                character: k.character,
+                meaning_vi: k.meaning || '',
+                hanviet: '',
+                on_reading: k.on_reading || '',
+                kun_reading: k.kun_reading || '',
+              };
+            });
+          }
+        }
+
+        if (finalData.length > 0) {
+          setAllKanji(finalData);
         } else {
-          console.warn('No kanji data found in kanji_details table');
+          console.warn('No kanji data found in local or database');
           setAllKanji([]);
         }
 
-        // After fetching DB kanji, we merge in the custom collections
+        // 3. Merge in the custom collections
         setAllKanji(prev => {
           const newKanjiList = [...prev];
-          
           CUSTOM_COLLECTIONS.forEach((collection, collIdx) => {
-            collection.kanjis.forEach(char => {
-              // Check if we already have this kanji info from DB
-              const existing = prev.find(k => k.character === char);
-              
+            collection.kanjis.forEach(customChar => {
+              const existing = prev.find(k => k.character === customChar.character);
               newKanjiList.push({
-                id: `custom-${collection.id}-${char}`,
+                id: `custom-${collection.id}-${customChar.character}`,
                 lesson: collIdx + 1,
                 level: 'SPECIAL',
-                character: char,
-                meaning_vi: existing?.meaning_vi || 'Dữ liệu đang nạp...',
-                hanviet: existing?.hanviet || '',
-                on_reading: existing?.on_reading || '',
-                kun_reading: existing?.kun_reading || '',
+                character: customChar.character,
+                meaning_vi: customChar.meaning_vi || existing?.meaning_vi || 'Đang cập nhật...',
+                hanviet: customChar.hanviet || existing?.hanviet || '',
+                on_reading: customChar.on_reading || existing?.on_reading || '',
+                kun_reading: customChar.kun_reading || existing?.kun_reading || '',
               });
             });
           });
-          
           return newKanjiList;
         });
       } catch (err) {
@@ -135,16 +169,33 @@ export const KanjiReview: React.FC<KanjiReviewProps> = ({ onBack }) => {
     fetchKanji();
   }, []);
 
-  // Group Kanji by Level and Lesson
-  const levels = useMemo(() => {
+  // Group Kanji by Level and Unit (10 lessons/unit = 100 Kanji)
+  const groupedData = useMemo(() => {
     const grouped: Record<string, Record<number, KanjiPoint[]>> = {};
-    allKanji.forEach(k => {
-      if (!grouped[k.level]) grouped[k.level] = {};
-      if (!grouped[k.level][k.lesson]) grouped[k.level][k.lesson] = [];
-      grouped[k.level][k.lesson].push(k);
+    
+    // Filter by search query if exists
+    const filteredKanji = searchQuery.trim() 
+      ? allKanji.filter(k => 
+          (k.character || '').includes(searchQuery) || 
+          (k.meaning_vi || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (k.hanviet || '').toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      : allKanji;
+
+    filteredKanji.forEach(k => {
+      const levelKey = k.level || 'N5';
+      if (!grouped[levelKey]) grouped[levelKey] = {};
+      
+      // Determine Unit ID
+      // Special check: ensure lesson is a valid number
+      const lessonNum = Number(k.lesson) || 1;
+      const unitId = levelKey === 'SPECIAL' ? lessonNum : Math.ceil(lessonNum / 10);
+      
+      if (!grouped[levelKey][unitId]) grouped[levelKey][unitId] = [];
+      grouped[levelKey][unitId].push(k);
     });
     return grouped;
-  }, [allKanji]);
+  }, [allKanji, searchQuery]);
 
   const toggleLevel = (level: string) => {
     setExpandedLevels(prev => 
@@ -267,7 +318,39 @@ export const KanjiReview: React.FC<KanjiReviewProps> = ({ onBack }) => {
               </div>
             ) : (
                 <div className="space-y-6">
-                {['SPECIAL', 'N5', 'N4', 'N3', 'N2', 'N1'].filter(lvl => levels[lvl]).map((level) => (
+                  <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-md py-4 px-1 -mx-1 border-b mb-4 flex flex-col md:flex-row gap-4 items-center">
+                    <div className="relative flex-1 w-full">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Tìm kiếm chữ Kanji hoặc ý nghĩa..."
+                        className="pl-10 pr-10 rounded-full border-sakura/20 focus-visible:ring-sakura bg-white/50 h-11"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                      {searchQuery && (
+                        <button 
+                          onClick={() => setSearchQuery('')}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-sumi"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                    
+                    <Button 
+                      variant="outline"
+                      className="rounded-full border-sakura/30 text-sakura bg-sakura/5 hover:bg-sakura/10 font-bold gap-2 h-11 px-6 whitespace-nowrap w-full md:w-auto"
+                      onClick={() => {
+                        const allStudiable = allKanji.filter(k => masteredIds.includes(k.id) || learningIds.includes(k.id));
+                        if (allStudiable.length > 0) startUnitStudy(allStudiable);
+                      }}
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      Ôn tập tổng hợp
+                    </Button>
+                  </div>
+
+                {['SPECIAL', 'N5', 'N4', 'N3', 'N2', 'N1'].filter(lvl => groupedData[lvl]).map((level) => (
                     <div key={level} className="space-y-4">
                   {/* Level Header */}
                   <button 
@@ -292,7 +375,7 @@ export const KanjiReview: React.FC<KanjiReviewProps> = ({ onBack }) => {
                              (level === 'N5' || level === 'N4' ? 'Sơ cấp' : level === 'N3' ? 'Trung cấp' : 'Thượng cấp')} {level === 'SPECIAL' ? '✨' : level}
                           </h3>
                           <p className={cn('text-xs font-medium', expandedLevels.includes(level) ? 'text-white/80' : 'text-muted-foreground')}>
-                            {Object.keys(levels[level]).length} Bộ • {allKanji.filter(k => k.level === level).length} Chữ
+                            {Object.keys(groupedData[level]).length} Unit • {allKanji.filter(k => k.level === level).length} Chữ
                           </p>
                         </div>
                     </div>
@@ -306,34 +389,43 @@ export const KanjiReview: React.FC<KanjiReviewProps> = ({ onBack }) => {
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        className="overflow-hidden space-y-4 pl-4 md:pl-8 border-l-4 border-sakura/10 ml-6 md:ml-10"
+                        className="overflow-hidden space-y-6 pl-4 md:pl-8 border-l-4 border-sakura/10 ml-6 md:ml-10"
                       >
-                        {Object.entries(levels[level]).map(([lesson, kanjis]) => {
+                        {Object.entries(groupedData[level]).map(([unitId, kanjis]) => {
                           const masteredInUnit = kanjis.filter(k => masteredIds.includes(k.id)).length;
                           const unitProgress = (masteredInUnit / kanjis.length) * 100;
+                          
+                          // Label calculation
+                          const unitNum = Number(unitId);
+                          const lessonRange = level === 'SPECIAL' 
+                            ? (CUSTOM_COLLECTIONS[unitNum - 1]?.name || `Bộ ${unitNum}`)
+                            : `Bài ${(unitNum - 1) * 10 + 1} - ${unitNum * 10}`;
 
                           return (
-                            <div key={lesson} className="relative bg-white/40 backdrop-blur-sm rounded-[32px] border border-sakura/5 p-6 hover:bg-white/60 transition-colors">
+                            <div key={unitId} className="relative bg-white/40 backdrop-blur-sm rounded-[32px] border border-sakura/5 p-6 hover:bg-white/60 transition-colors shadow-sm">
                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
                                   <div className="space-y-2">
                                     <div className="flex items-center gap-2">
-                                      <Badge variant="outline" className="rounded-full border-sakura/30 text-sakura bg-sakura/5 px-3">
-                                        {level === 'SPECIAL' ? CUSTOM_COLLECTIONS[Number(lesson) - 1]?.name || `Bộ ${lesson}` : `Bài ${lesson}`}
+                                      <Badge variant="outline" className="rounded-full border-sakura/30 text-sakura bg-sakura/5 px-3 font-bold">
+                                        Unit {unitId}
                                       </Badge>
+                                      <span className="text-xs font-bold text-sakura/60 uppercase tracking-wider">{lessonRange}</span>
                                       {unitProgress === 100 && <Badge className="bg-matcha text-white border-0">Hoàn thành ✨</Badge>}
                                     </div>
-                                    <h4 className="text-lg font-bold text-sumi">
-                                      {level === 'SPECIAL' ? 'Khám phá bộ chữ chọn lọc' : 'Khám phá Kanji nền tảng'}
+                                    <h4 className="text-xl font-bold text-sumi">
+                                      {level === 'SPECIAL' 
+                                        ? (CUSTOM_COLLECTIONS[unitNum - 1]?.name?.replace(/[🌟🌸]/g, '') || 'Bộ sưu tập chọn lọc') 
+                                        : `Chinh phục Kanji Hàng đầu - Unit ${unitId}`}
                                     </h4>
                                   </div>
 
                                   <div className="flex items-center gap-4">
                                      <div className="text-right hidden md:block">
-                                        <p className="text-[10px] font-bold text-muted-foreground uppercase">Tiến độ Unit</p>
-                                        <p className="text-sm font-black text-matcha">{masteredInUnit}/{kanjis.length} Chữ</p>
+                                        <p className="text-[10px] font-bold text-muted-foreground uppercase text-right">TIẾN ĐỘ UNIT</p>
+                                        <p className="text-sm font-black text-matcha whitespace-nowrap">{masteredInUnit}/{kanjis.length} Chữ</p>
                                      </div>
                                      <Button 
-                                       className="rounded-xl bg-sakura hover:bg-sakura-dark text-white font-bold gap-2 px-6 h-11"
+                                       className="rounded-2xl bg-sakura hover:bg-sakura-dark text-white font-bold gap-2 px-8 h-12 shadow-lg shadow-sakura/20 transition-all hover:scale-105 active:scale-95"
                                        onClick={() => startUnitStudy(kanjis)}
                                      >
                                        <Play className="h-4 w-4 fill-current" />
@@ -343,7 +435,7 @@ export const KanjiReview: React.FC<KanjiReviewProps> = ({ onBack }) => {
                                </div>
 
                                {/* Grid of Kanji Cells */}
-                               <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
+                               <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
                                   {kanjis.map((k, idx) => (
                                     <KanjiCell 
                                       key={k.id}
