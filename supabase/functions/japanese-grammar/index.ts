@@ -27,13 +27,8 @@ serve(async (req) => {
     const body = await req.json();
     const mode = body.mode || 'check'; 
     
-    const keys = [
-      Deno.env.get("GROQ_API_KEY_1"),
-      Deno.env.get("GROQ_API_KEY_2"),
-      Deno.env.get("GROQ_API_KEY_3")
-    ].filter(Boolean);
-
-    if (keys.length === 0) throw new Error("Missing Groq API keys");
+    const apiKey = Deno.env.get("GROQ_API_KEY_1");
+    if (!apiKey) throw new Error("GROQ_API_KEY_1 is not configured");
 
     let systemPrompt = "";
     let userPrompt = "";
@@ -85,25 +80,23 @@ Hãy so sánh hai cấu trúc ngữ pháp được cung cấp và trả về k�
     };
     if (requireJSON) requestBody.response_format = { type: "json_object" };
 
-    // Groq Rotation
     let resultText = "";
-    for (let i = 0; i < keys.length; i++) {
-        const apiKey = keys[i];
-        try {
-            const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-                method: "POST",
-                headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-                body: JSON.stringify(requestBody),
-            });
-            if (response.ok) {
-                const data = await response.json();
-                resultText = data.choices?.[0]?.message?.content || "";
-                break;
-            }
-            if (response.status === 429) continue;
-        } catch (e) {
-            console.error(`Grammar Key ${i + 1} error:`, e);
+    try {
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody), // Use the dynamically constructed requestBody
+        });
+        if (response.ok) {
+            const data = await response.json();
+            resultText = data.choices?.[0]?.message?.content || "";
+        } else {
+            const errorText = await response.text();
+            throw new Error(`Groq API error: ${response.status} ${errorText}`);
         }
+    } catch (e) {
+        console.error("Groq Key 1 error in japanese-grammar:", e);
+        throw e;
     }
 
     // Helper to extract JSON from AI text

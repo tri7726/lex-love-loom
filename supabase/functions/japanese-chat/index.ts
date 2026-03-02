@@ -42,64 +42,47 @@ serve(async (req) => {
       systemPrompt?: string
     };
     
-    const keys = [
-      Deno.env.get("GROQ_API_KEY_1"),
-      Deno.env.get("GROQ_API_KEY_2"),
-      Deno.env.get("GROQ_API_KEY_3")
-    ].filter(Boolean);
+    const apiKey = Deno.env.get("GROQ_API_KEY_1");
 
-    if (keys.length === 0) {
-      throw new Error("No Groq API keys configured. Please set GROQ_API_KEY_1, 2, or 3.");
+    if (!apiKey) {
+      throw new Error("GROQ_API_KEY_1 is not configured.");
     }
 
-    console.log(`Chat request - Using Groq with ${keys.length} keys available.`);
+    console.log(`Chat request using dedicated GROQ_API_KEY_1.`);
 
-    // Helper to call Groq with rotation
-    async function tryGroqRotation(messages: Message[], systemPrompt?: string) {
-      for (let i = 0; i < keys.length; i++) {
-        const apiKey = keys[i];
-        console.log(`Attempting Groq request with Key ${i + 1}...`);
-        
-        try {
-          const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "llama-3.3-70b-versatile",
-              messages: [
-                { role: "system", content: systemPrompt || SYSTEM_PROMPT },
-                ...messages,
-              ],
-              stream: true,
-              temperature: 0.7,
-              max_tokens: 1024,
-            }),
-          });
+    // Helper to call Groq
+    async function tryGroq(messages: Message[], systemPrompt?: string) {
+      try {
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: [
+              { role: "system", content: systemPrompt || SYSTEM_PROMPT },
+              ...messages,
+            ],
+            stream: true,
+            temperature: 0.7,
+            max_tokens: 1024,
+          }),
+        });
 
-          if (response.ok) {
-            return response;
-          }
+        if (response.ok) return response;
 
-          const errorText = await response.text();
-          console.warn(`Groq API Key ${i + 1} failed:`, response.status, errorText);
-          
-          // If it's a rate limit (429), continue to next key immediately
-          if (response.status === 429) {
-            continue;
-          }
-          
-          // For other errors, we might still want to try the next key
-        } catch (e) {
-          console.error(`Groq Key ${i + 1} fetch error:`, e);
-        }
+        const errorText = await response.text();
+        console.error("Groq API error:", response.status, errorText);
+        return null;
+      } catch (e) {
+        console.error("Groq fetch error:", e);
+        return null;
       }
-      return null;
     }
 
-    const groqRes = await tryGroqRotation(messages, systemPrompt);
+    const groqRes = await tryGroq(messages, systemPrompt);
     if (groqRes) {
       return new Response(groqRes.body, {
         headers: { 
@@ -111,7 +94,7 @@ serve(async (req) => {
       });
     }
 
-    throw new Error("All Groq API keys failed or were rate limited.");
+    throw new Error("Groq API call failed.");
   } catch (error) {
     console.error("Chat function error:", error);
     return new Response(

@@ -148,69 +148,66 @@ YÊU CẦU DỮ LIỆU:
 }
 `;
 
-async function callGroqRotation(keys: string[], prompt: string, title: string, isQuizBatch: boolean = false) {
+async function callGroq(apiKey: string, prompt: string, title: string, isQuizBatch: boolean = false) {
   const currentSystemPrompt = isQuizBatch ? QUIZ_SYSTEM_PROMPT : SEGMENT_SYSTEM_PROMPT;
   
-  const body = {
-    model: "llama-3.3-70b-versatile",
-    messages: [{
-      role: "system",
-      content: currentSystemPrompt
-    }, {
-      role: "user",
-      content: `Video: ${title}\n\n${isQuizBatch ? "Nội dung video" : "Dữ liệu segments"}:\n${prompt}\n\n${isQuizBatch ? "HÃY TẠO ĐỀ THI JLPT (PHẢI TRẢ VỀ DẠNG JSON) DỰA TRÊN TOÀN BỘ NỘI DUNG TRÊN." : "HÃY PHÂN TÍCH VÀ TRẢ VỀ JSON CHO CÁC SEGMENTS NÀY."}`
-    }],
-    response_format: { type: "json_object" },
-    temperature: 0.7,
-  };
+  try {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { 
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json" 
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [{
+          role: "system",
+          content: currentSystemPrompt
+        }, {
+          role: "user",
+          content: `Video: ${title}\n\n${isQuizBatch ? "Nội dung video" : "Dữ liệu segments"}:\n${prompt}\n\n${isQuizBatch ? "HÃY TẠO ĐỀ THI JLPT (PHẢI TRẢ VỀ DẠNG JSON) DỰA TRÊN TOÀN BỘ NỘI DUNG TRÊN." : "HÃY PHÂN TÍCH VÀ TRẢ VỀ JSON CHO CÁC SEGMENTS NÀY."}`
+        }],
+        response_format: { type: "json_object" },
+        temperature: 0.7,
+      }),
+    });
 
-  for (let i = 0; i < keys.length; i++) {
-    const apiKey = keys[i];
-    try {
-      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: { 
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json" 
-        },
-        body: JSON.stringify(body),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const resultText = data.choices[0]?.message?.content;
-        if (!resultText) throw new Error("AI không trả về nội dung");
-        
-        const parsed = JSON.parse(resultText);
-        if (isQuizBatch && parsed.sections) {
-          const questions = [];
-          const sectionMapping = {
-            'A_vocabulary': 'vocabulary',
-            'B_grammar': 'grammar',
-            'C_reading': 'comprehension'
-          };
-
-          for (const [sectionKey, type] of Object.entries(sectionMapping)) {
-            if (parsed.sections[sectionKey] && Array.isArray(parsed.sections[sectionKey])) {
-              parsed.sections[sectionKey].forEach(q => {
-                questions.push({ 
-                  ...q, 
-                  question_type: type,
-                  jlpt_level: q.jlpt_level || null
-                });
-              });
-            }
-          }
-          return { questions };
-        }
-        return parsed;
-      }
-      if (response.status === 429) continue;
-    } catch (e) {
-      console.error(`Key ${i + 1} failed in process-video:`, e);
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`Groq API error: ${response.status} ${err}`);
     }
+
+    const data = await response.json();
+    const resultText = data.choices[0]?.message?.content;
+    if (!resultText) throw new Error("AI không trả về nội dung");
+    
+    const parsed = JSON.parse(resultText);
+    if (isQuizBatch && parsed.sections) {
+      const questions = [];
+      const sectionMapping = {
+        'A_vocabulary': 'vocabulary',
+        'B_grammar': 'grammar',
+        'C_reading': 'comprehension'
+      };
+
+      for (const [sectionKey, type] of Object.entries(sectionMapping)) {
+        if (parsed.sections[sectionKey] && Array.isArray(parsed.sections[sectionKey])) {
+          parsed.sections[sectionKey].forEach(q => {
+            questions.push({ 
+              ...q, 
+              question_type: type,
+              jlpt_level: q.jlpt_level || null
+            });
+          });
+        }
+      }
+      return { questions };
+    }
+    return parsed;
+  } catch (e) {
+    console.error("error in callGroq:", e);
+    throw e;
   }
-  throw new Error("All Groq keys failed in process-video");
 }
 
 async function processVideoInBackground(
@@ -218,9 +215,9 @@ async function processVideoInBackground(
   videoId: string,
   title: string,
   subtitles: SubtitleSegment[],
-  keys: string[]
+  apiKey: string
 ) {
-  console.log(`Background: Processing ${subtitles.length} segments using Groq`);
+  console.log(`Background: Processing ${subtitles.length} segments using dedicated Groq Key`);
   
   const allSegments: ProcessedSegment[] = [];
   const fullText = subtitles.map(s => s.text).join(" ");
@@ -230,7 +227,7 @@ async function processVideoInBackground(
     const batch = subtitles.slice(i, i + BATCH_SIZE);
     const prompt = batch.map((s, idx) => `[${i + idx}] ${s.text}`).join("\n");
     try {
-      const result = await callGroqRotation(keys, prompt, title);
+      const result = await callGroq(apiKey, prompt, title);
       if (result.segments) allSegments.push(...result.segments);
     } catch (error) {
       console.error(`Error processing segments batch ${i}:`, error);
@@ -240,7 +237,7 @@ async function processVideoInBackground(
   // 2. Generate Quiz
   let quizQuestions: QuizQuestion[] = [];
   try {
-    const quizResult = await callGroqRotation(keys, fullText.substring(0, 15000), title, true);
+    const quizResult = await callGroq(apiKey, fullText.substring(0, 5000), title, true);
     if (quizResult.questions) quizQuestions = quizResult.questions;
   } catch (error) {
     console.error("Error generating quiz:", error);
@@ -251,7 +248,7 @@ async function processVideoInBackground(
     const { error: segError } = await supabase.from("video_segments").insert(
       allSegments.map(seg => ({
         video_id: videoId,
-        segment_index: seg.segment_index,
+        segment_index: subtitles[seg.segment_index]?.segment_index || seg.segment_index,
         start_time: subtitles[seg.segment_index]?.start || 0,
         end_time: subtitles[seg.segment_index]?.end || 0,
         japanese_text: seg.japanese_text,
@@ -287,13 +284,9 @@ serve(async (req) => {
 
   try {
     const { youtube_id, title, subtitles } = await req.json();
-    const keys = [
-      Deno.env.get("GROQ_API_KEY_1"),
-      Deno.env.get("GROQ_API_KEY_2"),
-      Deno.env.get("GROQ_API_KEY_3")
-    ].filter(Boolean);
+    const apiKey = Deno.env.get("GROQ_API_KEY_3");
     
-    if (keys.length === 0) throw new Error("Groq API keys are not configured");
+    if (!apiKey) throw new Error("GROQ_API_KEY_3 is not configured");
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
@@ -310,11 +303,11 @@ serve(async (req) => {
 
     // Process in background
     // @ts-ignore
-    EdgeRuntime.waitUntil(processVideoInBackground(supabase, videoSource.id, title, subtitles, keys));
+    EdgeRuntime.waitUntil(processVideoInBackground(supabase, videoSource.id, title, subtitles, apiKey));
 
     return new Response(JSON.stringify({ success: true, video_id: videoSource.id, processing: true }), { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  } catch (error: any) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

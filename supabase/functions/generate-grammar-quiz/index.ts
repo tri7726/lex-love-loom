@@ -38,44 +38,37 @@ serve(async (req: Request) => {
 
   try {
     const { grammar_point, level, explanation } = await req.json();
-    const keys = [
-      Deno.env.get("GROQ_API_KEY_1"),
-      Deno.env.get("GROQ_API_KEY_2"),
-      Deno.env.get("GROQ_API_KEY_3")
-    ].filter(Boolean);
+    const apiKey = Deno.env.get("GROQ_API_KEY_3");
+    if (!apiKey) throw new Error("GROQ_API_KEY_3 is not configured.");
 
-    if (keys.length === 0) throw new Error("Groq API keys are not configured");
-
-    console.log(`Generating grammar quiz for ${grammar_point} using Groq Rotation...`);
+    console.log(`Generating grammar quiz using dedicated GROQ_API_KEY_3...`);
 
     const userPrompt = `Hãy tạo 3 câu hỏi luyện tập cho cấu trúc ngữ pháp sau:
 Cấu trúc: ${grammar_point}
 Trình độ: ${level}
 Giải nghĩa: ${explanation}`;
 
-    let resultData = null;
-    for (let i = 0; i < keys.length; i++) {
-        const apiKey = keys[i];
-        try {
-            const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-                method: "POST",
-                headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    model: "llama-3.3-70b-versatile",
-                    messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: userPrompt }],
-                    response_format: { type: "json_object" },
-                    temperature: 0.7
-                }),
-            });
-            if (response.ok) {
-                const data = await response.json();
-                resultData = JSON.parse(data.choices[0]?.message?.content || "{}");
-                break;
-            }
-            if (response.status === 429) continue;
-        } catch (e) {
-            console.error(`Groq Key ${i + 1} error in generate-grammar-quiz:`, e);
+    try {
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+                model: "llama-3.3-70b-versatile",
+                messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: userPrompt }],
+                response_format: { type: "json_object" },
+                temperature: 0.7
+            }),
+        });
+        if (response.ok) {
+            const data = await response.json();
+            resultData = JSON.parse(data.choices[0]?.message?.content || "{}");
+        } else {
+            const errorText = await response.text();
+            throw new Error(`Groq API error: ${response.status} ${errorText}`);
         }
+    } catch (e) {
+        console.error("Groq Key 3 error in generate-grammar-quiz:", e);
+        throw e;
     }
 
     if (!resultData) throw new Error("AI quiz generation failed on all keys");

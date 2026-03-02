@@ -64,16 +64,7 @@ serve(async (req: Request) => {
   try {
     const { level = "N5", topic, content }: GenerateReadingRequest = await req.json();
 
-    const keys = [
-      Deno.env.get("GROQ_API_KEY_1"),
-      Deno.env.get("GROQ_API_KEY_2"),
-      Deno.env.get("GROQ_API_KEY_3")
-    ].filter(Boolean);
-
-    if (keys.length === 0) throw new Error("Groq API keys are not configured");
-
     let resultData: ReadingResponse | null = null;
-    let engineUsed = "groq";
 
     const userPrompt = content 
       ? `Analyze this content for level ${level}: ${content}`
@@ -96,40 +87,40 @@ serve(async (req: Request) => {
       }
     }
 
-    // Helper for Groq Rotation
-    async function tryGroqRotation(prompt: string): Promise<ReadingResponse | null> {
-      console.log(`Processing with Groq Rotation: ${prompt.substring(0, 50)}...`);
-      for (let i = 0; i < keys.length; i++) {
-        const apiKey = keys[i];
-        try {
-          const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const apiKey = Deno.env.get("GROQ_API_KEY_2");
+
+    if (!apiKey) {
+      throw new Error("GROQ_API_KEY_2 is not configured.");
+    }
+
+    console.log(`Generating reading for level ${level} using dedicated GROQ_API_KEY_2...`);
+
+    try {
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
             headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
             body: JSON.stringify({
-              model: "llama-3.3-70b-versatile",
-              messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: prompt }],
-              response_format: { type: "json_object" }
+                model: "llama-3.3-70b-versatile",
+                messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: userPrompt }],
+                response_format: { type: "json_object" },
+                temperature: 0.7
             }),
-          });
-          if (response.ok) {
-            const d = await response.json();
-            return extractJSON(d.choices?.[0]?.message?.content || "{}");
-          }
-          if (response.status === 429) continue;
-        } catch (e) {
-          console.error(`Groq Key ${i + 1} error:`, e);
+        });
+        if (response.ok) {
+            const data = await response.json();
+            resultData = extractJSON(data.choices[0]?.message?.content || "{}");
+        } else {
+            const errorText = await response.text();
+            throw new Error(`Groq API error: ${response.status} ${errorText}`);
         }
-      }
-      return null;
+    } catch (e) {
+        console.error("Groq Key 2 error in generate-reading:", e);
+        throw e;
     }
 
-    resultData = await tryGroqRotation(userPrompt);
+    if (!resultData) throw new Error("AI reading generation failed.");
 
-    if (!resultData) {
-      throw new Error(`AI processing failed on all ${keys.length} Groq keys.`);
-    }
-
-    return new Response(JSON.stringify({ ...resultData, engine: engineUsed }), {
+    return new Response(JSON.stringify({ ...resultData, engine: "groq" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 

@@ -40,47 +40,41 @@ serve(async (req: Request) => {
   try {
     const { word, context }: LookupRequest = await req.json();
 
-    const keys = [
-      Deno.env.get("GROQ_API_KEY_1"),
-      Deno.env.get("GROQ_API_KEY_2"),
-      Deno.env.get("GROQ_API_KEY_3")
-    ].filter(Boolean);
+    const apiKey = Deno.env.get("GROQ_API_KEY_1");
 
-    if (keys.length === 0) throw new Error("Groq API keys are not configured");
+    if (!apiKey) {
+      throw new Error("GROQ_API_KEY_1 is not configured.");
+    }
+
+    console.log(`Lookup request for "${word}" using dedicated GROQ_API_KEY_1...`);
 
     let resultData = null;
     let engineUsed = "groq";
+    try {
+        const userPrompt = context 
+          ? `Look up word: "${word}" in context: "${context}"`
+          : `Look up word: "${word}"`;
 
-    const userPrompt = context 
-      ? `Look up word: "${word}" in context: "${context}"`
-      : `Look up word: "${word}"`;
-
-    // Helper for Groq Rotation
-    for (let i = 0; i < keys.length; i++) {
-        const apiKey = keys[i];
-        try {
-            const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-                method: "POST",
-                headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    model: "llama-3.3-70b-versatile",
-                    messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: userPrompt }],
-                    response_format: { type: "json_object" }
-                }),
-            });
-            if (response.ok) {
-                const d = await response.json();
-                resultData = JSON.parse(d.choices?.[0]?.message?.content || "{}");
-                break;
-            }
-            if (response.status === 429) {
-              console.warn(`Groq Key ${i + 1} hit rate limit (429). Trying next key...`);
-              continue;
-            }
-            console.error(`Groq Key ${i + 1} failed with status: ${response.status} - ${response.statusText}`);
-        } catch (e) {
-            console.error(`Lookup Key ${i + 1} error:`, e);
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+                model: "llama-3.3-70b-versatile",
+                messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: userPrompt }],
+                response_format: { type: "json_object" },
+                temperature: 0.3
+            }),
+        });
+        if (response.ok) {
+            const data = await response.json();
+            resultData = JSON.parse(data.choices[0]?.message?.content || "{}");
+        } else {
+            const errorText = await response.text();
+            throw new Error(`Groq API error: ${response.status} ${errorText}`);
         }
+    } catch (e) {
+        console.error("Groq Key 1 error in lookup-word:", e);
+        throw e;
     }
 
     if (!resultData) throw new Error("AI lookup failed on all keys");

@@ -201,109 +201,67 @@ serve(async (req: Request) => {
       }
     }
 
-    const keys = [
-      Deno.env.get("GROQ_API_KEY_1"),
-      Deno.env.get("GROQ_API_KEY_2"),
-      Deno.env.get("GROQ_API_KEY_3")
-    ].filter(Boolean);
+    const apiKey = Deno.env.get("GROQ_API_KEY_2");
+    if (!apiKey) throw new Error("GROQ_API_KEY_2 is not configured.");
 
-    if (keys.length === 0) {
-      throw new Error("No Groq API keys configured.");
-    }
-
-    let resultData: 
-      | { format: 'grammar'; result: GrammarAnalysis } 
-      | { format: 'structured'; analysis: StructuredAnalysis } 
-      | { format: 'vision'; result: VisionAnalysis } 
-      | null = null;
-    let engineUsed = "groq";
-
-    // Helper for Groq Rotation
-    async function tryGroqRotation(payload: any) {
-      for (let i = 0; i < keys.length; i++) {
-        const apiKey = keys[i];
-        try {
-          const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-          if (response.ok) {
-            const d = await response.json();
-            return d.choices?.[0]?.message?.content || "{}";
-          }
-          if (response.status === 429) continue;
-        } catch (e) {
-          console.error(`Groq Key ${i + 1} error:`, e);
-        }
+    // Helper to call Groq
+    async function fetchGroq(model: string, system: string, user: any, json = true) {
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "system", content: system }, { role: "user", content: user }],
+          response_format: json ? { type: "json_object" } : undefined,
+          temperature: 0.7
+        }),
+      });
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`Groq API error: ${response.status} ${err}`);
       }
-      return null;
+      const data = await response.json();
+      return data.choices[0]?.message?.content || "";
     }
 
-    // 0. Image Analysis (using llama-3.2-11b-vision-preview)
+    let resultData: any = null;
+
     if (isImageAnalysis && image) {
-      console.log("Image analysis using Groq Vision...");
-      const raw = await tryGroqRotation({
-        model: "llama-3.2-11b-vision-preview",
-        messages: [
-          { role: "system", content: VISION_SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: "Analyze the Japanese content in this image." },
-              { type: "image_url", image_url: { url: `data:image/jpeg;base64,${image}` } }
-            ]
-          }
-        ],
-        response_format: { type: "json_object" }
-      });
-      if (raw) {
-        resultData = { format: 'vision', result: extractJSON(raw) as VisionAnalysis };
-      }
-    } 
-    // 1. Text Analysis or Grammar
-    else {
+      console.log("Analyzing image using Groq Vision (Key 2)...");
+      const userContent = [
+        { type: "text", text: "Analyze the Japanese content in this image and return JSON." },
+        { type: "image_url", image_url: { url: `data:image/jpeg;base64,${image}` } }
+      ];
+      const raw = await fetchGroq("llama-3.2-11b-vision-preview", VISION_SYSTEM_PROMPT, userContent);
+      resultData = { format: 'vision', result: extractJSON(raw) as VisionAnalysis };
+    } else {
+      const typeLabel = isGrammar ? "grammar" : "text";
+      console.log(`Analyzing ${typeLabel} using Groq (Key 2)...`);
       const systemPrompt = isGrammar ? GRAMMAR_SYSTEM_PROMPT : ENHANCED_SYSTEM_PROMPT;
-      const userContent = prompt 
-        ? `Analyze this: ${content}\n\nQuestion: ${prompt}`
-        : content;
-      
-      const raw = await tryGroqRotation({
-        model: "llama-3.3-70b-versatile",
-        messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userContent }],
-        response_format: { type: "json_object" }
-      });
-
-      if (raw) {
-        const parsed = extractJSON(raw);
-        resultData = isGrammar 
-          ? { format: 'grammar', result: parsed as GrammarAnalysis }
-          : { format: 'structured', analysis: parsed as StructuredAnalysis };
-      }
+      const userContent = prompt ? `Analyze this: ${content}\n\nQuestion: ${prompt}` : content;
+      const raw = await fetchGroq("llama-3.3-70b-versatile", systemPrompt, userContent);
+      const parsed = extractJSON(raw);
+      resultData = isGrammar 
+        ? { format: 'grammar', result: parsed as GrammarAnalysis }
+        : { format: 'structured', analysis: parsed as StructuredAnalysis };
     }
 
-    if (!resultData) throw new Error("AI analysis failed on all Groq keys");
+    if (!resultData) throw new Error("AI analysis failed.");
 
-    // 2. Save to history if requested
-    if (saveToHistory && userId && !isImageAnalysis && resultData) {
-      let historyAnalysis: unknown = null;
-      if (resultData.format === 'grammar') {
-        historyAnalysis = resultData.result;
-      } else if (resultData.format === 'structured') {
-        historyAnalysis = resultData.analysis;
-      }
-
+    // Save to history if requested
+    if (saveToHistory && userId && !isImageAnalysis) {
+      const historyAnalysis = (resultData.format === 'grammar') ? resultData.result : resultData.analysis;
       if (historyAnalysis) {
         await supabase.from('analysis_history').insert({
           user_id: userId,
           content: content,
           analysis: historyAnalysis,
-          engine: engineUsed
+          engine: "groq"
         });
       }
     }
 
-    return new Response(JSON.stringify({ ...resultData, engine: engineUsed }), {
+    return new Response(JSON.stringify({ ...resultData, engine: "groq" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 

@@ -65,14 +65,6 @@ serve(async (req) => {
     const { kanji_list } = await req.json();
     if (!kanji_list || !Array.isArray(kanji_list)) throw new Error("Invalid kanji_list");
 
-    const keys = [
-      Deno.env.get("GROQ_API_KEY_1"),
-      Deno.env.get("GROQ_API_KEY_2"),
-      Deno.env.get("GROQ_API_KEY_3")
-    ].filter(Boolean);
-
-    if (keys.length === 0) throw new Error("Groq API keys are not configured");
-
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     const { data: kanjiDetails, error: dbError } = await supabase
@@ -82,35 +74,38 @@ serve(async (req) => {
 
     if (dbError) throw dbError;
 
-    // Call Groq with rotation
+    const apiKey = Deno.env.get("GROQ_API_KEY_2");
+    if (!apiKey) throw new Error("GROQ_API_KEY_2 is not configured.");
+
+    console.log(`Generating worksheet using dedicated GROQ_API_KEY_2...`);
+
     let result = null;
-    for (let i = 0; i < keys.length; i++) {
-        const apiKey = keys[i];
-        try {
-            const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-                method: "POST",
-                headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    model: "llama-3.3-70b-versatile",
-                    messages: [
-                        { role: "system", content: WORKSHEET_SYSTEM_PROMPT },
-                        { role: "user", content: `Input Kanji Data (Ground Truth): ${JSON.stringify(kanjiDetails)}` }
-                    ],
-                    response_format: { type: "json_object" }
-                }),
-            });
-            if (response.ok) {
-                const data = await response.json();
-                result = extractJSON(data.choices[0]?.message?.content || "{}");
-                break;
-            }
-            if (response.status === 429) continue;
-        } catch (e) {
-            console.error(`Kanji Key ${i + 1} error:`, e);
+    try {
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+                model: "llama-3.3-70b-versatile",
+                messages: [
+                    { role: "system", content: WORKSHEET_SYSTEM_PROMPT },
+                    { role: "user", content: `Input Kanji Data (Ground Truth): ${JSON.stringify(kanjiDetails)}` }
+                ],
+                response_format: { type: "json_object" }
+            }),
+        });
+        if (response.ok) {
+            const data = await response.json();
+            result = extractJSON(data.choices[0]?.message?.content || "{}");
+        } else {
+            const errorText = await response.text();
+            throw new Error(`Groq API error: ${response.status} ${errorText}`);
         }
+    } catch (e) {
+        console.error("Groq Key 1 error in generate-kanji-worksheet:", e);
+        throw e;
     }
 
-    if (!result) throw new Error("AI worksheet generation failed on all keys");
+    if (!result) throw new Error("AI worksheet generation failed.");
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
