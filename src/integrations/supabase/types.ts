@@ -295,6 +295,42 @@ export type Database = {
           },
         ]
       }
+      kanji_details: {
+        Row: {
+          character: string
+          created_at: string | null
+          grade: number | null
+          id: string
+          jlpt: number | null
+          kun_reading: string | null
+          meaning: string | null
+          on_reading: string | null
+          stroke_count: number | null
+        }
+        Insert: {
+          character: string
+          created_at?: string | null
+          grade?: number | null
+          id?: string
+          jlpt?: number | null
+          kun_reading?: string | null
+          meaning?: string | null
+          on_reading?: string | null
+          stroke_count?: number | null
+        }
+        Update: {
+          character?: string
+          created_at?: string | null
+          grade?: number | null
+          id?: string
+          jlpt?: number | null
+          kun_reading?: string | null
+          meaning?: string | null
+          on_reading?: string | null
+          stroke_count?: number | null
+        }
+        Relationships: []
+      }
       kanji_relationships: {
         Row: {
           created_at: string | null
