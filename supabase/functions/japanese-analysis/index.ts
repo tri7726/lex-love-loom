@@ -9,6 +9,16 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+interface AnalysisRequest {
+  prompt?: string;
+  content: string;
+  image?: string;
+  isImageAnalysis?: boolean;
+  isGrammar?: boolean;
+  engine?: "gemini" | "groq";
+  saveToHistory?: boolean;
+}
+
 const GRAMMAR_SYSTEM_PROMPT = `あなたは日本語の文法チェッカーです。
 ユーザーが入力した日本語の文法をチェックし、以下のJSON形式で返答してください。
 修正 nội dung hay giải thích bằng tiếng Việt.
@@ -90,11 +100,88 @@ Analyze the image provided and identify objects. Return JSON:
   "sample_sentences": [{"japanese": "JP", "translation": "VN"}]
 }`;
 
-serve(async (req) => {
+interface StructuredAnalysis {
+  overall_analysis: {
+    jlpt_level: string;
+    politeness_level: string;
+    text_type: string;
+    summary: string;
+  };
+  sentences: Array<{
+    japanese: string;
+    vietnamese: string;
+    breakdown: {
+      words: Array<{
+        word: string;
+        reading: string;
+        hanviet: string | null;
+        meaning: string;
+        word_type: string;
+        jlpt_level: string;
+      }>;
+      grammar_patterns: Array<{
+        pattern: string;
+        meaning: string;
+        usage: string;
+      }>;
+    };
+  }>;
+  suggested_flashcards: Array<{
+    word: string;
+    reading: string;
+    hanviet: string | null;
+    meaning: string;
+    example_sentence: string;
+    example_translation: string;
+    jlpt_level: string;
+    word_type: string;
+  }>;
+  grammar_summary: {
+    particles_used: string[];
+    verb_forms: string[];
+    key_patterns: string[];
+  };
+  cultural_notes: string[];
+}
+
+interface GrammarAnalysis {
+  isCorrect: boolean;
+  corrected: string;
+  explanation: string;
+  rules: string[];
+  suggestions: string[];
+}
+
+interface VisionAnalysis {
+  object_name: string;
+  reading: string;
+  vietnamese_meaning: string;
+  description: string;
+  vocabulary: Array<{ word: string; reading: string; meaning: string }>;
+  sample_sentences: Array<{ japanese: string; translation: string }>;
+}
+
+function extractJSON(text: string) {
+  try {
+    return JSON.parse(text.trim());
+  } catch (_e) {
+    const match = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        return JSON.parse(match[1] || match[0]);
+      } catch (_e2) {
+        throw new Error("AI returned invalid JSON structure");
+      }
+    }
+    throw new Error("Could not find JSON in AI response");
+  }
+}
+
+serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { prompt, content, image, isImageAnalysis, isGrammar, engine = "gemini", saveToHistory = true } = await req.json();
+    const { prompt, content, image, isImageAnalysis, isGrammar, engine = "gemini", saveToHistory = true }: AnalysisRequest = await req.json();
     
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -102,19 +189,20 @@ serve(async (req) => {
     
     // Get user from auth header
     const authHeader = req.headers.get('Authorization');
-    let user = null;
+    let userId: string | null = null;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.replace('Bearer ', '');
       try {
         const { data: { user: authUser }, error: authError } = await supabase.auth.getUser(token);
         if (authError) {
           console.error("Auth error:", authError.message);
-        } else {
-          user = authUser;
-          console.log("Authenticated user detected:", user.id);
+        } else if (authUser) {
+          userId = authUser.id;
+          console.log("Authenticated user detected:", userId);
         }
-      } catch (e) {
-        console.error("Auth Exception:", e.message);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error("Auth Exception:", msg);
       }
     } else {
       console.log("No valid Authorization header found - history will NOT be saved.");
@@ -123,11 +211,19 @@ serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
 
-    let resultData = null;
+    let resultData: 
+      | { format: 'grammar'; result: GrammarAnalysis } 
+      | { format: 'structured'; analysis: StructuredAnalysis } 
+      | { format: 'vision'; result: VisionAnalysis } 
+      | null = null;
     let engineUsed = "none";
 
     // Helper for Groq Text Analysis
-    async function tryGroq(systemPrompt, userContent, isGrammar) {
+    async function tryGroq(systemPrompt: string, userContent: string, isGrammar?: boolean): Promise<
+      | { format: 'grammar'; result: GrammarAnalysis } 
+      | { format: 'structured'; analysis: StructuredAnalysis } 
+      | null
+    > {
       if (!GROQ_API_KEY) return null;
       console.log("Analysis using Groq (Primary)...");
       try {
@@ -143,10 +239,10 @@ serve(async (req) => {
         if (response.ok) {
           const d = await response.json();
           const raw = d.choices?.[0]?.message?.content || "{}";
-          const parsed = JSON.parse(raw);
+          const parsed = extractJSON(raw);
           return isGrammar 
-            ? { format: 'grammar', result: parsed }
-            : { format: 'structured', analysis: parsed };
+            ? { format: 'grammar', result: parsed as GrammarAnalysis }
+            : { format: 'structured', analysis: parsed as StructuredAnalysis };
         }
         return null;
       } catch (e) {
@@ -156,7 +252,11 @@ serve(async (req) => {
     }
 
     // Helper for Gemini Text Analysis
-    async function tryGemini(systemPrompt, userContent, isGrammar) {
+    async function tryGemini(systemPrompt: string, userContent: string, isGrammar?: boolean): Promise<
+      | { format: 'grammar'; result: GrammarAnalysis } 
+      | { format: 'structured'; analysis: StructuredAnalysis } 
+      | null
+    > {
       if (!GEMINI_API_KEY) return null;
       console.log("Analysis using Gemini (Fallback)...");
       try {
@@ -167,10 +267,10 @@ serve(async (req) => {
         });
         const result = await model.generateContent(`${systemPrompt}\n\nContent: ${userContent}`);
         const raw = result.response.text();
-        const parsed = JSON.parse(raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim());
+        const parsed = extractJSON(raw);
         return isGrammar 
-          ? { format: 'grammar', result: parsed }
-          : { format: 'structured', analysis: parsed };
+          ? { format: 'grammar', result: parsed as GrammarAnalysis }
+          : { format: 'structured', analysis: parsed as StructuredAnalysis };
       } catch (e) {
         console.error("Gemini analysis error:", e);
         return null;
@@ -190,7 +290,7 @@ serve(async (req) => {
       ]);
       
       const text = result.response.text();
-      resultData = { format: 'vision', result: JSON.parse(text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim()) };
+      resultData = { format: 'vision' as const, result: extractJSON(text) as VisionAnalysis };
     } 
     // 1. Text Analysis or Grammar
     else {
@@ -213,19 +313,28 @@ serve(async (req) => {
     if (!resultData) throw new Error("AI analysis failed");
 
     // 2. Save to history if requested and user exists (Save both structured and grammar)
-    if (saveToHistory && user && !isImageAnalysis) {
-      console.log("Saving analysis to history for user:", user.id);
-      const historyAnalysis = isGrammar ? resultData.result : resultData.analysis;
-      const { error: insertError } = await supabase.from('analysis_history').insert({
-        user_id: user.id,
-        content: content,
-        analysis: historyAnalysis,
-        engine: engineUsed
-      });
-      if (insertError) {
-        console.error("Error saving to history:", insertError);
-      } else {
-        console.log("Analysis saved to history successfully.");
+    if (saveToHistory && userId && !isImageAnalysis && resultData) {
+      console.log("Saving analysis to history for user:", userId);
+      let historyAnalysis: unknown = null;
+      
+      if (resultData.format === 'grammar') {
+        historyAnalysis = resultData.result;
+      } else if (resultData.format === 'structured') {
+        historyAnalysis = resultData.analysis;
+      }
+
+      if (historyAnalysis) {
+        const { error: insertError } = await supabase.from('analysis_history').insert({
+          user_id: userId,
+          content: content,
+          analysis: historyAnalysis,
+          engine: engineUsed
+        });
+        if (insertError) {
+          console.error("Error saving to history:", insertError);
+        } else {
+          console.log("Analysis saved to history successfully.");
+        }
       }
     }
 
@@ -233,9 +342,10 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Analysis error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return new Response(JSON.stringify({ error: errorMessage }), {
       status: 200, // Return 200 even on error for some cases to handle in frontend
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

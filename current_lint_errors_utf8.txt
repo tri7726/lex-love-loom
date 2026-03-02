@@ -1,0 +1,157 @@
+﻿
+> vite_react_shadcn_ts@0.0.0 lint
+> eslint .
+
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\scripts\generate_local_kanji.ts
+  63:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  71:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  78:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  79:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  93:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  94:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  97:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  98:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\scripts\import_jmdict.ts
+  44:54  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\scripts\import_kanjidic2.ts
+  54:53  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  58:48  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  58:91  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  59:49  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  59:93  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\src\components\KanjiStrokeOrder.tsx
+  113:6  warning  React Hook useEffect has a missing dependency: 'kanjiCharacters'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\src\components\grammar\GrammarPracticeModal.tsx
+  95:6  warning  React Hook useEffect has a missing dependency: 'fetchQuestions'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\src\components\grammar\GrammarSensei.tsx
+  66:6  warning  React Hook useEffect has missing dependencies: 'generateWelcomeMessage' and 'messages.length'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\src\components\video\DictationMode.tsx
+  30:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\src\components\video\SpeakingMode.tsx
+  32:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\src\components\video\SubtitlePanel.tsx
+  22:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\src\components\video\VideoQuizMode.tsx
+  21:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\src\components\vocabulary\DetailView.tsx
+  67:79  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  68:68  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  69:76  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  70:70  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  71:79  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\src\components\vocabulary\KanjiReview.tsx
+   77:43  error  Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+  105:54  error  Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+  112:38  error  Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+  417:93  error  Unexpected surrogate pair in character class. Use 'u' flag  no-misleading-character-class
+  417:95  error  Unexpected surrogate pair in character class. Use 'u' flag  no-misleading-character-class
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\src\components\vocabulary\SeriesView.tsx
+  213:49  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\src\hooks\useYouTubePlayer.ts
+  5:9  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\src\pages\AdminImport.tsx
+  12:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  64:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\src\pages\FlashcardReview.tsx
+  51:50  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  78:75  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\src\pages\Reading.tsx
+  288:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  428:63  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  428:98  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  435:51  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\src\pages\SpeakingPractice.tsx
+  133:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  133:76  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\supabase\functions\fetch-youtube-captions\index.ts
+  20:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  26:45  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\supabase\functions\generate-grammar-quiz\index.ts
+   1:1   error  Do not use "@ts-nocheck" because it alters compilation errors  @typescript-eslint/ban-ts-comment
+  43:35  error  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+  99:19  error  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\supabase\functions\generate-video-quiz\index.ts
+  180:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\supabase\functions\import-kanjidic2\index.ts
+  10:18  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\supabase\functions\japanese-analysis\index.ts
+  1:1  error  Do not use "@ts-nocheck" because it alters compilation errors  @typescript-eslint/ban-ts-comment
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\supabase\functions\japanese-chat\index.ts
+  1:1  error  Do not use "@ts-nocheck" because it alters compilation errors  @typescript-eslint/ban-ts-comment
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\supabase\functions\japanese-grammar\index.ts
+    1:1   error  Do not use "@ts-nocheck" because it alters compilation errors  @typescript-eslint/ban-ts-comment
+   31:35  error  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+  106:34  error  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+  113:24  error  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+  172:19  error  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\supabase\functions\kanji-details\index.ts
+    1:1   error  Do not use "@ts-nocheck" because it alters compilation errors  @typescript-eslint/ban-ts-comment
+   59:19  error  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+  100:20  error  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+  110:36  error  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+  121:47  error  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+  132:43  error  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+  133:43  error  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+  134:43  error  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+  135:43  error  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+  136:43  error  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+  141:13  error  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+  165:51  error  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+  174:50  error  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+  175:50  error  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+  176:50  error  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+  177:52  error  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\supabase\functions\kanji-related\index.ts
+   1:1   error  Do not use "@ts-nocheck" because it alters compilation errors  @typescript-eslint/ban-ts-comment
+  70:42  error  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+  78:26  error  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+  88:28  error  Unexpected any. Specify a different type                       @typescript-eslint/no-explicit-any
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\supabase\functions\kanji-search\index.ts
+  1:1  error  Do not use "@ts-nocheck" because it alters compilation errors  @typescript-eslint/ban-ts-comment
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\supabase\functions\lookup-word\index.ts
+  1:1  error  Do not use "@ts-nocheck" because it alters compilation errors  @typescript-eslint/ban-ts-comment
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\supabase\functions\process-video\index.ts
+    1:1  error  Do not use "@ts-nocheck" because it alters compilation errors                                                        @typescript-eslint/ban-ts-comment
+  319:5  error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\tailwind.config.ts
+  142:13  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\vocabulary_old.tsx
+  1:0  error  Parsing error: File appears to be binary
+
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\vocabulary_old_utf8.tsx
+  877:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+Γ£û 84 problems (81 errors, 3 warnings)
+

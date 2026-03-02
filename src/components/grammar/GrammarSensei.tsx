@@ -45,12 +45,12 @@ export const GrammarSensei = ({ currentPoint }: GrammarSenseiProps) => {
     onResult: (transcript) => setInput(transcript)
   });
 
-  const generateWelcomeMessage = () => {
+  const generateWelcomeMessage = React.useCallback(() => {
     if (currentPoint) {
       return `Chào bạn! Chúng ta đang xem cấu trúc **${currentPoint.title}** (${currentPoint.level}). Bạn có thắc mắc gì về cách sử dụng, hay muốn lấy thêm ví dụ không?`;
     }
     return `Chào bạn! Sensei có thể giúp gì cho bạn trong việc học ngữ pháp hôm nay? Bạn có thể hỏi bất kỳ cấu trúc nào!`;
-  };
+  }, [currentPoint]);
 
   const [messages, setMessages] = useState<Message[]>([
     { role: 'assistant', content: generateWelcomeMessage() }
@@ -63,7 +63,7 @@ export const GrammarSensei = ({ currentPoint }: GrammarSenseiProps) => {
     if (messages.length <= 2 && currentPoint) {
        setMessages([{ role: 'assistant', content: generateWelcomeMessage() }]);
     }
-  }, [currentPoint]);
+  }, [currentPoint, generateWelcomeMessage, messages.length]);
 
   useEffect(() => {
     if (scrollRef.current) {

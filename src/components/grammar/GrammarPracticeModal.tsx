@@ -57,7 +57,7 @@ export const GrammarPracticeModal: React.FC<GrammarPracticeModalProps> = ({
   const { toast } = useToast();
   const { updateMastery } = useGrammarMastery();
 
-  const fetchQuestions = async () => {
+  const fetchQuestions = React.useCallback(async () => {
     setIsLoading(true);
     setQuestions([]);
     setCurrentIndex(0);
@@ -86,13 +86,13 @@ export const GrammarPracticeModal: React.FC<GrammarPracticeModalProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [grammarPoint, toast, onClose]);
 
   useEffect(() => {
     if (isOpen) {
       fetchQuestions();
     }
-  }, [isOpen]);
+  }, [isOpen, fetchQuestions]);
 
   const handleAnswer = (index: number) => {
     if (hasAnswered) return;

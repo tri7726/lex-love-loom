@@ -74,7 +74,7 @@ export const KanjiReview: React.FC<KanjiReviewProps> = ({ onBack }) => {
           if (response.ok) {
             const localData = await response.json();
             console.log(`Loaded ${localData.length} kanji from local storage.`);
-            finalData = localData.map((k: any, index: number) => {
+            finalData = localData.map((k: { c: string; j?: number; g?: number; m?: string; h?: string; o?: string | string[]; k?: string | string[] }, index: number) => {
               // Map JLPT level
               let level = 'N5';
               if (k.j) level = `N${k.j}`;
@@ -102,14 +102,14 @@ export const KanjiReview: React.FC<KanjiReviewProps> = ({ onBack }) => {
 
         // 2. Fallback to Supabase if local data is empty
         if (finalData.length === 0) {
-          const { data, error } = await (supabase as any)
+          const { data, error } = await supabase
             .from('kanji_details')
             .select('character, meaning, on_reading, kun_reading, grade, jlpt')
             .order('grade', { ascending: true })
             .limit(1000);
 
           if (!error && data && data.length > 0) {
-            finalData = data.map((k: any, index: number) => {
+            finalData = data.map((k: { character: string; meaning: string; on_reading: string; kun_reading: string; grade: number; jlpt: number }, index: number) => {
               let level = 'N5';
               if (k.jlpt) level = `N${k.jlpt}`;
               else if (k.grade === 1 || k.grade === 2) level = 'N5';
@@ -414,7 +414,7 @@ export const KanjiReview: React.FC<KanjiReviewProps> = ({ onBack }) => {
                                     </div>
                                     <h4 className="text-xl font-bold text-sumi">
                                       {level === 'SPECIAL' 
-                                        ? (CUSTOM_COLLECTIONS[unitNum - 1]?.name?.replace(/[🌟🌸]/g, '') || 'Bộ sưu tập chọn lọc') 
+                                        ? (CUSTOM_COLLECTIONS[unitNum - 1]?.name?.replace(/[🌟🌸]/gu, '') || 'Bộ sưu tập chọn lọc') 
                                         : `Chinh phục Kanji Hàng đầu - Unit ${unitId}`}
                                     </h4>
                                   </div>

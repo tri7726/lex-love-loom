@@ -48,7 +48,7 @@ export const FlashcardReview = () => {
 
   const fetchFolders = useCallback(async () => {
     try {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('vocabulary_folders')
         .select('id, name, icon, color')
         .eq('user_id', user!.id)
@@ -75,7 +75,7 @@ export const FlashcardReview = () => {
     setLoading(true);
     try {
       // Fetch flashcards in this folder
-      const { data: folderItems, error: itemsError } = await (supabase as any)
+      const { data: folderItems, error: itemsError } = await supabase
         .from('vocabulary_folder_items')
         .select('flashcard_id')
         .eq('folder_id', folderId);

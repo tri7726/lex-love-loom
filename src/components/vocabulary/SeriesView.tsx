@@ -11,8 +11,8 @@ import { textbookSeries } from './data';
 
 interface SeriesViewProps {
   customFolders: CustomFolder[];
-  savedHistory: unknown[];
-  user: { id: string; email?: string } | null | unknown;
+  savedHistory: VocabWord[];
+  user: { id: string; email?: string } | null;
   setShowKanji: (show: boolean) => void;
   navigateToLessons: (series: TextbookSeries, level: JLPTLevel) => void;
   navigateToCustomFolder: (folder: CustomFolder) => void;
@@ -210,7 +210,7 @@ export const SeriesView: React.FC<SeriesViewProps> = ({
                     id: 'supabase-saved',
                     name: 'Mục đã lưu từ hệ thống',
                     emoji: '⭐',
-                    words: savedHistory.map((w: any) => ({
+                    words: savedHistory.map((w) => ({
                       id: w.id,
                       word: w.word,
                       reading: w.reading,

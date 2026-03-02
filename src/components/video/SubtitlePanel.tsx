@@ -16,10 +16,16 @@ interface Segment {
   vocabulary: Array<{ word: string; reading: string; meaning: string }>;
 }
 
-const renderTextWithFurigana = (text: string, vocabulary: { word: string; reading: string; meaning: string }[] | unknown[], show: boolean) => {
+interface VocabularyItem {
+  word: string;
+  reading: string;
+  meaning: string;
+}
+
+const renderTextWithFurigana = (text: string, vocabulary: VocabularyItem[] | unknown[], show: boolean) => {
   if (!show || !vocabulary || vocabulary.length === 0) return text;
   
-  const vocab = [...(vocabulary as any[])].sort((a, b) => (b.word?.length || 0) - (a.word?.length || 0));
+  const vocab = [...(vocabulary as VocabularyItem[])].sort((a, b) => (b.word?.length || 0) - (a.word?.length || 0));
   let parts: Array<{ text: string, furigana?: string }> = [{ text }];
   
   vocab.forEach(v => {

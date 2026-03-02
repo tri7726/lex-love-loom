@@ -46,11 +46,13 @@ export const KanjiStrokeOrder = forwardRef<HTMLDivElement, KanjiStrokeOrderProps
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
 
   // Extract individual kanji characters from the word
-  const kanjiCharacters = kanji.split('').filter(char => {
-    const code = char.charCodeAt(0);
-    // CJK Unified Ideographs range
-    return code >= 0x4E00 && code <= 0x9FFF;
-  });
+  const kanjiCharacters = React.useMemo(() => {
+    return kanji.split('').filter(char => {
+      const code = char.charCodeAt(0);
+      // CJK Unified Ideographs range
+      return code >= 0x4E00 && code <= 0x9FFF;
+    });
+  }, [kanji]);
 
   useEffect(() => {
     const fetchAllKanjiInfo = async () => {
@@ -110,7 +112,7 @@ export const KanjiStrokeOrder = forwardRef<HTMLDivElement, KanjiStrokeOrderProps
     };
 
     fetchAllKanjiInfo();
-  }, [kanji]); // Refetch if word changes
+  }, [kanjiCharacters]); // Refetch if kanji characters change
 
   const handleSave = () => {
     if (onSaveToVocabulary && reading && meaning) {

@@ -130,7 +130,10 @@ interface SpeechRecognitionConstructor {
   new (): SpeechRecognition;
 }
 
-const SpeechRecognition = ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) as SpeechRecognitionConstructor | undefined;
+const SpeechRecognition = (
+  (window as unknown as Window & { SpeechRecognition?: SpeechRecognitionConstructor }).SpeechRecognition || 
+  (window as unknown as Window & { webkitSpeechRecognition?: SpeechRecognitionConstructor }).webkitSpeechRecognition
+) as SpeechRecognitionConstructor | undefined;
 
 export const SpeakingPractice = () => {
   // State
@@ -252,16 +255,16 @@ export const SpeakingPractice = () => {
       recognition.continuous = true;
       recognition.interimResults = true;
       
-      recognition.onresult = (event: unknown) => {
-        const results = (event as { results: SpeechRecognitionResultList }).results;
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
+        const results = event.results;
         const fullTranscript = Array.from(results)
           .map((result) => result[0].transcript)
           .join('');
         setRecognizedText(fullTranscript);
       };
       
-      recognition.onerror = (event: unknown) => {
-        const error = (event as { error: string }).error;
+      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+        const error = event.error;
         console.error('Speech recognition error:', error);
         switch (error) {
           case 'no-speech':

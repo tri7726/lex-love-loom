@@ -3,6 +3,21 @@ import fs from 'fs';
 import { parseStringPromise } from 'xml2js';
 import * as dotenv from 'dotenv';
 
+interface Kanjidic2Character {
+  literal: string[];
+  misc: [{
+    stroke_count?: string[];
+    grade?: string[];
+    jlpt?: string[];
+  }];
+  reading_meaning?: [{
+    rmgroup: [{
+      meaning?: (string | { _: string; $: { m_lang?: string } })[];
+      reading?: { _: string; $: { r_type: string } }[];
+    }];
+  }];
+}
+
 // Load env variables
 // Load env variables - try root first, then parent if not found
 dotenv.config(); // Default .env in CWD
@@ -43,7 +58,7 @@ async function main() {
   let batch = [];
   let count = 0;
 
-  for (const char of characters) {
+  for (const char of characters as Kanjidic2Character[]) {
     const literal = char.literal?.[0];
     const strokeCount = parseInt(char.misc?.[0].stroke_count?.[0] || '0', 10);
     const grade = parseInt(char.misc?.[0].grade?.[0] || '0', 10);
@@ -51,12 +66,12 @@ async function main() {
     
     // Meanings
     const meaningsNode = char.reading_meaning?.[0]?.rmgroup?.[0]?.meaning || [];
-    const englishMeanings = meaningsNode.filter((m: any) => typeof m === 'string').join(', ');
+    const englishMeanings = meaningsNode.filter((m) => typeof m === 'string').join(', ');
     
     // Readings
     const readingsNode = char.reading_meaning?.[0]?.rmgroup?.[0]?.reading || [];
-    const onReadings = readingsNode.filter((r: any) => r.$['r_type'] === 'ja_on').map((r: any) => r._).join(', ');
-    const kunReadings = readingsNode.filter((r: any) => r.$['r_type'] === 'ja_kun').map((r: any) => r._).join(', ');
+    const onReadings = readingsNode.filter((r) => r.$['r_type'] === 'ja_on').map((r) => r._).join(', ');
+    const kunReadings = readingsNode.filter((r) => r.$['r_type'] === 'ja_kun').map((r) => r._).join(', ');
 
     batch.push({
       character: literal,

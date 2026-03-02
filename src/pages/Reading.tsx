@@ -55,6 +55,8 @@ interface WordData {
   notes?: string;
   source?: string;
   cached?: boolean;
+  translation?: string;
+  vietnamese?: string;
 }
 
 type DisplayMode = 'kanji' | 'furigana' | 'kana';
@@ -285,7 +287,7 @@ export const Reading = () => {
       if (!res.ok) throw new Error('Translation API failed');
       const data = await res.json();
       
-      const translation = data[0].map((item: any) => item[0]).join('');
+      const translation = data[0].map((item: string[]) => item[0]).join('');
       setTranslatedText(translation);
     } catch (err) {
       console.error(err);
@@ -425,14 +427,14 @@ export const Reading = () => {
       }
       
       // Step 4: Fallback if API fails or returns no meaning
-      if (!finalData || (!finalData.meaning && !(finalData as any).translation && !(finalData as any).vietnamese)) {
+      if (!finalData || (!finalData.meaning && !finalData.translation && !finalData.vietnamese)) {
         console.log('Using Translate API Fallback for word:', word);
         const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=vi&dt=t&q=${encodeURIComponent(word)}`;
         const res = await fetch(url);
         
         if (res.ok) {
           const tData = await res.json();
-          const translation = tData[0].map((item: any) => item[0]).join('');
+          const translation = tData[0].map((item: string[]) => item[0]).join('');
           
           finalData = {
             ...finalData,

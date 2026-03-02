@@ -176,6 +176,22 @@ const minaAccents: Record<string, { ring: string; badge: string; text: string }>
   N4: { ring: 'ring-blue-300/40', badge: 'bg-blue-100 text-blue-700', text: 'text-blue-600' },
 };
 
+interface WordAnalysis {
+  word: string;
+  status: 'correct' | 'incorrect' | 'missing' | 'extra';
+  expected?: string;
+}
+
+interface ScoreResult {
+  accuracy: number;
+  duration: number;
+  rhythm: number;
+  fluency: number;
+  overall: number;
+  feedback: string;
+  details: WordAnalysis[];
+}
+
 const getLevelGradient = (seriesId: string, level: string) =>
   seriesId === 'mina'
     ? (minaGradients[level] ?? 'from-sky-400 to-blue-500')
@@ -427,7 +443,7 @@ export const Vocabulary = () => {
       const data = await file.arrayBuffer();
       const wb = XLSX.read(data);
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json<Record<string, string>>(ws);
+      const rows = XLSX.utils.sheet_to_json<Record<string, string | number | null>>(ws);
       const words: VocabWord[] = [];
       const errors: string[] = [];
       rows.forEach((row, idx) => {
@@ -663,7 +679,7 @@ export const Vocabulary = () => {
                     id: 'supabase-saved',
                     name: 'Mß╗Ñc ─æ├ú l╞░u tß╗½ hß╗ç thß╗æng',
                     emoji: 'Γ¡É',
-                    words: savedHistory.map(w => ({
+                    words: (savedHistory as Array<{ id: string; word: string; reading: string; meaning: string; mastery_level: number | null }>).map(w => ({
                       id: w.id,
                       word: w.word,
                       reading: w.reading,
@@ -727,7 +743,7 @@ export const Vocabulary = () => {
                   {folder.id !== 'sample-folder' && folder.id !== 'supabase-saved' && (
                     <button
                       className="absolute top-3 right-3 w-6 h-6 rounded-full bg-red-100 text-red-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-200 hover:text-red-600 z-20"
-                      onClick={(e) => { e.stopPropagation(); deleteFolder(folder.id); }}
+                      onClick={(e: React.MouseEvent<HTMLButtonElement>) => { e.stopPropagation(); deleteFolder(folder.id); }}
                     >
                       <Trash2 className="h-3 w-3" />
                     </button>
@@ -874,8 +890,10 @@ export const Vocabulary = () => {
                     max={selectedLevel.level === 'N4' ? 50 : 25}
                     min={selectedLevel.level === 'N4' ? 26 : 1}
                     step={1}
-                    value={lessonRange as any}
-                    onValueChange={(v) => setLessonRange(v as [number, number])}
+                    value={lessonRange}
+                    onValueChange={(v: number[]) => {
+                      setLessonRange(v as [number, number]);
+                    }}
                   />
                   <Button 
                     size="sm" 
@@ -1267,13 +1285,12 @@ export const Vocabulary = () => {
                     <div className="flex items-center gap-1 shrink-0">
                       <Button
                         variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => { e.stopPropagation(); speak(word.word); }}
-                      >
+                        >
                         <Volume2 className="h-3.5 w-3.5" />
                       </Button>
                       <Button
                         variant="ghost" size="icon" className="h-8 w-8"
-                        onClick={(e) => { e.stopPropagation(); toggleSaved(word.id); }}
+                        onClick={(e: React.MouseEvent) => { e.stopPropagation(); toggleSaved(word.id); }}
                       >
                         <Star className={cn('h-4 w-4 transition-colors', savedWords.has(word.id) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground')} />
                       </Button>

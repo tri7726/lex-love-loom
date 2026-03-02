@@ -5,11 +5,17 @@ import { Progress } from "@/components/ui/progress";
 import { Upload, CheckCircle, AlertCircle, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
+interface Kanjidic2Result {
+  total_parsed: number;
+  total_inserted: number;
+  errors?: string[];
+}
+
 export function AdminImport() {
   const [file, setFile] = useState<File | null>(null);
   const [status, setStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
   const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<Kanjidic2Result | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -61,8 +67,9 @@ export function AdminImport() {
       setResult(data);
       setStatus("success");
       setProgress(100);
-    } catch (err: any) {
-      setErrorMsg(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "An unknown error occurred";
+      setErrorMsg(message);
       setStatus("error");
     }
   };

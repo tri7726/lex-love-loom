@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
 
@@ -5,6 +6,12 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+interface GenerateReadingRequest {
+  level?: string;
+  topic?: string;
+  content?: string;
+}
 
 const SYSTEM_PROMPT = `You are an expert Japanese content creator. 
 If 'content' is provided, analyze it and return furigana and vocabulary.
@@ -35,16 +42,32 @@ Return the result in the following JSON format:
 For vocabulary and grammar, prioritize Vietnamese for meanings and explanations.
 Levels: N5, N4, N3, N2, N1. Use appropriate vocabulary and kanji for the level.`;
 
+interface ReadingResponse {
+  title: string;
+  content_with_furigana: string;
+  vocabulary_list: Array<{
+    word: string;
+    reading: string;
+    meaning: string;
+  }>;
+  questions: Array<{
+    question: string;
+    options: string[];
+    answer: string;
+    explanation: string;
+  }>;
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { level = "N5", topic, content } = await req.json();
+    const { level = "N5", topic, content }: GenerateReadingRequest = await req.json();
 
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
 
-    let resultData = null;
+    let resultData: ReadingResponse | null = null;
     let engineUsed = "none";
 
     const userPrompt = content 
@@ -52,7 +75,7 @@ serve(async (req: Request) => {
       : `Generate a new ${level} reading about "${topic || 'daily life'}"`;
 
     // Helper to extract JSON from AI text (handles markdown blocks)
-    function extractJSON(text: string) {
+    function extractJSON(text: string): ReadingResponse {
       try {
         // Try direct parse first
         return JSON.parse(text.trim());
@@ -72,7 +95,7 @@ serve(async (req: Request) => {
     }
 
     // Helper for Groq
-    async function tryGroq(level: string, prompt: string) {
+    async function tryGroq(level: string, prompt: string): Promise<ReadingResponse | null> {
       if (!GROQ_API_KEY) {
         console.warn("GROQ_API_KEY is not set in secrets!");
         return null;
@@ -101,7 +124,7 @@ serve(async (req: Request) => {
     }
 
     // Helper for Gemini
-    async function tryGemini(level: string, prompt: string) {
+    async function tryGemini(level: string, prompt: string): Promise<ReadingResponse | null> {
       if (!GEMINI_API_KEY) {
         console.warn("GEMINI_API_KEY is not set in secrets!");
         return null;
@@ -142,7 +165,7 @@ serve(async (req: Request) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Generation error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(JSON.stringify({ error: errorMessage }), {

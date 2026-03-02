@@ -2,6 +2,22 @@ import { createClient } from '@supabase/supabase-js';
 import fs from 'fs';
 import * as dotenv from 'dotenv';
 
+interface JmdictGloss {
+  text: string;
+}
+
+interface JmdictSense {
+  gloss?: JmdictGloss[];
+  partOfSpeech?: string[];
+}
+
+interface JmdictWord {
+  id: string;
+  kanji?: { text: string; common?: boolean }[];
+  kana?: { text: string; common?: boolean }[];
+  sense?: JmdictSense[];
+}
+
 // Load env variables
 dotenv.config({ path: '../.env' });
 
@@ -34,14 +50,14 @@ async function main() {
   let batch = [];
   let count = 0;
 
-  for (const word of words) {
+  for (const word of words as JmdictWord[]) {
     // Basic extraction
     const kanji = word.kanji?.[0]?.text || '';
     const kana = word.kana?.[0]?.text || '';
     
     if (!kanji && !kana) continue;
 
-    const meanings = word.sense?.[0]?.gloss?.map((g: any) => g.text).join('; ') || '';
+    const meanings = word.sense?.[0]?.gloss?.map((g) => g.text).join('; ') || '';
     const partOfSpeech = word.sense?.[0]?.partOfSpeech?.join(',') || '';
 
     // A simplified schema for 'jmdict_entries' table

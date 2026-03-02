@@ -2,6 +2,20 @@ import fs from 'fs';
 import { parseStringPromise } from 'xml2js';
 import path from 'path';
 
+interface Kanjidic2Character {
+  literal: string[];
+  misc: [{
+    grade?: string[];
+    jlpt?: string[];
+  }];
+  reading_meaning?: [{
+    rmgroup: [{
+      meaning?: (string | { _: string; $: { m_lang?: string } })[];
+      reading?: { _: string; $: { r_type: string } }[];
+    }];
+  }];
+}
+
 async function generateLocalKanji() {
   console.log("Reading Kanjidic2 XML file...");
   const xmlPath = path.resolve(process.cwd(), 'kanjidic2.xml');
@@ -60,7 +74,7 @@ async function generateLocalKanji() {
   
   console.log(`Found ${characters.length} characters. Processing...`);
 
-  const kanjiData = characters.map((char: any) => {
+  const kanjiData = characters.map((char: Kanjidic2Character) => {
     const literal = char.literal?.[0];
     const grade = parseInt(char.misc?.[0].grade?.[0] || '0', 10);
     const jlpt = parseInt(char.misc?.[0].jlpt?.[0] || '0', 10);
@@ -68,15 +82,15 @@ async function generateLocalKanji() {
     // Default to English meanings from XML
     const meaningsNode = char.reading_meaning?.[0]?.rmgroup?.[0]?.meaning || [];
     const englishMeanings = meaningsNode
-      .filter((m: any) => typeof m === 'string')
+      .filter((m) => typeof m === 'string')
       .slice(0, 3)
       .join(', ');
     
     // Extract Han-Viet from XML first (fallback)
     const readingsNode = char.reading_meaning?.[0]?.rmgroup?.[0]?.reading || [];
     let hanviet = readingsNode
-      .filter((r: any) => r.$['r_type'] === 'vietnam')
-      .map((r: any) => r._)
+      .filter((r) => r.$['r_type'] === 'vietnam')
+      .map((r) => r._)
       .slice(0, 1)
       .join('')
       .toUpperCase();
@@ -90,12 +104,12 @@ async function generateLocalKanji() {
 
     // Readings (On/Kun)
     const onReadings = readingsNode
-      .filter((r: any) => r.$['r_type'] === 'ja_on')
-      .map((r: any) => r._)
+      .filter((r) => r.$['r_type'] === 'ja_on')
+      .map((r) => r._)
       .slice(0, 3);
     const kunReadings = readingsNode
-      .filter((r: any) => r.$['r_type'] === 'ja_kun')
-      .map((r: any) => r._)
+      .filter((r) => r.$['r_type'] === 'ja_kun')
+      .map((r) => r._)
       .slice(0, 3);
 
     return {
