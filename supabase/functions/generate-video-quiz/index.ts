@@ -99,15 +99,19 @@ serve(async (req: Request) => {
 
   try {
     const { video_id, title, full_text } = await req.json();
-    const apiKey = Deno.env.get("GROQ_API_KEY_3");
-    if (!apiKey) throw new Error("GROQ_API_KEY_3 is not configured.");
+    const apiKeys = [
+      Deno.env.get("GROQ_API_KEY_3"),
+      Deno.env.get("GROQ_API_KEY_2"),
+      Deno.env.get("GROQ_API_KEY_1")
+    ].filter(Boolean);
 
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    if (apiKeys.length === 0) throw new Error("No Groq API keys are configured.");
 
-    console.log(`Generating video quiz using dedicated GROQ_API_KEY_3...`);
+    console.log(`Generating video quiz using key rotation (${apiKeys.length} keys total)...`);
 
     let resultData = null;
-    try {
+    for (const apiKey of apiKeys) {
+      try {
         const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
             headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -124,14 +128,17 @@ serve(async (req: Request) => {
         if (response.ok) {
             const data = await response.json();
             resultData = JSON.parse(data.choices[0]?.message?.content || "{}");
+            break; // Key worked, exit loop
         } else {
             const errorText = await response.text();
-            throw new Error(`Groq API error: ${response.status} ${errorText}`);
+            console.warn(`Groq API error on Key: ${response.status} ${errorText}. Trying next key...`);
         }
-    } catch (e) {
-        console.error("Groq Key 3 error in generate-video-quiz:", e);
-        throw e;
+      } catch (e) {
+          console.error("Groq Key error in generate-video-quiz:", e);
+      }
     }
+
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     // Helper to extract JSON from AI text
     function extractJSON(text: string) {
