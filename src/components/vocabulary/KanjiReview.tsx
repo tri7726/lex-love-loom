@@ -26,6 +26,7 @@ import { KanjiCell, KanjiStatus } from './KanjiCell';
 import { KanjiDetailCard } from './KanjiDetailCard';
 import { KanjiStudyOverlay } from './KanjiStudyOverlay';
 import { supabase } from '@/integrations/supabase/client';
+import { CUSTOM_COLLECTIONS } from '@/data/custom-collections';
 
 export interface KanjiPoint {
   id: string; // The literal kanji character as id for now or actual DB id
@@ -99,6 +100,31 @@ export const KanjiReview: React.FC<KanjiReviewProps> = ({ onBack }) => {
           console.warn('No kanji data found in kanji_details table');
           setAllKanji([]);
         }
+
+        // After fetching DB kanji, we merge in the custom collections
+        setAllKanji(prev => {
+          const newKanjiList = [...prev];
+          
+          CUSTOM_COLLECTIONS.forEach((collection, collIdx) => {
+            collection.kanjis.forEach(char => {
+              // Check if we already have this kanji info from DB
+              const existing = prev.find(k => k.character === char);
+              
+              newKanjiList.push({
+                id: `custom-${collection.id}-${char}`,
+                lesson: collIdx + 1,
+                level: 'SPECIAL',
+                character: char,
+                meaning_vi: existing?.meaning_vi || 'Dữ liệu đang nạp...',
+                hanviet: existing?.hanviet || '',
+                on_reading: existing?.on_reading || '',
+                kun_reading: existing?.kun_reading || '',
+              });
+            });
+          });
+          
+          return newKanjiList;
+        });
       } catch (err) {
         console.error('Error fetching Kanji for review:', err);
       } finally {
@@ -241,7 +267,7 @@ export const KanjiReview: React.FC<KanjiReviewProps> = ({ onBack }) => {
               </div>
             ) : (
                 <div className="space-y-6">
-                {['N5', 'N4', 'N3', 'N2', 'N1'].filter(lvl => levels[lvl]).map((level) => (
+                {['SPECIAL', 'N5', 'N4', 'N3', 'N2', 'N1'].filter(lvl => levels[lvl]).map((level) => (
                     <div key={level} className="space-y-4">
                   {/* Level Header */}
                   <button 
@@ -261,9 +287,12 @@ export const KanjiReview: React.FC<KanjiReviewProps> = ({ onBack }) => {
                          {level}
                        </div>
                         <div className="text-left">
-                          <h3 className="text-xl font-black">{level === 'N5' || level === 'N4' ? 'Sơ cấp' : level === 'N3' ? 'Trung cấp' : 'Thượng cấp'} {level}</h3>
+                          <h3 className="text-xl font-black">
+                            {level === 'SPECIAL' ? 'Bộ sưu tập của bạn' : 
+                             (level === 'N5' || level === 'N4' ? 'Sơ cấp' : level === 'N3' ? 'Trung cấp' : 'Thượng cấp')} {level === 'SPECIAL' ? '✨' : level}
+                          </h3>
                           <p className={cn('text-xs font-medium', expandedLevels.includes(level) ? 'text-white/80' : 'text-muted-foreground')}>
-                            {Object.keys(levels[level]).length} Bài học • {allKanji.filter(k => k.level === level).length} Chữ
+                            {Object.keys(levels[level]).length} Bộ • {allKanji.filter(k => k.level === level).length} Chữ
                           </p>
                         </div>
                     </div>
@@ -288,10 +317,14 @@ export const KanjiReview: React.FC<KanjiReviewProps> = ({ onBack }) => {
                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
                                   <div className="space-y-2">
                                     <div className="flex items-center gap-2">
-                                      <Badge variant="outline" className="rounded-full border-sakura/30 text-sakura bg-sakura/5 px-3">Bài {lesson}</Badge>
+                                      <Badge variant="outline" className="rounded-full border-sakura/30 text-sakura bg-sakura/5 px-3">
+                                        {level === 'SPECIAL' ? CUSTOM_COLLECTIONS[Number(lesson) - 1]?.name || `Bộ ${lesson}` : `Bài ${lesson}`}
+                                      </Badge>
                                       {unitProgress === 100 && <Badge className="bg-matcha text-white border-0">Hoàn thành ✨</Badge>}
                                     </div>
-                                    <h4 className="text-lg font-bold text-sumi">Khám phá Kanji nền tảng</h4>
+                                    <h4 className="text-lg font-bold text-sumi">
+                                      {level === 'SPECIAL' ? 'Khám phá bộ chữ chọn lọc' : 'Khám phá Kanji nền tảng'}
+                                    </h4>
                                   </div>
 
                                   <div className="flex items-center gap-4">
