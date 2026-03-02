@@ -40,17 +40,23 @@ serve(async (req: Request) => {
   try {
     const { word, context }: LookupRequest = await req.json();
 
-    const apiKey = Deno.env.get("GROQ_API_KEY_1");
+    const apiKeys = [
+      Deno.env.get("GROQ_API_KEY_1"),
+      Deno.env.get("GROQ_API_KEY_2"),
+      Deno.env.get("GROQ_API_KEY_3")
+    ].filter(Boolean);
 
-    if (!apiKey) {
-      throw new Error("GROQ_API_KEY_1 is not configured.");
+    if (apiKeys.length === 0) {
+      throw new Error("No Groq API keys are configured.");
     }
 
-    console.log(`Lookup request for "${word}" using dedicated GROQ_API_KEY_1...`);
+    console.log(`Lookup request for "${word}" using key rotation (${apiKeys.length} keys total)...`);
 
     let resultData = null;
     let engineUsed = "groq";
-    try {
+    
+    for (const apiKey of apiKeys) {
+      try {
         const userPrompt = context 
           ? `Look up word: "${word}" in context: "${context}"`
           : `Look up word: "${word}"`;
@@ -68,13 +74,14 @@ serve(async (req: Request) => {
         if (response.ok) {
             const data = await response.json();
             resultData = JSON.parse(data.choices[0]?.message?.content || "{}");
+            break; // Key worked, exit loop
         } else {
             const errorText = await response.text();
-            throw new Error(`Groq API error: ${response.status} ${errorText}`);
+            console.warn(`Groq API error on Key: ${response.status} ${errorText}. Trying next key...`);
         }
-    } catch (e) {
-        console.error("Groq Key 1 error in lookup-word:", e);
-        throw e;
+      } catch (e) {
+          console.error("Groq Key error in lookup-word:", e);
+      }
     }
 
     if (!resultData) throw new Error("AI lookup failed on all keys");
