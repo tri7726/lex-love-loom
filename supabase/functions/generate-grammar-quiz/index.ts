@@ -38,19 +38,17 @@ serve(async (req: Request) => {
 
   try {
     const { grammar_point, level, explanation } = await req.json();
-    const apiKeys = [
-      Deno.env.get("GROQ_API_KEY_3"),
-      Deno.env.get("GROQ_API_KEY_2"),
-      Deno.env.get("GROQ_API_KEY_1")
-    ].filter(Boolean);
+    const apiKey = Deno.env.get("GROQ_API_KEY_3");
+    if (!apiKey) throw new Error("GROQ_API_KEY_3 is not configured.");
 
-    if (apiKeys.length === 0) throw new Error("No Groq API keys are configured.");
+    console.log(`Generating grammar quiz using dedicated GROQ_API_KEY_3...`);
 
-    console.log(`Generating grammar quiz using key rotation (${apiKeys.length} keys total)...`);
+    const userPrompt = `Hãy tạo 3 câu hỏi luyện tập cho cấu trúc ngữ pháp sau:
+Cấu trúc: ${grammar_point}
+Trình độ: ${level}
+Giải nghĩa: ${explanation}`;
 
-    let resultData = null;
-    for (const apiKey of apiKeys) {
-      try {
+    try {
         const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
             headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -64,14 +62,13 @@ serve(async (req: Request) => {
         if (response.ok) {
             const data = await response.json();
             resultData = JSON.parse(data.choices[0]?.message?.content || "{}");
-            break; // Key worked, exit loop
         } else {
             const errorText = await response.text();
-            console.warn(`Groq API error on Key: ${response.status} ${errorText}. Trying next key...`);
+            throw new Error(`Groq API error: ${response.status} ${errorText}`);
         }
-      } catch (e) {
-          console.error("Groq Key error in generate-grammar-quiz:", e);
-      }
+    } catch (e) {
+        console.error("Groq Key 3 error in generate-grammar-quiz:", e);
+        throw e;
     }
 
     if (!resultData) throw new Error("AI quiz generation failed on all keys");

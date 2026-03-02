@@ -42,7 +42,6 @@ export function CreatePassageDialog({ onCreated }: CreatePassageDialogProps) {
       let content_with_furigana = form.content.replace(/\n/g, '<br />');
       let vocabulary_list: Array<{ word: string; reading: string; meaning: string }> = [];
 
-      let aiSuccess = false;
       try {
         const { data, error } = await supabase.functions.invoke('generate-reading', {
           body: { content: form.content, level: form.level }
@@ -50,31 +49,20 @@ export function CreatePassageDialog({ onCreated }: CreatePassageDialogProps) {
 
         if (error) {
            console.error('AI Function Error:', error);
-           toast.error('AI không thể kết nối. Vui lòng thử lại sau.');
+           toast.error('AI không thể phân tích bài đọc. Vui lòng đảm bảo đã deploy function và set API Key.');
         } else if (data?.error) {
            console.error('AI Logic Error:', data.error);
            toast.error(`Lỗi AI: ${data.error}`);
         } else if (data) {
            content_with_furigana = data.content_with_furigana || content_with_furigana;
            vocabulary_list = data.vocabulary_list || [];
-           if (vocabulary_list.length > 0) {
-             aiSuccess = true;
-           }
            if (data.engine) {
              console.log(`AI Engine used: ${data.engine}`);
            }
         }
       } catch (aiError) {
         console.warn('AI analysis failed:', aiError);
-        toast.error('Lỗi kết nối API. Vui lòng kiểm tra lại mạng.');
-      }
-
-      if (!aiSuccess) {
-        const proceed = confirm("AI không thể phân tích bài đọc này (thiếu furigana/từ vựng). Bạn vẫn muốn lưu bài đọc này chứ?");
-        if (!proceed) {
-          setLoading(false);
-          return;
-        }
+        toast.error('Lỗi kết nối API. Vui lòng kiểm tra lại mạng hoặc Supabase.');
       }
 
       // Insert into database
