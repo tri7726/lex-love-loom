@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -98,77 +99,70 @@ serve(async (req: Request) => {
 
   try {
     const { video_id, title, full_text } = await req.json();
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    const keys = [
+      Deno.env.get("GROQ_API_KEY_1"),
+      Deno.env.get("GROQ_API_KEY_2"),
+      Deno.env.get("GROQ_API_KEY_3")
+    ].filter(Boolean);
     
-    if (!GEMINI_API_KEY) {
-      console.error("GEMINI_API_KEY is not configured");
-      throw new Error("Lỗi cấu hình: GEMINI_API_KEY chưa được thiết lập trên Supabase.");
-    }
+    if (keys.length === 0) throw new Error("Groq API keys are not configured");
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    console.log(`Generating JLPT-style quiz for video: ${video_id}`);
+    console.log(`Generating JLPT-style quiz for video: ${video_id} using Groq`);
 
-    const body = {
-      contents: [{
-        role: "user",
-        parts: [{
-          text: `${SYSTEM_PROMPT}\n\nVideo: ${title}\n\nNội dung video:\n${full_text.substring(0, 15000)}\n\nLƯU Ý QUAN TRỌNG: Bạn PHẢI trả về JSON hợp lệ đúng định dạng yêu cầu.`
-        }]
-      }],
-      generationConfig: { 
-        response_mime_type: "application/json",
-        temperature: 0.7,
-        topP: 0.95
+    let resultData = null;
+    for (let i = 0; i < keys.length; i++) {
+        const apiKey = keys[i];
+        try {
+            const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                method: "POST",
+                headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    model: "llama-3.3-70b-versatile",
+                    messages: [
+                        { role: "system", content: SYSTEM_PROMPT },
+                        { role: "user", content: `Video: ${title}\n\nNội dung video:\n${full_text.substring(0, 15000)}` }
+                    ],
+                    response_format: { type: "json_object" },
+                    temperature: 0.7
+                }),
+            });
+            if (response.ok) {
+                const data = await response.json();
+                resultData = JSON.parse(data.choices[0]?.message?.content || "{}");
+                break;
+            }
+            if (response.status === 429) continue;
+        } catch (e) {
+            console.error(`Groq Key ${i + 1} error in generate-video-quiz:`, e);
+        }
+    }
+
+    // Helper to extract JSON from AI text
+    function extractJSON(text: string) {
+      try {
+        return JSON.parse(text.trim());
+      } catch (_e) {
+        const match = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
+        if (match) {
+          try {
+            return JSON.parse(match[1] || match[0]);
+          } catch (_e2) {
+            throw new Error("AI returned invalid JSON structure");
+          }
+        }
+        throw new Error("Could not find JSON in AI response");
       }
-    };
-
-    let response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      console.warn("Gemini 2.0-flash failed, trying 1.5-flash...");
-      response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
     }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Gemini API error: ${response.status} ${errorText}`);
-    }
-
-    const data = await response.json();
-    console.log("Gemini API response received");
+    if (!resultData) throw new Error("AI quiz generation failed on all keys");
     
-    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!resultText) {
-      console.error("No content returned from AI:", JSON.stringify(data));
-      throw new Error("AI không trả về nội dung");
-    }
-
-    let cleanJson = resultText;
-    const jsonMatch = resultText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      cleanJson = jsonMatch[0];
-    }
-    
-    let parsed;
-    try {
-      parsed = JSON.parse(cleanJson);
-    } catch (e) {
-      console.error("JSON parse error:", e);
-      throw new Error("AI trả về định dạng JSON không hợp lệ");
-    }
-    
-    // Flatten questions from sections
+    // Standardize resultData from direct parsed content
+    const parsedData = extractJSON(JSON.stringify(resultData));
     const questions = [];
-    if (parsed.sections) {
+    
+    if (parsedData.sections) {
       const sectionMapping = {
         'A_vocabulary': 'vocabulary',
         'B_grammar': 'grammar',
@@ -176,8 +170,8 @@ serve(async (req: Request) => {
       };
 
       for (const [sectionKey, type] of Object.entries(sectionMapping)) {
-        if (parsed.sections[sectionKey] && Array.isArray(parsed.sections[sectionKey])) {
-          (parsed.sections[sectionKey] as any[]).forEach(q => {
+        if (parsedData.sections[sectionKey] && Array.isArray(parsedData.sections[sectionKey])) {
+          parsedData.sections[sectionKey].forEach(q => {
             questions.push({
               ...q,
               question_type: type,
@@ -186,11 +180,7 @@ serve(async (req: Request) => {
           });
         }
       }
-    } else if (parsed.questions) {
-      questions.push(...(Array.isArray(parsed.questions) ? parsed.questions : []));
     }
-
-    console.log(`Successfully parsed ${questions.length} questions`);
 
     if (questions.length > 0) {
       const { error: quizError } = await supabase.from("video_questions").insert(
@@ -211,17 +201,10 @@ serve(async (req: Request) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
 
-  } catch (error: unknown) {
+  } catch (error: any) {
     console.error("Quiz generation error:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    const errorStack = error instanceof Error ? error.stack : undefined;
-    // Return 200 with error property so it avoids the generic "non-2xx" message in Supabase client
-    return new Response(JSON.stringify({ 
-      success: false, 
-      error: errorMessage,
-      details: errorStack
-    }), {
-      status: 200, // Change to 200 to ensure we can read the JSON body
+    return new Response(JSON.stringify({ success: false, error: error.message }), {
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
   }

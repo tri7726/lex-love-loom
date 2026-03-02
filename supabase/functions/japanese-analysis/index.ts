@@ -1,7 +1,6 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -181,7 +180,7 @@ serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { prompt, content, image, isImageAnalysis, isGrammar, engine = "gemini", saveToHistory = true }: AnalysisRequest = await req.json();
+    const { prompt, content, image, isImageAnalysis, isGrammar, saveToHistory = true }: AnalysisRequest = await req.json();
     
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -194,103 +193,73 @@ serve(async (req: Request) => {
       const token = authHeader.replace('Bearer ', '');
       try {
         const { data: { user: authUser }, error: authError } = await supabase.auth.getUser(token);
-        if (authError) {
-          console.error("Auth error:", authError.message);
-        } else if (authUser) {
+        if (!authError && authUser) {
           userId = authUser.id;
-          console.log("Authenticated user detected:", userId);
         }
       } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        console.error("Auth Exception:", msg);
+        console.error("Auth Exception:", e);
       }
-    } else {
-      console.log("No valid Authorization header found - history will NOT be saved.");
     }
 
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+    const keys = [
+      Deno.env.get("GROQ_API_KEY_1"),
+      Deno.env.get("GROQ_API_KEY_2"),
+      Deno.env.get("GROQ_API_KEY_3")
+    ].filter(Boolean);
+
+    if (keys.length === 0) {
+      throw new Error("No Groq API keys configured.");
+    }
 
     let resultData: 
       | { format: 'grammar'; result: GrammarAnalysis } 
       | { format: 'structured'; analysis: StructuredAnalysis } 
       | { format: 'vision'; result: VisionAnalysis } 
       | null = null;
-    let engineUsed = "none";
+    let engineUsed = "groq";
 
-    // Helper for Groq Text Analysis
-    async function tryGroq(systemPrompt: string, userContent: string, isGrammar?: boolean): Promise<
-      | { format: 'grammar'; result: GrammarAnalysis } 
-      | { format: 'structured'; analysis: StructuredAnalysis } 
-      | null
-    > {
-      if (!GROQ_API_KEY) return null;
-      console.log("Analysis using Groq (Primary)...");
-      try {
-        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: "llama-3.3-70b-versatile",
-            messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userContent }],
-            response_format: { type: "json_object" }
-          }),
-        });
-        if (response.ok) {
-          const d = await response.json();
-          const raw = d.choices?.[0]?.message?.content || "{}";
-          const parsed = extractJSON(raw);
-          return isGrammar 
-            ? { format: 'grammar', result: parsed as GrammarAnalysis }
-            : { format: 'structured', analysis: parsed as StructuredAnalysis };
+    // Helper for Groq Rotation
+    async function tryGroqRotation(payload: any) {
+      for (let i = 0; i < keys.length; i++) {
+        const apiKey = keys[i];
+        try {
+          const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (response.ok) {
+            const d = await response.json();
+            return d.choices?.[0]?.message?.content || "{}";
+          }
+          if (response.status === 429) continue;
+        } catch (e) {
+          console.error(`Groq Key ${i + 1} error:`, e);
         }
-        return null;
-      } catch (e) {
-        console.error("Groq analysis error:", e);
-        return null;
       }
+      return null;
     }
 
-    // Helper for Gemini Text Analysis
-    async function tryGemini(systemPrompt: string, userContent: string, isGrammar?: boolean): Promise<
-      | { format: 'grammar'; result: GrammarAnalysis } 
-      | { format: 'structured'; analysis: StructuredAnalysis } 
-      | null
-    > {
-      if (!GEMINI_API_KEY) return null;
-      console.log("Analysis using Gemini (Fallback)...");
-      try {
-        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ 
-          model: "gemini-2.0-flash",
-          generationConfig: { responseMimeType: "application/json" }
-        });
-        const result = await model.generateContent(`${systemPrompt}\n\nContent: ${userContent}`);
-        const raw = result.response.text();
-        const parsed = extractJSON(raw);
-        return isGrammar 
-          ? { format: 'grammar', result: parsed as GrammarAnalysis }
-          : { format: 'structured', analysis: parsed as StructuredAnalysis };
-      } catch (e) {
-        console.error("Gemini analysis error:", e);
-        return null;
+    // 0. Image Analysis (using llama-3.2-11b-vision-preview)
+    if (isImageAnalysis && image) {
+      console.log("Image analysis using Groq Vision...");
+      const raw = await tryGroqRotation({
+        model: "llama-3.2-11b-vision-preview",
+        messages: [
+          { role: "system", content: VISION_SYSTEM_PROMPT },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "Analyze the Japanese content in this image." },
+              { type: "image_url", image_url: { url: `data:image/jpeg;base64,${image}` } }
+            ]
+          }
+        ],
+        response_format: { type: "json_object" }
+      });
+      if (raw) {
+        resultData = { format: 'vision', result: extractJSON(raw) as VisionAnalysis };
       }
-    }
-
-    // 0. Image Analysis (Gemini only)
-    if (isImageAnalysis && image && GEMINI_API_KEY) {
-      engineUsed = "gemini";
-      console.log("Image analysis using Gemini 2.0 Flash...");
-      const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-      
-      const result = await model.generateContent([
-        VISION_SYSTEM_PROMPT,
-        { inlineData: { data: image, mimeType: "image/jpeg" } }
-      ]);
-      
-      const text = result.response.text();
-      resultData = { format: 'vision' as const, result: extractJSON(text) as VisionAnalysis };
     } 
     // 1. Text Analysis or Grammar
     else {
@@ -299,24 +268,25 @@ serve(async (req: Request) => {
         ? `Analyze this: ${content}\n\nQuestion: ${prompt}`
         : content;
       
-      // Execute Groq first for text tasks
-      resultData = await tryGroq(systemPrompt, userContent, isGrammar);
-      if (resultData) {
-        engineUsed = "groq";
-      } else {
-        console.log("Groq failed, trying Gemini fallback...");
-        resultData = await tryGemini(systemPrompt, userContent, isGrammar);
-        if (resultData) engineUsed = "gemini";
+      const raw = await tryGroqRotation({
+        model: "llama-3.3-70b-versatile",
+        messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userContent }],
+        response_format: { type: "json_object" }
+      });
+
+      if (raw) {
+        const parsed = extractJSON(raw);
+        resultData = isGrammar 
+          ? { format: 'grammar', result: parsed as GrammarAnalysis }
+          : { format: 'structured', analysis: parsed as StructuredAnalysis };
       }
     }
 
-    if (!resultData) throw new Error("AI analysis failed");
+    if (!resultData) throw new Error("AI analysis failed on all Groq keys");
 
-    // 2. Save to history if requested and user exists (Save both structured and grammar)
+    // 2. Save to history if requested
     if (saveToHistory && userId && !isImageAnalysis && resultData) {
-      console.log("Saving analysis to history for user:", userId);
       let historyAnalysis: unknown = null;
-      
       if (resultData.format === 'grammar') {
         historyAnalysis = resultData.result;
       } else if (resultData.format === 'structured') {
@@ -324,17 +294,12 @@ serve(async (req: Request) => {
       }
 
       if (historyAnalysis) {
-        const { error: insertError } = await supabase.from('analysis_history').insert({
+        await supabase.from('analysis_history').insert({
           user_id: userId,
           content: content,
           analysis: historyAnalysis,
           engine: engineUsed
         });
-        if (insertError) {
-          console.error("Error saving to history:", insertError);
-        } else {
-          console.log("Analysis saved to history successfully.");
-        }
       }
     }
 
@@ -346,7 +311,7 @@ serve(async (req: Request) => {
     console.error("Analysis error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(JSON.stringify({ error: errorMessage }), {
-      status: 200, // Return 200 even on error for some cases to handle in frontend
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

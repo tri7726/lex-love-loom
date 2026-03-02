@@ -4,6 +4,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 const CHECK_PROMPT = `あなたは日本語の文法チェッカーです。
@@ -20,16 +21,19 @@ const CHECK_PROMPT = `あなたは日本語の文法チェッカーです。
 `;
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const body = await req.json();
-    const mode = body.mode || 'check'; // 'check', 'chat', 'compare'
+    const mode = body.mode || 'check'; 
     
-    const GROQ_API_KEY = (Deno as any).env.get("GROQ_API_KEY");
-    if (!GROQ_API_KEY) throw new Error("Missing GROQ_API_KEY");
+    const keys = [
+      Deno.env.get("GROQ_API_KEY_1"),
+      Deno.env.get("GROQ_API_KEY_2"),
+      Deno.env.get("GROQ_API_KEY_3")
+    ].filter(Boolean);
+
+    if (keys.length === 0) throw new Error("Missing Groq API keys");
 
     let systemPrompt = "";
     let userPrompt = "";
@@ -44,70 +48,33 @@ serve(async (req) => {
       requireJSON = true;
     } else if (mode === 'chat') {
       const text = body.text || "";
-      const history = body.history || [];
       const context = body.context || {};
-      
       systemPrompt = `Bạn là một Sensei tiếng Nhật thân thiện và uyên bác. Hãy trả lời câu hỏi của học sinh bằng tiếng Việt dễ hiểu, kết hợp các thuật ngữ tiếng Nhật (Romaji/Kana). Luôn giữ thái độ khuyến khích. Nội dung đang học: ${context.title || 'Ngữ pháp chung'}.
 QUAN TRỌNG: Nếu bạn tạo ra bài tập (ví dụ: điền vào chỗ trống, dịch câu, chọn đáp án) hoặc các câu ví dụ, bạn BẮT BUỘC phải viết các câu hỏi, câu ví dụ và nội dung bài tập bằng TIẾNG NHẬT. Chỉ sử dụng tiếng Việt cho phần giải thích ngữ pháp, tiêu đề bài tập hoặc lời hướng dẫn.`;
       userPrompt = text;
       temperature = 0.5;
-      
     } else if (mode === 'compare') {
       const grammar1 = body.grammar1 || "";
       const grammar2 = body.grammar2 || "";
       if (!grammar1 || !grammar2) throw new Error("Missing grammar points for comparison.");
-      
       systemPrompt = `Bạn là chuyên gia phân tích ngữ pháp JLPT.
 Hãy so sánh hai cấu trúc ngữ pháp được cung cấp và trả về kết quả dưới DẠNG JSON DUY NHẤT.
-JSON Format:
 {
   "comparison": [
-    {
-      "aspect": "Ý nghĩa",
-      "grammar1_detail": "Ý nghĩa của ngữ pháp 1",
-      "grammar2_detail": "Ý nghĩa của ngữ pháp 2"
-    },
-    {
-      "aspect": "Cách nối (Sết-xư-dô-kư)",
-      "grammar1_detail": "...",
-      "grammar2_detail": "..."
-    },
-    {
-      "aspect": "Sắc thái/Trường hợp dùng",
-      "grammar1_detail": "...",
-      "grammar2_detail": "..."
-    }
+    { "aspect": "Ý nghĩa", "grammar1_detail": "...", "grammar2_detail": "..." }
   ],
-  "summary": "Tóm tắt sự khác biệt cốt lõi (1-2 câu tiếng Việt)",
-  "examples": [
-    {
-      "text": "Câu ví dụ 1 dùng ngữ pháp 1...",
-      "translation": "...",
-      "isGrammar1": true
-    },
-    {
-      "text": "Câu ví dụ 2 dùng ngữ pháp 2...",
-      "translation": "...",
-      "isGrammar1": false
-    }
-  ]
+  "summary": "...",
+  "examples": [ { "text": "...", "translation": "...", "isGrammar1": true } ]
 }`;
       userPrompt = `Hãy so sánh: ${grammar1} và ${grammar2}`;
       requireJSON = true;
       temperature = 0.3;
-    } else {
-      throw new Error(`Invalid mode: ${mode}`);
     }
 
-    // Prepare Groq call
     const messages = [{ role: "system", content: systemPrompt }];
-    
     if (mode === 'chat' && body.history) {
-      body.history.forEach((msg: any) => {
-        messages.push({ role: msg.role, content: msg.content });
-      });
+      body.history.forEach((msg: any) => messages.push({ role: msg.role, content: msg.content }));
     }
-    
     messages.push({ role: "user", content: userPrompt });
 
     const requestBody: any = {
@@ -116,27 +83,47 @@ JSON Format:
       temperature: temperature,
       max_tokens: 2048,
     };
+    if (requireJSON) requestBody.response_format = { type: "json_object" };
 
-    if (requireJSON) {
-      requestBody.response_format = { type: "json_object" };
+    // Groq Rotation
+    let resultText = "";
+    for (let i = 0; i < keys.length; i++) {
+        const apiKey = keys[i];
+        try {
+            const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                method: "POST",
+                headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+                body: JSON.stringify(requestBody),
+            });
+            if (response.ok) {
+                const data = await response.json();
+                resultText = data.choices?.[0]?.message?.content || "";
+                break;
+            }
+            if (response.status === 429) continue;
+        } catch (e) {
+            console.error(`Grammar Key ${i + 1} error:`, e);
+        }
     }
 
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GROQ_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Groq API error: ${response.status} ${errorText}`);
+    // Helper to extract JSON from AI text
+    function extractJSON(text: string) {
+      try {
+        return JSON.parse(text.trim());
+      } catch (_e) {
+        const match = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
+        if (match) {
+          try {
+            return JSON.parse(match[1] || match[0]);
+          } catch (_e2) {
+            throw new Error("AI returned invalid JSON structure");
+          }
+        }
+        throw new Error("Could not find JSON in AI response");
+      }
     }
 
-    const data = await response.json();
-    const resultText = data.choices?.[0]?.message?.content || "";
+    if (!resultText) throw new Error("AI failed on all Groq keys");
 
     if (mode === 'chat') {
       return new Response(JSON.stringify({ text: resultText, engine: 'groq' }), {
@@ -144,49 +131,18 @@ JSON Format:
       });
     }
 
-    if (mode === 'check' || mode === 'compare') {
-      const cleanedText = resultText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      let result;
-      try {
-        result = JSON.parse(cleanedText);
-      } catch (e) {
-        console.error("Parse failed for:", resultText);
-        throw new Error("AI returned invalid JSON");
-      }
-      
-      // If check mode, normalize data just in case
-      if (mode === 'check') {
-         result.isCorrect = typeof result.isCorrect === 'boolean' ? result.isCorrect : true;
-         result.corrected = result.corrected || body.text;
-         result.explanation = result.explanation || "Không có giải thích.";
-         result.rules = Array.isArray(result.rules) ? result.rules : [];
-         result.suggestions = Array.isArray(result.suggestions) ? result.suggestions : [];
-         result.engine = 'groq';
-      }
+    const result = extractJSON(resultText);
+    if (mode === 'check') result.engine = 'groq';
 
-      return new Response(JSON.stringify(result), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
 
   } catch (error: any) {
-    console.error("Grammar check error:", error);
-    
-    // Provide safe fallbacks so frontend doesn't crash
-    return new Response(
-      JSON.stringify({ 
-        error: error.message || "Internal Server Error",
-        isCorrect: true, // safe default for check
-        corrected: "Lỗi hệ thống.", // safe default for check
-        explanation: "Hệ thống AI đang quá tải. Vui lòng thử lại sau.", // safe default for check
-        text: "Sensei hiện đang quá tải. Bạn chờ một lát nhé!", // safe default for chat
-        rules: [],
-        suggestions: []
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    console.error("Grammar error:", error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
