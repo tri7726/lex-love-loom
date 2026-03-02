@@ -1,10 +1,10 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 interface Message {
@@ -37,150 +37,81 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, systemPrompt, engine = "gemini" } = await req.json() as { 
+    const { messages, systemPrompt } = await req.json() as { 
       messages: Message[], 
-      systemPrompt?: string,
-      engine?: "gemini" | "groq"
+      systemPrompt?: string
     };
     
-    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    const keys = [
+      Deno.env.get("GROQ_API_KEY_1"),
+      Deno.env.get("GROQ_API_KEY_2"),
+      Deno.env.get("GROQ_API_KEY_3")
+    ].filter(Boolean);
 
-    console.log(`Chat request - Initial preferred engine: ${engine}`);
-
-    // Helper to call Groq (returns response or null)
-    async function tryGroq(messages, systemPrompt) {
-      if (!GROQ_API_KEY) return null;
-      console.log("Attempting request with Groq API...");
-      try {
-        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${GROQ_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "llama-3.3-70b-versatile",
-            messages: [
-              { role: "system", content: systemPrompt || SYSTEM_PROMPT },
-              ...messages,
-            ],
-            stream: true,
-            temperature: 0.7,
-            max_tokens: 1024,
-          }),
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("Groq API error:", response.status, errorText);
-          return null;
-        }
-        return response;
-      } catch (e) {
-        console.error("Groq fetch error:", e);
-        return null;
-      }
+    if (keys.length === 0) {
+      throw new Error("No Groq API keys configured. Please set GROQ_API_KEY_1, 2, or 3.");
     }
 
-    // Helper to call Gemini (returns response or null)
-    async function tryGemini(messages, systemPrompt) {
-      if (!GEMINI_API_KEY) return null;
-      console.log("Attempting request with Gemini 2.0 Flash SDK...");
-      try {
-        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    console.log(`Chat request - Using Groq with ${keys.length} keys available.`);
 
-        const chat = model.startChat({
-          history: messages.slice(0, -1).map(m => ({
-            role: m.role === "user" ? "user" : "model",
-            parts: [{ text: m.content }],
-          })),
-          generationConfig: {
-            maxOutputTokens: 1024,
-          },
-        });
-
-        const lastMessage = messages[messages.length - 1].content;
-        const result = await chat.sendMessageStream(
-          (systemPrompt || SYSTEM_PROMPT) + "\n\nUser message: " + lastMessage
-        );
-
-        const stream = new ReadableStream({
-          async start(controller) {
-            const encoder = new TextEncoder();
-            try {
-              for await (const chunk of result.stream) {
-                const text = chunk.text();
-                if (text) {
-                  controller.enqueue(encoder.encode(text));
-                }
-              }
-              controller.close();
-            } catch (e) {
-              controller.error(e);
-            }
-          },
-        });
-
-        return new Response(stream, {
-          headers: { 
-            ...corsHeaders, 
-            "Content-Type": "text/plain; charset=utf-8",
-            "Cache-Control": "no-cache",
-          },
-        });
-      } catch (e) {
-        console.error("Gemini SDK error:", e);
-        return null;
-      }
-    }
-
-    // Main logic: Groq first, then Gemini fallback
-    let finalResponse = null;
-
-    if (engine === "groq" || engine === "gemini") {
-      // First try the preferred one
-      if (engine === "groq") {
-        const groqRes = await tryGroq(messages, systemPrompt);
-        if (groqRes) {
-          finalResponse = new Response(groqRes.body, {
-            headers: { 
-              ...corsHeaders, 
-              "Content-Type": "text/event-stream",
-              "Cache-Control": "no-cache",
-              "Connection": "keep-alive"
+    // Helper to call Groq with rotation
+    async function tryGroqRotation(messages: Message[], systemPrompt?: string) {
+      for (let i = 0; i < keys.length; i++) {
+        const apiKey = keys[i];
+        console.log(`Attempting Groq request with Key ${i + 1}...`);
+        
+        try {
+          const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
             },
+            body: JSON.stringify({
+              model: "llama-3.3-70b-versatile",
+              messages: [
+                { role: "system", content: systemPrompt || SYSTEM_PROMPT },
+                ...messages,
+              ],
+              stream: true,
+              temperature: 0.7,
+              max_tokens: 1024,
+            }),
           });
-        } else {
-          console.log("Groq failed, falling back to Gemini...");
-          finalResponse = await tryGemini(messages, systemPrompt);
-        }
-      } else {
-        // Preferred gemini
-        const geminiRes = await tryGemini(messages, systemPrompt);
-        if (geminiRes) {
-          finalResponse = geminiRes;
-        } else {
-          console.log("Gemini failed, falling back to Groq...");
-          const groqRes = await tryGroq(messages, systemPrompt);
-          if (groqRes) {
-            finalResponse = new Response(groqRes.body, {
-              headers: { 
-                ...corsHeaders, 
-                "Content-Type": "text/event-stream",
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive"
-              },
-            });
+
+          if (response.ok) {
+            return response;
           }
+
+          const errorText = await response.text();
+          console.warn(`Groq API Key ${i + 1} failed:`, response.status, errorText);
+          
+          // If it's a rate limit (429), continue to next key immediately
+          if (response.status === 429) {
+            continue;
+          }
+          
+          // For other errors, we might still want to try the next key
+        } catch (e) {
+          console.error(`Groq Key ${i + 1} fetch error:`, e);
         }
       }
+      return null;
     }
 
-    if (finalResponse) return finalResponse;
+    const groqRes = await tryGroqRotation(messages, systemPrompt);
+    if (groqRes) {
+      return new Response(groqRes.body, {
+        headers: { 
+          ...corsHeaders, 
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive"
+        },
+      });
+    }
 
-    throw new Error("No AI engine configured or all failed");
+    throw new Error("All Groq API keys failed or were rate limited.");
   } catch (error) {
     console.error("Chat function error:", error);
     return new Response(

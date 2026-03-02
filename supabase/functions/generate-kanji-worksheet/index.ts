@@ -1,9 +1,11 @@
+// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 const WORKSHEET_SYSTEM_PROMPT = `You are a Senior Japanese Language Educator and Worksheet Designer.
@@ -39,27 +41,39 @@ Output JSON Structure:
   ]
 }`;
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+// Helper to extract JSON from AI text
+function extractJSON(text: string) {
+  try {
+    return JSON.parse(text.trim());
+  } catch (_e) {
+    const match = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        return JSON.parse(match[1] || match[0]);
+      } catch (_e2) {
+        throw new Error("AI returned invalid JSON structure");
+      }
+    }
+    throw new Error("Could not find JSON in AI response");
   }
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const { kanji_list } = await req.json();
+    if (!kanji_list || !Array.isArray(kanji_list)) throw new Error("Invalid kanji_list");
 
-    if (!kanji_list || !Array.isArray(kanji_list)) {
-      throw new Error("Invalid kanji_list provided");
-    }
+    const keys = [
+      Deno.env.get("GROQ_API_KEY_1"),
+      Deno.env.get("GROQ_API_KEY_2"),
+      Deno.env.get("GROQ_API_KEY_3")
+    ].filter(Boolean);
 
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured");
-    }
+    if (keys.length === 0) throw new Error("Groq API keys are not configured");
 
-    // Fetch Kanji Metadata from Supabase to provide as ground truth to AI
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     const { data: kanjiDetails, error: dbError } = await supabase
       .from("kanji")
@@ -68,34 +82,35 @@ serve(async (req) => {
 
     if (dbError) throw dbError;
 
-    // Call Gemini to generate AI content
-    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          { 
-            parts: [
-              { text: WORKSHEET_SYSTEM_PROMPT },
-              { text: `Input Kanji Data (Ground Truth): ${JSON.stringify(kanjiDetails)}` }
-            ] 
-          }
-        ],
-        generationConfig: {
-          response_mime_type: "application/json"
+    // Call Groq with rotation
+    let result = null;
+    for (let i = 0; i < keys.length; i++) {
+        const apiKey = keys[i];
+        try {
+            const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                method: "POST",
+                headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    model: "llama-3.3-70b-versatile",
+                    messages: [
+                        { role: "system", content: WORKSHEET_SYSTEM_PROMPT },
+                        { role: "user", content: `Input Kanji Data (Ground Truth): ${JSON.stringify(kanjiDetails)}` }
+                    ],
+                    response_format: { type: "json_object" }
+                }),
+            });
+            if (response.ok) {
+                const data = await response.json();
+                result = extractJSON(data.choices[0]?.message?.content || "{}");
+                break;
+            }
+            if (response.status === 429) continue;
+        } catch (e) {
+            console.error(`Kanji Key ${i + 1} error:`, e);
         }
-      }),
-    });
-
-    if (!geminiResponse.ok) {
-      const errorText = await geminiResponse.text();
-      console.error("Gemini API error:", geminiResponse.status, errorText);
-      throw new Error(`Gemini API error: ${geminiResponse.status}`);
     }
 
-    const geminiData = await geminiResponse.json();
-    const resultText = geminiData.candidates[0].content.parts[0].text;
-    const result = JSON.parse(resultText);
+    if (!result) throw new Error("AI worksheet generation failed on all keys");
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -106,7 +121,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
       {
-        status: 500,
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
