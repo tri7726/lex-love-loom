@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { BookOpen, Volume2, Loader2, Zap, Database, Globe, Filter, Sparkles, History, Trash2, User as UserIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -80,9 +80,9 @@ export const Reading = () => {
   const { user } = useAuth();
   const { profile } = useProfile();
   const [passages, setPassages] = useState<ReadingPassage[]>([]);
-  const [selectedPassage, setSelectedPassage] = useState<ReadingPassage | null>(null);
-  const [displayMode, setDisplayMode] = useState<DisplayMode>('furigana');
   const [loading, setLoading] = useState(true);
+  const [searchParams] = useSearchParams();
+  const passageId = searchParams.get('id');
   
   // Filter state
   const [levelFilter, setLevelFilter] = useState<string>('all');
@@ -258,6 +258,20 @@ export const Reading = () => {
   useEffect(() => {
     fetchPassages();
   }, [fetchPassages]);
+
+  // Handle URL parameter for specific passage
+  useEffect(() => {
+    if (passageId && passages.length > 0) {
+      const passage = passages.find(p => p.id === passageId);
+      if (passage) {
+        setSelectedPassage(passage);
+        // If it's a news article, maybe switch to system or relevant tab
+        if (passage.category === 'news') {
+          setPassageType('system');
+        }
+      }
+    }
+  }, [passageId, passages]);
 
   const deletePassage = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();

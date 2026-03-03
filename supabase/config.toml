@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.import-kanjidic2]
 verify_jwt = false
+
+[functions.japanese-news]
+verify_jwt = false

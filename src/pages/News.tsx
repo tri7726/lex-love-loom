@@ -9,7 +9,9 @@ import {
   Calendar,
   Clock,
   ArrowRight,
-  Filter
+  Filter,
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 import { Navigation } from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -17,8 +19,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 
-const CATEGORIES = ['Tất cả', 'Xã hội', 'Kinh tế', 'Văn hóa', 'Thể thao', 'Học tập'];
+const CATEGORIES = ['Tất cả', 'N5', 'N4', 'N3', 'N2', 'N1'];
 
 const MOCK_NEWS = [
   {
@@ -58,6 +64,53 @@ const MOCK_NEWS = [
 
 export const News = () => {
   const [selectedCategory, setSelectedCategory] = useState('Tất cả');
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+
+  // Fetch news from reading_passages table
+  const { data: news, isLoading } = useQuery({
+    queryKey: ['japanese-news'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('reading_passages')
+        .select('*')
+        .eq('category', 'news')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  // Mutation to fetch and analyze latest news
+  const fetchNewsMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('japanese-news', {
+        body: { action: 'fetch_and_analyze' }
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['japanese-news'] });
+      toast({
+        title: "Thành công!",
+        description: "Đã cập nhật tin tức mới nhất từ Nhật Bản.",
+      });
+    },
+    onError: (error: any) => {
+      console.error('Error fetching news:', error);
+      toast({
+        title: "Lỗi!",
+        description: error.message || "Không thể làm mới tin tức. Vui lòng thử lại sau.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const filteredNews = news?.filter(item => 
+    selectedCategory === 'Tất cả' || item.level === selectedCategory // Simplification: using level as cat for now
+  ) || [];
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -77,6 +130,19 @@ export const News = () => {
             </div>
             
             <div className="flex items-center gap-3">
+              <Button 
+                variant="outline" 
+                className="rounded-xl border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 gap-2 font-bold"
+                onClick={() => fetchNewsMutation.mutate()}
+                disabled={fetchNewsMutation.isPending}
+              >
+                {fetchNewsMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                Làm mới tin tức
+              </Button>
               <div className="relative w-full md:w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input placeholder="Tìm kiếm tin tức..." className="pl-9 bg-card border-border rounded-xl" />
@@ -106,55 +172,78 @@ export const News = () => {
         </section>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {MOCK_NEWS.map((item, idx) => (
-            <motion.div
-              key={item.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.1 }}
-            >
-              <Card className="group overflow-hidden border-2 border-transparent hover:border-primary/20 transition-all hover:shadow-elevated h-full flex flex-col bg-card/60">
-                <div className="relative h-48 overflow-hidden">
-                  <img src={item.image} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  <div className="absolute top-3 right-3">
-                    <Badge className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm text-foreground border-0 font-bold">
-                      {item.difficulty}
-                    </Badge>
+          {isLoading ? (
+            <div className="col-span-full py-20 flex flex-col items-center justify-center space-y-4">
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+              <p className="text-muted-foreground font-medium">Đang tải tin tức mới nhất...</p>
+            </div>
+          ) : filteredNews.length > 0 ? (
+            filteredNews.map((item, idx) => (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.1 }}
+              >
+                <Card className="group overflow-hidden border-2 border-transparent hover:border-primary/20 transition-all hover:shadow-elevated h-full flex flex-col bg-card/60">
+                  <div className="relative h-48 overflow-hidden bg-muted flex items-center justify-center">
+                    <img 
+                      src={`https://images.unsplash.com/photo-1543269865-cbf427effbad?w=800&auto=format&fit=crop`} 
+                      alt={item.title} 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-60" 
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Newspaper className="h-12 w-12 text-white/50" />
+                    </div>
+                    <div className="absolute top-3 right-3">
+                      <Badge className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm text-foreground border-0 font-bold">
+                        {item.level}
+                      </Badge>
+                    </div>
+                    <div className="absolute bottom-3 left-3">
+                      <Badge className="bg-primary text-primary-foreground font-black text-[10px] uppercase border-0">
+                        NHẬT BẢN
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="absolute bottom-3 left-3">
-                    <Badge className="bg-primary text-primary-foreground font-black text-[10px] uppercase border-0">
-                      {item.category}
-                    </Badge>
-                  </div>
-                </div>
-                
-                <CardHeader className="p-5 space-y-3 flex-1">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
-                    <Calendar className="h-3 w-3" /> {item.date}
-                    <Clock className="h-3 w-3 ml-2" /> {item.time}
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="text-lg font-bold leading-tight group-hover:text-primary transition-colors">
-                      {item.title}
-                    </h3>
-                    <p className="text-primary font-jp font-bold text-sm line-clamp-1">
-                      {item.japaneseTitle}
-                    </p>
-                  </div>
-                  <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
-                    {item.description}
-                  </p>
-                </CardHeader>
-                
-                <CardFooter className="px-5 pb-5 pt-0">
-                  <Button className="w-full gap-2 font-bold text-xs uppercase tracking-widest bg-muted text-foreground hover:bg-primary hover:text-white transition-all group/btn">
-                    Đọc chi tiết
-                    <ArrowRight className="h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
-                  </Button>
-                </CardFooter>
-              </Card>
-            </motion.div>
-          ))}
+                  
+                  <CardHeader className="p-5 space-y-3 flex-1">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
+                      <Calendar className="h-3 w-3" /> {new Date(item.created_at).toLocaleDateString('vi-VN')}
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="text-lg font-bold leading-tight group-hover:text-primary transition-colors line-clamp-2">
+                        {item.title}
+                      </h3>
+                    </div>
+                    <p 
+                      className="text-sm text-muted-foreground line-clamp-3 leading-relaxed"
+                      dangerouslySetInnerHTML={{ __html: item.content_with_furigana || item.content }}
+                    />
+                  </CardHeader>
+                  
+                  <CardFooter className="px-5 pb-5 pt-0">
+                    <Button 
+                      className="w-full gap-2 font-bold text-xs uppercase tracking-widest bg-muted text-foreground hover:bg-primary hover:text-white transition-all group/btn"
+                      onClick={() => navigate(`/reading?id=${item.id}`)}
+                    >
+                      Đọc chi tiết
+                      <ArrowRight className="h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </motion.div>
+            ))
+          ) : (
+            <div className="col-span-full py-20 text-center space-y-6 bg-muted/20 rounded-3xl border-2 border-dashed border-border flex flex-col items-center">
+              <Globe className="h-16 w-16 text-muted-foreground/30" />
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold">Chưa có bản tin nào</h3>
+                <p className="text-muted-foreground max-w-md">Bấm vào nút "Làm mới tin tức" để lấy thông tin nóng hổi nhất từ Nhật Bản.</p>
+              </div>
+              <Button onClick={() => fetchNewsMutation.mutate()} className="rounded-xl shadow-sakura">Lấy tin tức ngay</Button>
+            </div>
+          )}
         </div>
 
         <section className="bg-primary/5 rounded-3xl p-10 mt-12 border-2 border-primary/10 relative overflow-hidden">

@@ -62,13 +62,8 @@ const studyItems = [
 ];
 
 const assessItems = [
-  { path: '/quiz', icon: Zap, label: 'Quiz hằng ngày', description: 'Ôn tập nhanh' },
   { path: '/mock-tests', icon: ShieldCheck, label: 'Thi thử JLPT', description: 'Đề thi thực tế' },
   { path: '/flashcard-review', icon: RotateCcw, label: 'Thẻ ghi nhớ (SRS)', description: 'Ôn tập ngắt quãng' },
-];
-
-const gameItems = [
-  { path: '/flashcard-games', icon: Gamepad2, label: 'Trò chơi', description: 'Ghép cặp, Tốc độ, Luyện gõ...' },
 ];
 
 const skillItems = [
@@ -201,18 +196,16 @@ export const Navigation: React.FC<NavigationProps> = ({
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Trò chơi Link */}
-            {gameItems.map((item) => (
-              <Link key={item.path} to={item.path}>
-                <Button
-                  variant="ghost"
-                  className="gap-2 font-black uppercase text-[10px] tracking-widest h-10 px-4 text-muted-foreground hover:text-orange-500 hover:bg-orange-50 transition-all"
-                >
-                  <item.icon className="h-4 w-4" />
-                  {item.label}
-                </Button>
-              </Link>
-            ))}
+            {/* Quiz Link */}
+            <Link to="/quiz">
+              <Button
+                variant="ghost"
+                className="gap-2 font-black uppercase text-[10px] tracking-widest h-10 px-4 text-muted-foreground hover:text-gold hover:bg-gold/5 transition-all"
+              >
+                <Zap className="h-4 w-4" />
+                Quiz hằng ngày
+              </Button>
+            </Link>
 
             {/* Kỹ năng Dropdown */}
             <DropdownMenu>
@@ -383,7 +376,7 @@ export const Navigation: React.FC<NavigationProps> = ({
               { path: '/', icon: Home, label: 'Trang chủ' },
               { path: '/ai-tutor', icon: Brain, label: 'AI Tutor' },
               { path: '/learning-path', icon: BookOpen, label: 'Học tập' },
-              { path: '/flashcard-games', icon: Gamepad2, label: 'Game' },
+              { path: '/quiz', icon: Zap, label: 'Quiz' },
               { path: '/leagues', icon: Trophy, label: 'XH' },
             ].map((mItem) => {
               const isActive = location.pathname === mItem.path;
