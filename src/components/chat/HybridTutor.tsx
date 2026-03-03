@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { 
   Send, Loader2, Sparkles, BrainCircuit, Mic, MicOff, 
   Languages, BookOpen, Lightbulb, Volume2, Layers,
-  LayoutList, GalleryHorizontalEnd, ChevronLeft, ChevronRight, X
+  LayoutList, GalleryHorizontalEnd, ChevronLeft, ChevronRight, X,
+  CheckCircle2, AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
@@ -55,6 +56,7 @@ interface AnalysisData {
         hanviet?: string;
         meaning: string;
         word_type: string;
+        jlpt_level?: string;
       }[];
       grammar_patterns: {
         pattern: string;
