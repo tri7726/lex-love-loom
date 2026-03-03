@@ -63,11 +63,21 @@ interface AnalysisData {
       }[];
     };
   }[];
-  cultural_notes: string[];
+  cultural_notes?: string[];
+  
+  // Backward compatibility for old grammar analysis
+  isCorrect?: boolean;
+  corrected?: string;
+  explanation?: string;
+  rules?: string[];
+  suggestions?: string[];
 }
 
 interface HybridTutorProps {
-  initialData?: any;
+  initialData?: {
+    content?: string;
+    analysis?: AnalysisData | null;
+  };
 }
 
 export const HybridTutor = ({ initialData }: HybridTutorProps) => {
@@ -264,7 +274,35 @@ export const HybridTutor = ({ initialData }: HybridTutorProps) => {
 
                   {/* Results */}
                   <div className="space-y-4">
-                    {viewMode === 'list' ? (
+                    {/* Backward Compatibility for Old Grammar Analyses */}
+                    {result.isCorrect !== undefined ? (
+                      <div className="p-6 bg-white dark:bg-slate-900 rounded-3xl border-2 border-sakura/20 shadow-lg space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className={cn("p-2 rounded-full", result.isCorrect ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600")}>
+                            {result.isCorrect ? <CheckCircle2 className="h-6 w-6"/> : <AlertCircle className="h-6 w-6"/>}
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-lg">{result.isCorrect ? "Câu của bạn rất tốt!" : "Sensei đã sửa lại câu cho bạn:"}</h3>
+                            {!result.isCorrect && result.corrected && (
+                              <p className="text-xl font-jp font-black text-sakura mt-1">{result.corrected}</p>
+                            )}
+                          </div>
+                        </div>
+                        {result.explanation && (
+                          <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
+                            <p className="text-sm font-medium leading-relaxed">{result.explanation}</p>
+                          </div>
+                        )}
+                        {result.rules && result.rules.length > 0 && (
+                          <div className="space-y-2">
+                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2"><BookOpen className="h-3 w-3"/> Ngữ pháp liên quan:</h4>
+                            <ul className="list-disc leading-relaxed text-sm ml-5">
+                              {result.rules.map((r: string, i: number) => <li key={i}>{r}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    ) : viewMode === 'list' ? (
                       <div className="space-y-6">
                         {result.sentences?.map((sentence, sIdx) => (
                           <motion.div key={sIdx}
@@ -341,7 +379,7 @@ export const HybridTutor = ({ initialData }: HybridTutorProps) => {
                         )}
                       </div>
                     ) : (
-                      result.sentences && result.sentences.length > 0 && (
+                      result.sentences && result.sentences.length > 0 ? (
                         <AnimatePresence mode="wait">
                           <motion.div
                             key={currentSentenceIdx}
@@ -377,7 +415,7 @@ export const HybridTutor = ({ initialData }: HybridTutorProps) => {
                             </div>
                           </motion.div>
                         </AnimatePresence>
-                      )
+                      ) : null
                     )}
                   </div>
                 </div>

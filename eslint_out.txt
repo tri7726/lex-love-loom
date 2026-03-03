@@ -1,0 +1,6 @@
+﻿
+C:\Users\Pheo\OneDrive\Documents\GitHub\lex-love-loom\src\components\chat\HybridTutor.tsx
+  77:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+Γ£û 1 problem (1 error, 0 warnings)
+
