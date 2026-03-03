@@ -70,7 +70,7 @@ export function CreatePassageDialog({ onCreated }: CreatePassageDialogProps) {
       }
 
       if (!aiSuccess) {
-        const proceed = confirm("AI không thể phân tích bài đọc này (thiếu furigana/từ vựng). Bạn vẫn muốn lưu bài đọc này chứ?");
+        const proceed = confirm("AI không thể tạo Furigana hoặc phân tích từ vựng cho bài này (có thể do quá tải hoặc nội dung khó). \n\nBạn vẫn muốn lưu chứ? (Bạn có thể dùng nút 'Phục hồi Furigana' sau để thử lại)");
         if (!proceed) {
           setLoading(false);
           return;

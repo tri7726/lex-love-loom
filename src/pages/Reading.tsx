@@ -157,8 +157,55 @@ export const Reading = () => {
 
   const [structuredAnalysis, setStructuredAnalysis] = useState<StructuredAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isRegeneratingFurigana, setIsRegeneratingFurigana] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+
+  const handleFixFurigana = async () => {
+    if (!selectedPassage) return;
+    
+    setIsRegeneratingFurigana(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-reading', {
+        body: { content: selectedPassage.content, level: selectedPassage.level }
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      if (!data.content_with_furigana || !data.content_with_furigana.includes('<ruby>')) {
+        throw new Error('AI vẫn không thể tạo Furigana. Thử lại sau.');
+      }
+
+      // Update in database
+      const { error: updateError } = await supabase
+        .from('reading_passages')
+        .update({ 
+          content_with_furigana: data.content_with_furigana,
+          vocabulary_list: data.vocabulary_list || selectedPassage.vocabulary_list
+        })
+        .eq('id', selectedPassage.id);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      const updatedPassage = { 
+        ...selectedPassage, 
+        content_with_furigana: data.content_with_furigana,
+        vocabulary_list: data.vocabulary_list || selectedPassage.vocabulary_list
+      };
+      
+      setSelectedPassage(updatedPassage);
+      setPassages(prev => prev.map(p => p.id === updatedPassage.id ? updatedPassage : p));
+      
+      toast.success('Phục hồi Furigana thành công!');
+    } catch (err: any) {
+      console.error('Fix Furigana error:', err);
+      toast.error(err.message || 'Không thể phục hồi Furigana');
+    } finally {
+      setIsRegeneratingFurigana(false);
+    }
+  };
 
   // Fetch passages
   const fetchPassages = useCallback(async () => {
@@ -670,6 +717,18 @@ export const Reading = () => {
                     </TabsList>
                   </Tabs>
                   <div className="flex gap-2">
+                    {(!selectedPassage.content_with_furigana || !selectedPassage.content_with_furigana.includes('<ruby>')) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleFixFurigana}
+                        disabled={isRegeneratingFurigana}
+                        className="gap-2 border-orange-200 text-orange-600 hover:bg-orange-50 animate-pulse-subtle"
+                      >
+                        {isRegeneratingFurigana ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                        Phục hồi Furigana
+                      </Button>
+                    )}
                     <Button
                       variant={translatedText ? "default" : "outline"}
                       size="sm"

@@ -13,34 +13,30 @@ interface GenerateReadingRequest {
   content?: string;
 }
 
-const SYSTEM_PROMPT = `You are an expert Japanese content creator. 
-If 'content' is provided, analyze it and return furigana and vocabulary.
-If 'topic' is provided, generate a NEW reading passage based on the topic.
+const SYSTEM_PROMPT = `You are an expert Japanese content creator and linguist.
+If 'content' is provided, your primary task is to add Furigana to the ENTIRE text and extract vocabulary.
+If 'topic' is provided, generate a NEW reading passage for the specified JLPT level.
 
-Return the result in the following JSON format:
+CRITICAL INSTRUCTIONS for 'content_with_furigana':
+1. Use standard HTML <ruby> tags: <ruby>漢字<rt>かんじ</rt></ruby>.
+2. Add furigana to EVERY kanji or kanji compound.
+3. Keep spaces, punctuation, and line breaks (\n as <br />) exactly as in the original or generated text.
+4. Ensure the output is valid Japanese and follows the requested JLPT level.
 
+Vocabulary and questions:
+- 'vocabulary_list': Extract key words (kanji + reading + Vietnamese meaning).
+- 'questions': 3-4 comprehension questions in Japanese with Vietnamese explanations.
+- Language: meanings and explanations MUST be in Vietnamese.
+
+Return the result in this JSON format:
 {
-  "title": "string (Japanese)",
-  "content_with_furigana": "string (Japanese passage with HTML <ruby> tags)",
-  "vocabulary_list": [
-    {
-      "word": "string",
-      "reading": "string (hiragana)",
-      "meaning": "string (Vietnamese)"
-    }
-  ],
-  "questions": [
-    {
-      "question": "string (Japanese)",
-      "options": ["A", "B", "C", "D"],
-      "answer": "correct string",
-      "explanation": "string (Vietnamese)"
-    }
-  ]
+  "title": "Japanese Title",
+  "content_with_furigana": "Japanese text with <ruby> tags",
+  "vocabulary_list": [{"word": "漢字", "reading": "かんじ", "meaning": "Hán tự"}],
+  "questions": [{"question": "...", "options": ["...", "..."], "answer": "...", "explanation": "..."}]
 }
 
-For vocabulary and grammar, prioritize Vietnamese for meanings and explanations.
-Levels: N5, N4, N3, N2, N1. Use appropriate vocabulary and kanji for the level.`;
+Levels: N5, N4, N3, N2, N1. Adjust complexity accordingly.`;
 
 interface ReadingResponse {
   title: string;
@@ -126,6 +122,14 @@ serve(async (req: Request) => {
     }
 
     if (!resultData) throw new Error("AI reading generation failed.");
+
+    // Validation: Check if furigana was actually generated
+    const hasRuby = resultData.content_with_furigana?.includes("<ruby>");
+    const isActuallyJapanese = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(resultData.content_with_furigana || "");
+    
+    if (content && !hasRuby && isActuallyJapanese) {
+      console.warn("AI didn't provide furigana for existing Japanese content. This is a partial failure.");
+    }
 
     return new Response(JSON.stringify({ ...resultData, engine: "groq" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
