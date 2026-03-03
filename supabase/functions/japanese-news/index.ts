@@ -40,21 +40,95 @@ serve(async (req: Request) => {
     const { action = "fetch_and_analyze" } = await req.json();
 
     if (action === "fetch_and_analyze") {
-      const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36";
+      const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
       
-      // 1. Fetch latest news from NHK Easy News (Unofficial access)
+      // 1. Fetch latest news from NHK Easy News
       console.log("Fetching news from NHK Easy News...");
-      const newsResponse = await fetch("https://www3.nhk.or.jp/news/easy/news-list.json", {
-        headers: { "User-Agent": userAgent }
-      });
       
-      if (!newsResponse.ok) {
-        throw new Error(`Failed to fetch NHK News list: ${newsResponse.status} ${newsResponse.statusText}`);
+      // Try multiple NHK endpoints
+      const nhkEndpoints = [
+        "https://www3.nhk.or.jp/news/easy/news-list.json",
+        "https://www3.nhk.or.jp/news/easy/top-list.json",
+      ];
+      
+      let newsList: any = null;
+      let newsResponse: Response | null = null;
+      
+      for (const endpoint of nhkEndpoints) {
+        try {
+          console.log(`Trying endpoint: ${endpoint}`);
+          newsResponse = await fetch(endpoint, {
+            headers: { 
+              "User-Agent": userAgent,
+              "Accept": "application/json, text/plain, */*",
+              "Accept-Language": "ja,en;q=0.9",
+              "Referer": "https://www3.nhk.or.jp/news/easy/",
+              "Origin": "https://www3.nhk.or.jp",
+            }
+          });
+          
+          if (newsResponse.ok) {
+            const rawText = await newsResponse.text();
+            // NHK sometimes wraps JSON in array brackets or has BOM
+            const cleanText = rawText.replace(/^\uFEFF/, '').trim();
+            newsList = JSON.parse(cleanText);
+            console.log(`Success with endpoint: ${endpoint}`);
+            break;
+          } else {
+            console.warn(`Endpoint ${endpoint} returned ${newsResponse.status}`);
+          }
+        } catch (e) {
+          console.warn(`Endpoint ${endpoint} failed:`, e.message);
+        }
       }
       
-      const newsList = await newsResponse.json();
-      const dates = Object.keys(newsList).sort().reverse();
-      const latestNews = newsList[dates[0]]?.[0]; // Get the very latest article
+      // If NHK endpoints fail, use Lovable AI to generate a practice news article
+      if (!newsList) {
+        console.log("NHK endpoints unavailable, generating practice news with AI...");
+        
+        const aiResponse = await fetch("https://ojbwbbqmqxyxwwujzokm.supabase.co/functions/v1/generate-reading", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+          },
+          body: JSON.stringify({
+            topic: "recent Japanese current events",
+            level: "N3",
+            category: "news",
+          }),
+        });
+        
+        if (aiResponse.ok) {
+          const aiData = await aiResponse.json();
+          return new Response(JSON.stringify({ 
+            success: true, 
+            article: {
+              title: aiData.title || "AI生成ニュース",
+              japanese_title: aiData.title || "AI生成ニュース",
+              content_with_furigana: aiData.content_with_furigana || aiData.content,
+              vietnamese_content: aiData.vietnamese_content || "Bài đọc được tạo bởi AI",
+              vocabulary_list: aiData.vocabulary_list || [],
+              jlpt_level: "N3",
+            },
+            source: "ai_generated"
+          }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        
+        throw new Error("All NHK endpoints returned errors and AI fallback failed. NHK may have changed their API.");
+      }
+
+      // Parse the news list - handle both array and object formats
+      let latestNews: any = null;
+      if (Array.isArray(newsList)) {
+        latestNews = newsList[0];
+      } else if (typeof newsList === 'object') {
+        const dates = Object.keys(newsList).sort().reverse();
+        const firstDateArticles = newsList[dates[0]];
+        latestNews = Array.isArray(firstDateArticles) ? firstDateArticles[0] : firstDateArticles;
+      }
 
       if (!latestNews) throw new Error("No news found in the list.");
 
