@@ -80,8 +80,10 @@ export const Reading = () => {
   const { user } = useAuth();
   const { profile } = useProfile();
   const [passages, setPassages] = useState<ReadingPassage[]>([]);
+  const [selectedPassage, setSelectedPassage] = useState<ReadingPassage | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchParams] = useSearchParams();
+  const [displayMode, setDisplayMode] = useState<DisplayMode>('furigana');
   const passageId = searchParams.get('id');
   
   // Filter state
