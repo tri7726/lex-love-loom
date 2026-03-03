@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { 
   Send, Loader2, Sparkles, BrainCircuit, Mic, MicOff, 
   Languages, BookOpen, Lightbulb, Volume2, Layers,
-  LayoutList, GalleryHorizontalEnd, ChevronLeft, ChevronRight, X
+  LayoutList, GalleryHorizontalEnd, ChevronLeft, ChevronRight, X,
+  CheckCircle2, AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
@@ -350,7 +351,7 @@ export const HybridTutor = ({ initialData }: HybridTutorProps) => {
                                           <p className="text-xs font-bold mt-1">{w.meaning}</p>
                                           <div className="mt-2 flex gap-1">
                                             <Badge className="text-[8px] bg-sakura/10 text-sakura border-0">{w.word_type}</Badge>
-                                            {w.jlpt_level && <Badge className="text-[8px] bg-sakura text-white border-0">{w.jlpt_level}</Badge>}
+                                            {(w as any).jlpt_level && <Badge className="text-[8px] bg-sakura text-white border-0">{(w as any).jlpt_level}</Badge>}
                                           </div>
                                         </div>
                                       )}
