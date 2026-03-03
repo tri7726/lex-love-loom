@@ -37,6 +37,10 @@ import { UserProfile } from "./pages/UserProfile";
 import { EditProfile } from "./pages/EditProfile";
 import { Messages } from "./pages/Messages";
 import { Leagues } from "./pages/Leagues";
+import Flashcards from "./pages/Flashcards";
+import { FlashcardReview } from "./pages/FlashcardReview";
+import { FlashcardGames } from "./pages/FlashcardGames";
+import Pronunciation from "./pages/Pronunciation";
 import { AdminImport } from "./pages/AdminImport";
 
 const queryClient = new QueryClient();
@@ -82,6 +86,10 @@ function App() {
                   <Route path="/edit-profile" element={<EditProfile />} />
                   <Route path="/messages" element={<Messages />} />
                   <Route path="/leagues" element={<Leagues />} />
+                  <Route path="/flashcards" element={<Flashcards />} />
+                  <Route path="/flashcard-review" element={<FlashcardReview />} />
+                  <Route path="/flashcard-games" element={<FlashcardGames />} />
+                  <Route path="/pronunciation" element={<Pronunciation />} />
                   <Route path="/admin/import" element={<AdminImport />} />
 
                   <Route path="*" element={<NotFound />} />

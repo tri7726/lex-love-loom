@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckCircle2, AlertCircle, Loader2, Sparkles, RefreshCcw, Trash2,
-  Mic, MicOff, Volume2, Info, BookOpen, Quote, Save
+  Mic, MicOff, Volume2, Info, BookOpen, Quote, Save, Send
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,7 @@ export interface GrammarCheckInputProps {
 
 /* ──────── Highlight Japanese text in 「」 ──────── */
 const HighlightJP: React.FC<{text: string}> = ({ text }) => {
+  if (!text) return null;
   const parts = text.split(/(「[^」]*」)/g);
   return (
     <>
@@ -47,6 +48,7 @@ const HighlightJP: React.FC<{text: string}> = ({ text }) => {
 
 /** Parse "1. … 2. … n. …" into numbered items */
 const parseExplanation = (text: string): {num: number; content: string}[] => {
+  if (!text) return [];
   return text.split(/(?=\d+\.\s)/)
     .map(s => s.trim())
     .filter(Boolean)
@@ -85,15 +87,19 @@ export const GrammarCheckInput: React.FC<GrammarCheckInputProps> = ({
           content: textToCheck,
           isGrammar: true,
           isVip: true,
-          prompt: `[Context: ${userContext}] Please check my grammar carefully Sensei!`
+          prompt: `[Context: ${userContext}] Vui lòng kiểm tra ngữ pháp hoặc dịch câu này sang tiếng Nhật tự nhiên nhất. Chỉ tập trung vào phần Text to analyze.`
         },
       });
 
       if (invokeError) throw invokeError;
-      if (data?.error && !data.explanation) {
+      
+      // Extract from { format: 'grammar', result: { ... } }
+      const grammarResult = data?.format === 'grammar' ? data.result : data;
+      
+      if (data?.error && !grammarResult?.explanation) {
         toast({ title: 'Sensei Note', description: data.error });
       }
-      setResult(data);
+      setResult(grammarResult);
     } catch (error) {
       console.error('Grammar check error:', error);
       toast({ title: 'Lỗi Sensei', description: 'Sensei đang bận, vui lòng thử lại sau.', variant: 'destructive' });
@@ -102,15 +108,11 @@ export const GrammarCheckInput: React.FC<GrammarCheckInputProps> = ({
     }
   }, [toast, profile]);
 
-  // Debounce
+  // Removed automatic debounce as per user request for manual "Gửi" button
   useEffect(() => {
     if (text === initialValue && !result) return;
-    const timer = setTimeout(() => {
-      if (text.trim() && text !== initialValue) checkGrammar(text);
-      else if (!text.trim()) setResult(null);
-    }, 1200);
-    return () => clearTimeout(timer);
-  }, [text, checkGrammar, initialValue, result]);
+    if (!text.trim()) setResult(null);
+  }, [text, initialValue, result]);
 
   const handleClear = () => { setText(''); setResult(null); if (onClear) onClear(); };
 
@@ -135,7 +137,10 @@ export const GrammarCheckInput: React.FC<GrammarCheckInputProps> = ({
       <div className="relative">
         <Textarea
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            if (result) setResult(null); // Clear old results when typing new text
+          }}
           placeholder="Nhập hoặc nói câu tiếng Nhật để kiểm tra..."
           className="min-h-[130px] pr-16 font-jp text-lg resize-none bg-background border-border rounded-2xl p-4 sm:p-5 focus-visible:ring-primary/30"
         />
@@ -152,17 +157,24 @@ export const GrammarCheckInput: React.FC<GrammarCheckInputProps> = ({
               <Trash2 className="h-3.5 w-3.5"/>
             </Button>
           )}
-          {isLoading && (
-            <div className="h-9 w-9 rounded-xl bg-card border border-border flex items-center justify-center">
-              <Loader2 className="h-4 w-4 animate-spin text-primary"/>
-            </div>
-          )}
         </div>
-        {text.length > 0 && !isLoading && !result && (
-          <div className="absolute left-4 bottom-3 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-primary/50">
-            <Sparkles className="h-3 w-3 animate-pulse"/>Sensei đang xem xét...
-          </div>
-        )}
+        
+        <div className="mt-4 flex justify-end">
+          <Button 
+            onClick={() => checkGrammar(text)}
+            disabled={isLoading || !text.trim()}
+            className="rounded-2xl px-8 h-12 bg-sakura hover:bg-sakura-dark text-white font-black uppercase tracking-widest gap-2 shadow-lg shadow-sakura/20 transition-all hover:scale-105 active:scale-95"
+          >
+            {isLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin"/>
+            ) : (
+              <>
+                <Send className="h-5 w-5"/>
+                <span>Gửi Sensei</span>
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* ── Result card ── */}

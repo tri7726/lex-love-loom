@@ -29,6 +29,9 @@ import {
   Users,
   Bell,
   ShieldCheck,
+  CheckCircle,
+  RotateCcw,
+  Volume2,
   Settings
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -48,34 +51,41 @@ import { JishoSearch } from './JishoSearch';
 
 const navItems = [
   { path: '/', icon: Home, label: 'Trang chủ' },
+  { path: '/ai-tutor', icon: Brain, label: 'AI Tutor' },
 ];
 
 const studyItems = [
-  { path: '/learning-path', icon: MapIcon, label: 'Lộ trình', description: 'Con đường chinh phục N1' },
-  { path: '/vocabulary', icon: BookOpen, label: 'Từ vựng', description: 'Học từ và Hán tự' },
-  { path: '/grammar', icon: BookMarked, label: 'Ngữ pháp', description: 'Cấu trúc câu' },
+  { path: '/learning-path', icon: MapIcon, label: 'Lộ trình', description: 'Chinh phục JLPT N5-N1' },
+  { path: '/vocabulary', icon: BookOpen, label: 'Từ vựng', description: 'Kho từ & Hán tự' },
+  { path: '/grammar', icon: BookMarked, label: 'Ngữ pháp', description: 'Cấu trúc & Mẫu câu' },
+  { path: '/kanji-worksheet', icon: Palette, label: 'Tập viết', description: 'Tạo bảng tập viết Hán tự' },
+];
+
+const assessItems = [
+  { path: '/quiz', icon: Zap, label: 'Quiz hằng ngày', description: 'Ôn tập nhanh' },
+  { path: '/mock-tests', icon: ShieldCheck, label: 'Thi thử JLPT', description: 'Đề thi thực tế' },
+  { path: '/flashcard-review', icon: RotateCcw, label: 'Thẻ ghi nhớ (SRS)', description: 'Ôn tập ngắt quãng' },
+];
+
+const gameItems = [
+  { path: '/flashcard-games', icon: Gamepad2, label: 'Trò chơi', description: 'Ghép cặp, Tốc độ, Luyện gõ...' },
 ];
 
 const skillItems = [
-  { path: '/reading', icon: Book, label: 'Đọc hiểu', description: 'Luyện đọc báo & tin tức' },
-  { path: '/speaking-practice', icon: Mic, label: 'Luyện nói', description: 'Phát âm cùng AI' },
-  { path: '/video-learning', icon: Video, label: 'Học qua Video', description: 'Youtube & Anime' },
-  { path: '/ai-tutor', icon: Brain, label: 'AI Tutor', description: 'Giải đáp 24/7' },
+  { path: '/reading', icon: Book, label: 'Đọc hiểu', description: 'Luyện đọc báo & truyền thuyết' },
+  { path: '/speaking-practice', icon: Mic, label: 'Luyện nói AI', description: 'Phát âm & Hội thoại' },
+  { path: '/pronunciation', icon: Volume2, label: 'Phát âm', description: 'Luyện âm chuẩn' },
+  { path: '/video-learning', icon: Video, label: 'Học qua Video', description: 'Phim & Nhạc Nhật' },
+  { path: '/news', icon: Globe, label: 'Tin tức', description: 'Báo NHK Easy' },
 ];
 
 const socialItems = [
-  { path: '/roleplay', icon: MessageSquare, label: 'Hội thoại AI', description: 'Giao tiếp thực tế' },
-  { path: '/news', icon: Globe, label: 'Tin tức', description: 'Báo NHK Easy' },
-  { path: '/friends', icon: User, label: 'Bạn bè', description: 'Tìm kiếm đồng đội' },
-  { path: '/messages', icon: MessageSquare, label: 'Tin nhắn', description: 'Trò chuyện riêng' },
-];
-
-const competitionItems = [
-  { path: '/leagues', icon: Trophy, label: 'Giải đấu', description: 'Thăng hạng hàng tuần' },
-  { path: '/challenges', icon: Sword, label: 'Thách đấu 1vs1', description: 'So tài trực tiếp' },
-  { path: '/squads', icon: Users, label: 'Squads', description: 'Nhóm học tập' },
+  { path: '/roleplay', icon: MessageSquare, label: 'Hội thoại AI', description: 'Giao tiếp tình huống' },
+  { path: '/leagues', icon: Trophy, label: 'Giải đấu', description: 'Xếp hạng hàng tuần' },
+  { path: '/leaderboard', icon: Trophy, label: 'Bảng xếp hạng', description: 'Top học viên' },
+  { path: '/friends', icon: User, label: 'Bạn bè', description: 'Kết nối đồng đội' },
+  { path: '/messages', icon: MessageSquare, label: 'Tin nhắn', description: 'Trò chuyện trò' },
   { path: '/achievements', icon: Trophy, label: 'Thành tích', description: 'Huy hiệu của bạn' },
-  { path: '/leaderboard', icon: Trophy, label: 'Bảng xếp hạng', description: 'Top cao thủ' },
 ];
 
 interface NavigationProps {
@@ -141,12 +151,12 @@ export const Navigation: React.FC<NavigationProps> = ({
               );
             })}
 
-            {/* Khóa học Dropdown */}
+            {/* Bài học Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="gap-2 font-black uppercase text-[10px] tracking-widest h-10 px-4 text-muted-foreground hover:text-sakura hover:bg-sakura/5 transition-all">
-                  <MapIcon className="h-4 w-4" />
-                  Khóa học
+                  <BookOpen className="h-4 w-4" />
+                  Bài học
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-64 p-2 rounded-2xl border-2 border-sakura/10 shadow-elevated transition-all">
@@ -166,17 +176,17 @@ export const Navigation: React.FC<NavigationProps> = ({
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Kỹ năng Dropdown */}
+            {/* Đánh giá Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="gap-2 font-black uppercase text-[10px] tracking-widest h-10 px-4 text-muted-foreground hover:text-sakura hover:bg-sakura/5 transition-all">
-                  <Zap className="h-4 w-4" />
-                  Kỹ năng
+                <Button variant="ghost" className="gap-2 font-black uppercase text-[10px] tracking-widest h-10 px-4 text-muted-foreground hover:text-matcha hover:bg-matcha/5 transition-all">
+                  <CheckCircle className="h-4 w-4" />
+                  Đánh giá
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64 p-2 rounded-2xl border-2 border-sakura/10 shadow-elevated transition-all">
-                {skillItems.map((item) => (
-                  <DropdownMenuItem key={item.path} asChild className="rounded-xl p-3 cursor-pointer focus:bg-sakura/5">
+              <DropdownMenuContent align="start" className="w-64 p-2 rounded-2xl border-2 border-matcha/10 shadow-elevated transition-all">
+                {assessItems.map((item) => (
+                  <DropdownMenuItem key={item.path} asChild className="rounded-xl p-3 cursor-pointer focus:bg-matcha/5">
                     <Link to={item.path} className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-lg bg-matcha/10 flex items-center justify-center text-matcha">
                         <item.icon className="h-4 w-4" />
@@ -191,17 +201,30 @@ export const Navigation: React.FC<NavigationProps> = ({
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Tương tác Dropdown */}
+            {/* Trò chơi Link */}
+            {gameItems.map((item) => (
+              <Link key={item.path} to={item.path}>
+                <Button
+                  variant="ghost"
+                  className="gap-2 font-black uppercase text-[10px] tracking-widest h-10 px-4 text-muted-foreground hover:text-orange-500 hover:bg-orange-50 transition-all"
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.label}
+                </Button>
+              </Link>
+            ))}
+
+            {/* Kỹ năng Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="gap-2 font-black uppercase text-[10px] tracking-widest h-10 px-4 text-muted-foreground hover:text-sakura hover:bg-sakura/5 transition-all">
-                  <Users className="h-4 w-4" />
-                  Tương tác
+                <Button variant="ghost" className="gap-2 font-black uppercase text-[10px] tracking-widest h-10 px-4 text-muted-foreground hover:text-indigo-jp hover:bg-indigo-jp/5 transition-all">
+                  <Zap className="h-4 w-4" />
+                  Kỹ năng
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64 p-2 rounded-2xl border-2 border-sakura/10 shadow-elevated transition-all">
-                {socialItems.map((item) => (
-                  <DropdownMenuItem key={item.path} asChild className="rounded-xl p-3 cursor-pointer focus:bg-sakura/5">
+              <DropdownMenuContent align="start" className="w-64 p-2 rounded-2xl border-2 border-indigo-jp/10 shadow-elevated transition-all">
+                {skillItems.map((item) => (
+                  <DropdownMenuItem key={item.path} asChild className="rounded-xl p-3 cursor-pointer focus:bg-indigo-jp/5">
                     <Link to={item.path} className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-lg bg-indigo-jp/10 flex items-center justify-center text-indigo-jp">
                         <item.icon className="h-4 w-4" />
@@ -216,17 +239,17 @@ export const Navigation: React.FC<NavigationProps> = ({
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Thi đấu Dropdown */}
+            {/* Kết nối Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="gap-2 font-black uppercase text-[10px] tracking-widest h-10 px-4 text-muted-foreground hover:text-sakura hover:bg-sakura/5 transition-all">
-                  <Trophy className="h-4 w-4" />
-                  Thi đấu
+                <Button variant="ghost" className="gap-2 font-black uppercase text-[10px] tracking-widest h-10 px-4 text-muted-foreground hover:text-gold hover:bg-gold/5 transition-all">
+                  <Users className="h-4 w-4" />
+                  Kết nối
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64 p-2 rounded-2xl border-2 border-sakura/10 shadow-elevated transition-all">
-                {competitionItems.map((item) => (
-                  <DropdownMenuItem key={item.path} asChild className="rounded-xl p-3 cursor-pointer focus:bg-sakura/5">
+              <DropdownMenuContent align="start" className="w-64 p-2 rounded-2xl border-2 border-gold/10 shadow-elevated transition-all">
+                {socialItems.map((item) => (
+                  <DropdownMenuItem key={item.path} asChild className="rounded-xl p-3 cursor-pointer focus:bg-gold/5">
                     <Link to={item.path} className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-lg bg-gold/10 flex items-center justify-center text-gold">
                         <item.icon className="h-4 w-4" />
@@ -357,11 +380,11 @@ export const Navigation: React.FC<NavigationProps> = ({
         <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-t px-2 py-3 shadow-elevated">
           <div className="flex justify-around items-center">
             {[
-              { path: '/', icon: Home, label: 'Home' },
-              { path: '/learning-path', icon: MapIcon, label: 'Khóa học' },
-              { path: '/reading', icon: Zap, label: 'Kỹ năng' },
-              { path: '/leagues', icon: Trophy, label: 'Thi đấu' },
-              { path: '/messages', icon: MessageSquare, label: 'Xã hội' },
+              { path: '/', icon: Home, label: 'Trang chủ' },
+              { path: '/ai-tutor', icon: Brain, label: 'AI Tutor' },
+              { path: '/learning-path', icon: BookOpen, label: 'Học tập' },
+              { path: '/flashcard-games', icon: Gamepad2, label: 'Game' },
+              { path: '/leagues', icon: Trophy, label: 'XH' },
             ].map((mItem) => {
               const isActive = location.pathname === mItem.path;
               return (

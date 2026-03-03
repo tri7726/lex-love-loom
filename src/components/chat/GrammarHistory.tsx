@@ -29,6 +29,7 @@ export const loadSavedExercises = (): SavedExercise[] => {
 };
 
 const HighlightJP: React.FC<{text: string}> = ({ text }) => {
+  if (!text) return null;
   const parts = text.split(/(「[^」]*」)/g);
   return (
     <>

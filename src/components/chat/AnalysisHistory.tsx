@@ -1,47 +1,37 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { History, Trash2, User as UserIcon, Loader2, Sparkles, Languages } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { History, Search, RefreshCw, Layers, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
 
 export interface AnalysisItem {
   id: string;
   content: string;
+  analysis: any;
   created_at: string;
-  engine: string | null;
-  analysis: unknown;
-  user_id: string;
+  engine: string;
 }
 
 interface AnalysisHistoryProps {
   onSelect: (item: AnalysisItem) => void;
-  title?: string;
   maxItems?: number;
-  className?: string;
-  variant?: 'vertical' | 'horizontal';
 }
 
-export const AnalysisHistory: React.FC<AnalysisHistoryProps> = ({ 
-  onSelect, 
-  title = "Lịch sử phân tích gần đây",
-  maxItems = 20,
-  className,
-  variant = 'vertical'
-}) => {
+export const AnalysisHistory = ({ onSelect, maxItems = 12 }: AnalysisHistoryProps) => {
   const { user } = useAuth();
   const [history, setHistory] = useState<AnalysisItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const fetchHistory = React.useCallback(async () => {
+  const fetchHistory = async () => {
     if (!user) {
       setHistory([]);
+      setLoading(false);
       return;
     }
     setLoading(true);
@@ -60,114 +50,73 @@ export const AnalysisHistory: React.FC<AnalysisHistoryProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [user, maxItems]);
+  };
 
   useEffect(() => {
     fetchHistory();
-  }, [fetchHistory]);
+  }, [user, maxItems]);
 
-  const handleDelete = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    try {
-      const { error } = await supabase.from('analysis_history').delete().eq('id', id);
-      if (error) throw error;
-      setHistory(prev => prev.filter(item => item.id !== id));
-      toast.success('Đã xóa lịch sử');
-    } catch (error) {
-      toast.error('Không thể xóa lịch sử');
-    }
-  };
-
-  if (!user) {
-    return (
-      <Card className={cn("border-dashed", className)}>
-        <CardContent className={cn("py-6 text-center", variant === 'horizontal' && "flex items-center gap-4 py-3 text-left")}>
-          <UserIcon className={cn("h-8 w-8 mx-auto mb-2 text-muted-foreground/30", variant === 'horizontal' && "mx-0 mb-0 h-6 w-6")} />
-          <div className={cn(variant === 'horizontal' && "flex-1")}>
-            <p className="text-xs font-bold mb-1">Chưa đăng nhập</p>
-            {variant === 'vertical' && <p className="text-[10px] text-muted-foreground mb-3">Đăng nhập để xem lịch sử.</p>}
-          </div>
-          <Link to="/auth">
-            <Button size="sm" variant="outline" className="h-7 text-[10px] px-3">Đăng nhập</Button>
-          </Link>
-        </CardContent>
-      </Card>
-    );
-  }
+  const filteredHistory = history.filter(item => 
+    (item.content || '').toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
-    <div className={className}>
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-          <History className="h-3 w-3 text-primary" />
-          {title}
-        </h3>
-        <Button variant="ghost" size="sm" onClick={fetchHistory} disabled={loading} 
-          className="h-6 px-2 text-[9px] uppercase font-black text-primary hover:bg-primary/5">
-          Refresh
+    <div className="flex flex-col h-full max-h-[600px] gap-4">
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-2">
+          <BookOpen className="h-4 w-4 text-primary" />
+          <h3 className="text-sm font-semibold text-foreground">Bài đã lưu</h3>
+        </div>
+        <Button variant="ghost" size="icon" onClick={fetchHistory} className="h-7 w-7 rounded-full hover:bg-muted/50 transition-colors">
+          <RefreshCw className={cn("h-3.5 w-3.5 text-muted-foreground", loading && "animate-spin")} />
         </Button>
       </div>
 
-      <div className={cn(
-        "scrollbar-hide", 
-        variant === 'vertical' ? "space-y-2 max-h-[400px] overflow-y-auto pr-1" : "flex gap-3 overflow-x-auto pb-2 min-h-[90px] items-center"
-      )}>
-        {loading ? (
-          [1, 2, 3].map(i => (
-            <Skeleton key={i} className={cn(
-              "rounded-xl shrink-0", 
-              variant === 'vertical' ? "h-16 w-full" : "h-20 w-56"
-            )} />
-          ))
-        ) : history.length === 0 ? (
-          <div className={cn(
-            "text-center py-6 border-2 border-dashed rounded-xl bg-muted/5",
-            variant === 'horizontal' && "flex-1 py-4"
-          )}>
-            <p className="text-[10px] text-muted-foreground italic font-medium">Chưa có dữ liệu phân tích.</p>
-          </div>
-        ) : (
-          <AnimatePresence initial={false}>
-            {history.map((item, idx) => (
-              <motion.div
-                key={item.id}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: idx * 0.03 }}
-                className={cn(
-                  "group relative p-3 rounded-xl border bg-card hover:border-primary/40 hover:shadow-soft cursor-pointer transition-all overflow-hidden shrink-0",
-                  variant === 'vertical' ? "w-full" : "w-64 h-20 flex flex-col justify-center"
-                )}
-                onClick={() => onSelect(item)}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="space-y-1 flex-1 min-w-0">
-                    <p className="text-[11px] font-bold font-jp line-clamp-1 group-hover:text-primary transition-colors">
-                      {item.content}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[9px] text-muted-foreground font-medium italic">
-                        {new Date(item.created_at).toLocaleDateString()}
-                      </span>
-                      <Badge variant="secondary" className="text-[8px] h-3.5 px-1 py-0 uppercase font-black bg-muted/50">
-                        {item.engine || 'AI'}
-                      </Badge>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 rounded-lg text-destructive/50 opacity-0 group-hover:opacity-100 hover:text-destructive hover:bg-destructive/10 transition-all shrink-0"
-                    onClick={(e) => handleDelete(e, item.id)}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        )}
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <Input 
+          placeholder="Tìm kiếm nội dung..." 
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="h-8 pl-8 text-[11px] bg-sakura/5 border-sakura/10 focus-visible:ring-sakura/30 rounded-lg font-medium"
+        />
       </div>
+
+      <ScrollArea className="flex-1 -mx-1 pr-3 scrollbar-hide">
+        <div className="space-y-2 pb-2">
+          {loading && history.length === 0 ? (
+            Array(3).fill(0).map((_, i) => (
+              <Skeleton key={i} className="h-16 w-full rounded-xl" />
+            ))
+          ) : filteredHistory.length > 0 ? (
+            filteredHistory.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => onSelect(item)}
+                className="w-full text-left p-3 rounded-xl border border-sakura/5 bg-white/50 dark:bg-slate-800/50 hover:border-sakura/30 hover:bg-sakura/5 transition-all group relative overflow-hidden active:scale-[0.98]"
+              >
+                <div className="space-y-1.5 relative z-10">
+                  <p className="text-xs font-jp font-bold line-clamp-2 group-hover:text-sakura transition-colors">
+                    {item.content}
+                  </p>
+                  <div className="flex items-center justify-between text-[9px] font-bold text-muted-foreground">
+                    <span>{format(new Date(item.created_at), 'd/MM/yyyy')}</span>
+                    <span className="uppercase text-sakura opacity-70 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                      <Layers className="h-2.5 w-2.5" /> {item.engine}
+                    </span>
+                  </div>
+                </div>
+              </button>
+            ))
+          ) : (
+            <div className="py-8 text-center bg-muted/20 rounded-xl border border-dashed border-border">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-50">
+                {searchQuery ? 'Không tìm thấy kết quả' : 'Chưa có dữ liệu'}
+              </p>
+            </div>
+          )}
+        </div>
+      </ScrollArea>
     </div>
   );
 };

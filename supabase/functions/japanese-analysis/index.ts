@@ -18,40 +18,52 @@ interface AnalysisRequest {
   saveToHistory?: boolean;
 }
 
-const GRAMMAR_SYSTEM_PROMPT = `あなたは日本語の文法チェッカーです。
-ユーザーが入力した日本語の文法をチェックし、以下のJSON形式で返答してください。
-修正 nội dung hay giải thích bằng tiếng Việt.
+const GRAMMAR_SYSTEM_PROMPT = `Bạn là một giáo viên tiếng Nhật (Sensei) chuyên môn cao, chuyên hỗ trợ người học tiếng Việt.
+Nhiệm vụ của bạn là kiểm tra, sửa lỗi ngữ pháp hoặc dịch câu nhập vào sang TIẾNG NHẬT TỰ NHIÊN NHẤT (Natural Japanese).
 
+QUY TẮC QUAN TRỌNG:
+1. Nếu văn bản nhập vào bằng Tiếng Anh hoặc Tiếng Việt, hãy DỊCH nó sang một câu tiếng Nhật thật tự nhiên và đúng ngữ cảnh, đừng báo lỗi.
+2. Nếu văn bản nhập vào là tiếng Nhật có lỗi, hãy sửa nó thành câu tiếng Nhật chuẩn, tự nhiên nhất. Không dịch word-by-word một cách cứng nhắc.
+3. Cùng một ý nghĩa nhưng nếu có cách nói tự nhiên hơn của người bản xứ (Native style), hãy đề xuất nó trong "suggestions".
+4. Toàn bộ phần "explanation" (giải thích) PHẢI được viết bằng tiếng Việt, giọng điệu ân cần, khích lệ như một giáo viên (Ví dụ: "Em chú ý nhé...", "Câu này của em ý rất tốt nhưng...").
+
+Trả về ĐÚNG định dạng JSON sau:
 {
-  "isCorrect": boolean,
-  "corrected": "string",
-  "explanation": "string (bằng tiếng Việt)",
-  "rules": ["string (bằng tiếng Nhật)"],
-  "suggestions": ["string (bằng tiếng Nhật)"]
+  "isCorrect": boolean (true nếu câu tiếng Nhật đã hoàn hảo, false nếu có lỗi hoặc là văn bản tiếng Anh/Việt cần dịch),
+  "corrected": "Câu tiếng Nhật đúng, tự nhiên nhất. (BẮT BUỘC có nếu isCorrect là false)",
+  "explanation": "Giải thích chi tiết lỗi sai hoặc lý do chọn cách dịch này (bằng tiếng Việt).",
+  "rules": ["Kiến thức/Cấu trúc ngữ pháp liên quan (bằng tiếng Nhật/Việt)"],
+  "suggestions": ["Cách nói tự nhiên hơn, giống người bản xứ hơn (bằng tiếng Nhật)"]
 }`;
 
 const ENHANCED_SYSTEM_PROMPT = `You are an expert Japanese language analyzer specialized in Vietnamese learners.
 
-Analyze the provided Japanese text and return a detailed JSON response with the following structure:
+Analyze the provided Japanese text and return a detailed JSON response. 
+IMPORTANT: Prioritize the user's specific "Question" or focus area provided in the prompt. 
+If the user asks for "Grammar", go deep into patterns. 
+If they ask for "Vocabulary", focus on etymology, Hán Việt, and collocations. 
+If they ask for "Nuance", analyze politeness and cultural context deeply.
+
+Structure your JSON as follows:
 
 {
   "overall_analysis": {
-    "jlpt_level": "Estimated JLPT level (N5, N4, N3, N2, N1, or 'Mixed')",
+    "jlpt_level": "Estimated JLPT level (N5-N1)",
     "politeness_level": "formal/casual/mixed",
-    "text_type": "conversation/news/literature/daily/academic",
-    "summary": "Brief overall analysis summary in Vietnamese (2-3 sentences)"
+    "text_type": "conversation/news/daily/etc",
+    "summary": "Focus specifically on answering the user's question/mode in 3-4 sentences (Vietnamese)."
   },
   "sentences": [
     {
       "japanese": "Original sentence",
-      "vietnamese": "Vietnamese translation",
+      "vietnamese": "Natural translation",
       "breakdown": {
         "words": [
           {
             "word": "Word",
-            "reading": "Reading",
+            "reading": "Reading (kana)",
             "hanviet": "Hán Việt",
-            "meaning": "Meaning",
+            "meaning": "Meaning (VN)",
             "word_type": "type",
             "jlpt_level": "N5-N1"
           }
@@ -60,33 +72,22 @@ Analyze the provided Japanese text and return a detailed JSON response with the 
           {
             "pattern": "Pattern",
             "meaning": "Meaning (VN)",
-            "usage": "Usage (VN)"
+            "usage": "Focus on the specific usage in this context (VN)"
           }
         ]
       }
     }
   ],
-  "suggested_flashcards": [
-    {
-      "word": "Word",
-      "reading": "Reading",
-      "hanviet": "Hán Việt",
-      "meaning": "Meaning",
-      "example_sentence": "Example",
-      "example_translation": "Translation",
-      "jlpt_level": "N5-N1",
-      "word_type": "type"
-    }
-  ],
+  "suggested_flashcards": [],
   "grammar_summary": {
-    "particles_used": ["List"],
-    "verb_forms": ["List"],
-    "key_patterns": ["List"]
+    "particles_used": [],
+    "verb_forms": [],
+    "key_patterns": []
   },
-  "cultural_notes": ["Notes in VN"]
+  "cultural_notes": ["Notes specifically related to the user's request context in VN"]
 }
 
-CRITICAL: Return ONLY valid JSON. Readings in hiragana. Vietnamese for explanations.`;
+CRITICAL: Return ONLY valid JSON. All explanations in Vietnamese. Be highly responsive to the specific prompt focus.`;
 
 const VISION_SYSTEM_PROMPT = `You are an expert Japanese tutor. 
 Analyze the image provided and identify objects. Return JSON:
@@ -254,7 +255,10 @@ serve(async (req: Request) => {
       const typeLabel = isGrammar ? "grammar" : "text";
       console.log(`Analyzing ${typeLabel} using Groq (Key 2)...`);
       const systemPrompt = isGrammar ? GRAMMAR_SYSTEM_PROMPT : ENHANCED_SYSTEM_PROMPT;
-      const userContent = prompt ? `Analyze this: ${content}\n\nQuestion: ${prompt}` : content;
+      let userContent = `Text to analyze:\n"""\n${content}\n"""`;
+      if (prompt) {
+        userContent += `\n\nUser Instruction/Context:\n"""\n${prompt}\n"""`;
+      }
       const raw = await fetchGroqWithRotation("llama-3.3-70b-versatile", systemPrompt, userContent);
       const parsed = extractJSON(raw);
       resultData = isGrammar 
