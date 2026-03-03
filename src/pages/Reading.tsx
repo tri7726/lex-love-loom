@@ -579,7 +579,7 @@ export const Reading = () => {
         {/* History Panel (Expandable) */}
         {historyOpen && (
           <Card className="mb-6 border-sakura/20 bg-sakura/5 py-4 px-6 rounded-2xl">
-            <AnalysisHistory onSelect={handleApplyHistory} variant="horizontal" />
+            <AnalysisHistory onSelect={handleApplyHistory} />
           </Card>
         )}
 
