@@ -38,6 +38,37 @@ serve(async (req: Request) => {
     );
 
     const { action = "fetch_and_analyze" } = await req.json();
+    
+    // Security check: Only Admin can refresh news
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "No authorization header" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(authHeader.replace('Bearer ', ''));
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Invalid token" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Check role in profiles table
+    const { data: profile } = await supabaseClient
+      .from('profiles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single();
+
+    if (profile?.role !== 'admin') {
+      return new Response(JSON.stringify({ error: "Only admins can refresh news" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (action === "fetch_and_analyze") {
       const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -101,17 +132,37 @@ serve(async (req: Request) => {
         
         if (aiResponse.ok) {
           const aiData = await aiResponse.json();
+          
+          // CRITICAL: Save fallback article to database so frontend can see it
+          console.log("Saving AI generated fallback to database...");
+          const { data: savedData, error: saveError } = await supabaseClient
+            .from("reading_passages")
+            .insert({
+              title: aiData.title_vi || "Tin tức AI",
+              content: aiData.vietnamese_summary || "Bản tin được tạo bởi AI.",
+              content_with_furigana: aiData.content_with_furigana || aiData.content,
+              category: "news",
+              level: "N3",
+              vocabulary_list: aiData.vocabulary_list || [],
+              user_id: null,
+            })
+            .select()
+            .single();
+
+          if (saveError) console.error("Error saving AI fallback to DB:", saveError);
+
           return new Response(JSON.stringify({ 
             success: true, 
             article: {
-              title: aiData.title || "AI生成ニュース",
-              japanese_title: aiData.title || "AI生成ニュース",
+              title: aiData.title_vi || "Tin tức AI",
+              japanese_title: aiData.title || "AI News",
               content_with_furigana: aiData.content_with_furigana || aiData.content,
-              vietnamese_content: aiData.vietnamese_content || "Bài đọc được tạo bởi AI",
+              vietnamese_content: aiData.vietnamese_summary || "Bản tin được tạo bởi AI.",
               vocabulary_list: aiData.vocabulary_list || [],
               jlpt_level: "N3",
             },
-            source: "ai_generated"
+            source: "ai_generated",
+            db_saved: !!savedData
           }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
@@ -210,11 +261,11 @@ serve(async (req: Request) => {
       }
 
       // 4. Save to reading_passages
-      console.log("Saving to database...");
+      console.log("Saving analyzed news to database...");
       const { data: savedData, error: saveError } = await supabaseClient
         .from("reading_passages")
         .insert({
-          title: analyzedData.japanese_title.replace(/<[^>]*>/g, ''), // Plain title for index
+          title: analyzedData.title, // Use Vietnamese Title as the primary display title
           content: analyzedData.vietnamese_content || newsContent,
           content_with_furigana: analyzedData.content_with_furigana,
           category: "news",

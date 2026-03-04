@@ -31,7 +31,9 @@ Vocabulary and questions:
 Return the result in this JSON format:
 {
   "title": "Japanese Title",
+  "title_vi": "Vietnamese Title",
   "content_with_furigana": "Japanese text with <ruby> tags",
+  "vietnamese_summary": "Short Vietnamese summary of the text",
   "vocabulary_list": [{"word": "漢字", "reading": "かんじ", "meaning": "Hán tự"}],
   "questions": [{"question": "...", "options": ["...", "..."], "answer": "...", "explanation": "..."}]
 }
@@ -40,7 +42,9 @@ Levels: N5, N4, N3, N2, N1. Adjust complexity accordingly.`;
 
 interface ReadingResponse {
   title: string;
+  title_vi: string;
   content_with_furigana: string;
+  vietnamese_summary: string;
   vocabulary_list: Array<{
     word: string;
     reading: string;

@@ -23,6 +23,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { useProfile } from '@/hooks/useProfile';
 
 const CATEGORIES = ['Tất cả', 'N5', 'N4', 'N3', 'N2', 'N1'];
 
@@ -66,6 +67,8 @@ export const News = () => {
   const [selectedCategory, setSelectedCategory] = useState('Tất cả');
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { profile } = useProfile();
+  const isAdmin = profile?.role === 'admin';
 
   // Fetch news from reading_passages table
   const { data: news, isLoading } = useQuery({
@@ -130,19 +133,21 @@ export const News = () => {
             </div>
             
             <div className="flex items-center gap-3">
-              <Button 
-                variant="outline" 
-                className="rounded-xl border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 gap-2 font-bold"
-                onClick={() => fetchNewsMutation.mutate()}
-                disabled={fetchNewsMutation.isPending}
-              >
-                {fetchNewsMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4" />
-                )}
-                Làm mới tin tức
-              </Button>
+              {isAdmin && (
+                <Button 
+                  variant="outline" 
+                  className="rounded-xl border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 gap-2 font-bold"
+                  onClick={() => fetchNewsMutation.mutate()}
+                  disabled={fetchNewsMutation.isPending}
+                >
+                  {fetchNewsMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  Làm mới tin tức
+                </Button>
+              )}
               <div className="relative w-full md:w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input placeholder="Tìm kiếm tin tức..." className="pl-9 bg-card border-border rounded-xl" />
