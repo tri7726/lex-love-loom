@@ -207,7 +207,7 @@ export const News = () => {
                     </div>
                     <div className="absolute bottom-3 left-3">
                       <Badge className="bg-primary text-primary-foreground font-black text-[10px] uppercase border-0">
-                        NHẬT BẢN
+                        {item.category && item.category !== 'news' ? item.category : 'NHẬT BẢN'}
                       </Badge>
                     </div>
                   </div>

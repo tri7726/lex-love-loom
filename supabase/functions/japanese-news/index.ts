@@ -24,7 +24,8 @@ Return the result in this JSON format:
   "content_with_furigana": "Japanese summary with <ruby> tags",
   "vietnamese_content": "Vietnamese summary",
   "vocabulary_list": [{"word": "漢字", "reading": "かんじ", "meaning": "Hán tự"}],
-  "jlpt_level": "N3"
+  "jlpt_level": "N3",
+  "category": "Xã hội/Kinh tế/Sự kiện..."
 }
 `;
 
@@ -234,10 +235,10 @@ serve(async (req: Request) => {
       const { data: savedData, error: saveError } = await supabaseClient
         .from("reading_passages")
         .insert({
-          title: analyzedData.title, // Use Vietnamese Title as the primary display title
+          title: analyzedData.title,
           content: analyzedData.vietnamese_content || newsContent,
           content_with_furigana: analyzedData.content_with_furigana,
-          category: "news",
+          category: analyzedData.category || "news",
           level: analyzedData.jlpt_level || "N3",
           vocabulary_list: analyzedData.vocabulary_list,
           user_id: null,
