@@ -10,6 +10,7 @@ import ReactMarkdown from 'react-markdown';
 import { useToast } from '@/hooks/use-toast';
 import { useFlashcardCreation } from '@/hooks/useFlashcardCreation';
 import { FolderSelectionDialog } from '@/components/flashcards/FolderSelectionDialog';
+import { cn } from '@/lib/utils';
 
 // Type definitions matching the backend response
 interface WordBreakdown {
@@ -164,13 +165,13 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
           exit={{ opacity: 0, x: 300 }}
           className="fixed top-0 right-0 h-full w-full sm:w-[500px] bg-background border-l shadow-2xl z-50 flex flex-col"
         >
-          <div className="p-4 border-b flex items-center justify-between bg-gradient-to-r from-primary/10 to-primary/5">
-            <h3 className="font-semibold flex items-center gap-2 text-primary">
-              <Sparkles className="h-4 w-4" />
-              AI Analysis {isStructured && '(Enhanced)'}
+          <div className="p-6 border-b flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
+            <h3 className="text-2xl font-display font-medium text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-sakura animate-pulse-subtle" />
+              AI Analysis
             </h3>
-            <Button variant="ghost" size="icon" onClick={onClose}>
-              <X className="h-4 w-4" />
+            <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full hover:bg-slate-100 dark:hover:bg-slate-800">
+              <X className="h-5 w-5" />
             </Button>
           </div>
 
@@ -185,231 +186,285 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
                 {error}
               </div>
             ) : isStructured ? (
-              // Enhanced structured view
               <Tabs value={activeTab} onValueChange={setActiveTab} className="p-4">
-                <TabsList className="grid w-full grid-cols-4 mb-4">
-                  <TabsTrigger value="overview" className="text-xs">
-                    <BookOpen className="h-3 w-3 mr-1" />
+                <TabsList className="flex w-full bg-sakura-light/30 dark:bg-slate-900/50 p-1 mb-8 rounded-2xl border border-sakura-light/50 dark:border-slate-800">
+                  <TabsTrigger value="overview" className="flex-1 py-2 text-xs font-medium rounded-xl transition-all data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-sakura data-[state=active]:shadow-sm">
+                    <BookOpen className="h-4 w-4 mr-2" />
                     Overview
                   </TabsTrigger>
-                  <TabsTrigger value="breakdown" className="text-xs">
-                    <MessageSquare className="h-3 w-3 mr-1" />
+                  <TabsTrigger value="breakdown" className="flex-1 py-2 text-xs font-medium rounded-xl transition-all data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-sakura data-[state=active]:shadow-sm">
+                    <MessageSquare className="h-4 w-4 mr-2" />
                     Breakdown
                   </TabsTrigger>
-                  <TabsTrigger value="grammar" className="text-xs">
-                    <GraduationCap className="h-3 w-3 mr-1" />
+                  <TabsTrigger value="grammar" className="flex-1 py-2 text-xs font-medium rounded-xl transition-all data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-sakura data-[state=active]:shadow-sm">
+                    <GraduationCap className="h-4 w-4 mr-2" />
                     Grammar
                   </TabsTrigger>
-                  <TabsTrigger value="flashcards" className="text-xs">
-                    <Lightbulb className="h-3 w-3 mr-1" />
+                  <TabsTrigger value="flashcards" className="flex-1 py-2 text-xs font-medium rounded-xl transition-all data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-sakura data-[state=active]:shadow-sm">
+                    <Lightbulb className="h-4 w-4 mr-2" />
                     Cards
                   </TabsTrigger>
                 </TabsList>
 
                 {/* Overview Tab */}
-                <TabsContent value="overview" className="space-y-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Overall Analysis</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">JLPT Level:</span>
-                        <Badge className={JLPT_COLORS[structuredData.overall_analysis.jlpt_level] || 'bg-gray-500/20'}>
-                          {structuredData.overall_analysis.jlpt_level}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">Politeness:</span>
-                        <Badge variant="outline">{structuredData.overall_analysis.politeness_level}</Badge>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">Type:</span>
-                        <Badge variant="secondary">{structuredData.overall_analysis.text_type}</Badge>
-                      </div>
-                      <div className="mt-4 p-3 bg-muted/50 rounded-lg text-sm">
-                        {structuredData.overall_analysis.summary}
-                      </div>
-                    </CardContent>
-                  </Card>
+                <TabsContent value="overview" className="space-y-6">
+                  <motion.div
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    <Card className="border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-950 rounded-3xl overflow-hidden">
+                      <CardContent className="p-8 space-y-8">
+                        <div>
+                          <h2 className="text-2xl font-display font-medium text-slate-900 dark:text-slate-100 mb-6">Overall Analysis</h2>
+                          
+                          <div className="space-y-4">
+                            <div className="flex items-center gap-4">
+                              <span className="text-sm font-medium text-slate-500 w-24">JLPT Level:</span>
+                              <Badge className={cn("px-3 py-1 rounded-full font-bold", JLPT_COLORS[structuredData.overall_analysis.jlpt_level] || 'bg-slate-100 text-slate-600')}>
+                                {structuredData.overall_analysis.jlpt_level}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <span className="text-sm font-medium text-slate-500 w-24">Politeness:</span>
+                              <Badge variant="secondary" className="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-none font-medium">
+                                {structuredData.overall_analysis.politeness_level}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <span className="text-sm font-medium text-slate-500 w-24">Type:</span>
+                              <Badge variant="secondary" className="px-3 py-1 rounded-full bg-sakura-light/50 text-sakura-dark dark:bg-rose-950/30 dark:text-rose-300 border-none font-medium">
+                                {structuredData.overall_analysis.text_type}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
 
-                  {structuredData.cultural_notes && structuredData.cultural_notes.length > 0 && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-base">Cultural Notes</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <ul className="space-y-2">
-                          {structuredData.cultural_notes.map((note, idx) => (
-                            <li key={idx} className="text-sm flex gap-2">
-                              <span className="text-primary">•</span>
-                              <span>{note}</span>
-                            </li>
-                          ))}
-                        </ul>
+                        <div className="p-6 bg-slate-50/50 dark:bg-slate-900/50 rounded-2xl text-base leading-relaxed text-slate-700 dark:text-slate-300 border border-slate-100/50 dark:border-slate-800/50">
+                          {structuredData.overall_analysis.summary}
+                        </div>
                       </CardContent>
                     </Card>
+                  </motion.div>
+
+                  {structuredData.cultural_notes && structuredData.cultural_notes.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 }}
+                      className="mt-6"
+                    >
+                      <h3 className="text-xl font-display font-medium text-slate-900 dark:text-slate-100 mb-6 px-2">Cultural Notes</h3>
+                      <div className="space-y-4">
+                        {structuredData.cultural_notes.map((note, idx) => (
+                          <div key={idx} className="flex gap-4 group">
+                            <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-sakura flex-shrink-0" />
+                            <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                              {note}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
                   )}
                 </TabsContent>
 
-                {/* Sentence Breakdown Tab */}
-                <TabsContent value="breakdown" className="space-y-4">
+                {/* Breakdown Tab */}
+                <TabsContent value="breakdown" className="space-y-12">
                   {structuredData.sentences.map((sentence, idx) => (
-                    <Card key={idx}>
-                      <CardHeader>
-                        <div className="text-lg font-japanese">{sentence.japanese}</div>
-                        <CardDescription>{sentence.vietnamese}</CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        {/* Words */}
-                        <div>
-                          <h4 className="text-sm font-semibold mb-2">Words:</h4>
-                          <div className="flex flex-wrap gap-2">
-                            {sentence.breakdown.words.map((word, widx) => (
-                              <div
-                                key={widx}
-                                className="px-2 py-1 bg-muted rounded text-xs border hover:border-primary transition-colors cursor-pointer"
-                                title={`${word.meaning} (${word.word_type})`}
-                              >
-                                <div className="font-japanese">{word.word}</div>
-                                <div className="text-muted-foreground">{word.reading}</div>
-                                {word.jlpt_level && (
-                                  <Badge className={`${JLPT_COLORS[word.jlpt_level]} text-xs mt-1`}>
-                                    {word.jlpt_level}
-                                  </Badge>
-                                )}
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.1 }}
+                      className="mb-12 last:mb-0"
+                    >
+                      <div className="px-2 mb-6">
+                        <h4 className="text-xl font-jp text-slate-900 dark:text-slate-100 leading-relaxed mb-3">
+                          {sentence.japanese}
+                        </h4>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                          {sentence.vietnamese}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                        {sentence.breakdown.words.map((word, widx) => (
+                          <motion.div 
+                            key={widx} 
+                            whileHover={{ scale: 1.02 }}
+                            className="bg-sakura-light/10 dark:bg-slate-900/30 p-4 rounded-2xl border border-sakura-light/20 dark:border-slate-800 hover:bg-white dark:hover:bg-slate-900 transition-all shadow-sm hover:shadow-md cursor-default group"
+                          >
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="font-jp text-lg font-bold text-slate-900 dark:text-slate-100 group-hover:text-sakura transition-colors">
+                                {word.word}
+                              </div>
+                              {word.jlpt_level && (
+                                <Badge variant="secondary" className="text-[10px] rounded-full bg-white dark:bg-slate-800 text-slate-500 font-bold">
+                                  {word.jlpt_level}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="text-xs font-jp text-slate-400 mb-2">{word.reading}</div>
+                            {word.hanviet && (
+                              <div className="text-[11px] text-sakura-dark/80 font-bold mb-2 uppercase tracking-wide">
+                                Hán Việt: {word.hanviet}
+                              </div>
+                            )}
+                            <p className="text-sm text-slate-600 dark:text-slate-400">
+                              {word.meaning}
+                            </p>
+                          </motion.div>
+                        ))}
+                      </div>
+
+                      {sentence.breakdown.grammar_patterns && sentence.breakdown.grammar_patterns.length > 0 && (
+                        <div className="px-2 space-y-4">
+                          <h5 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Grammar in sentence</h5>
+                          <div className="space-y-4">
+                            {sentence.breakdown.grammar_patterns.map((pattern, pidx) => (
+                              <div key={pidx} className="flex gap-4 group">
+                                <div className="mt-2 h-1 w-1 rounded-full bg-slate-300 flex-shrink-0" />
+                                <div className="space-y-1">
+                                  <div className="font-bold font-jp text-slate-800 dark:text-slate-200 text-sm">
+                                    {pattern.pattern}
+                                  </div>
+                                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                                    {pattern.meaning}
+                                  </div>
+                                  {pattern.usage && (
+                                    <div className="text-[11px] text-slate-400 dark:text-slate-500 italic leading-relaxed">
+                                      {pattern.usage}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             ))}
                           </div>
                         </div>
-
-                        {/* Grammar Patterns */}
-                        {sentence.breakdown.grammar_patterns.length > 0 && (
-                          <div>
-                            <h4 className="text-sm font-semibold mb-2">Grammar Patterns:</h4>
-                            <div className="space-y-2">
-                              {sentence.breakdown.grammar_patterns.map((pattern, pidx) => (
-                                <div key={pidx} className="p-2 bg-primary/5 rounded text-xs">
-                                  <div className="font-semibold font-japanese">{pattern.pattern}</div>
-                                  <div className="text-muted-foreground mt-1">{pattern.meaning}</div>
-                                  <div className="text-xs italic mt-1">{pattern.usage}</div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
+                      )}
+                    </motion.div>
                   ))}
                 </TabsContent>
 
                 {/* Grammar Summary Tab */}
-                <TabsContent value="grammar" className="space-y-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Grammar Summary</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {/* Particles */}
-                      <div>
-                        <h4 className="text-sm font-semibold mb-2">Particles Used:</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {structuredData.grammar_summary.particles_used.map((particle, idx) => (
-                            <Badge key={idx} variant="outline" className="font-japanese">
-                              {particle}
-                            </Badge>
-                          ))}
+                <TabsContent value="grammar" className="space-y-8">
+                  <motion.div
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    <Card className="border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-950 rounded-3xl overflow-hidden">
+                      <CardContent className="p-8 space-y-12">
+                        {/* Particles */}
+                        <div>
+                          <h4 className="text-xl font-display font-medium text-slate-900 dark:text-slate-100 mb-6 font-bold">Particles Used</h4>
+                          <div className="flex flex-wrap gap-3">
+                            {structuredData.grammar_summary.particles_used.map((particle, idx) => (
+                              <Badge 
+                                key={idx}
+                                variant="secondary" 
+                                className="font-jp text-lg px-4 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-none rounded-full font-bold"
+                              >
+                                {typeof particle === 'string' ? particle : (particle as any).particle || (particle as any).name || JSON.stringify(particle)}
+                              </Badge>
+                            ))}
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Verb Forms */}
-                      <div>
-                        <h4 className="text-sm font-semibold mb-2">Verb Forms:</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {structuredData.grammar_summary.verb_forms.map((form, idx) => (
-                            <Badge key={idx} variant="secondary">
-                              {form}
-                            </Badge>
-                          ))}
+                        {/* Verb Forms */}
+                        <div>
+                          <h4 className="text-xl font-display font-medium text-slate-900 dark:text-slate-100 mb-6 font-bold">Verb Forms</h4>
+                          <div className="flex flex-wrap gap-3">
+                            {structuredData.grammar_summary.verb_forms.map((form, idx) => (
+                              <Badge 
+                                key={idx}
+                                variant="secondary" 
+                                className="px-4 py-1.5 bg-orange-100/50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 border-none rounded-full font-medium"
+                              >
+                                {typeof form === 'string' ? form : (form as any).form || (form as any).name || JSON.stringify(form)}
+                              </Badge>
+                            ))}
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Key Patterns */}
-                      <div>
-                        <h4 className="text-sm font-semibold mb-2">Key Patterns:</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {structuredData.grammar_summary.key_patterns.map((pattern, idx) => (
-                            <Badge key={idx} className="bg-primary/20 font-japanese">
-                              {pattern}
-                            </Badge>
-                          ))}
+                        {/* Key Patterns */}
+                        <div>
+                          <h4 className="text-xl font-display font-medium text-slate-900 dark:text-slate-100 mb-6 font-bold">Key Patterns</h4>
+                          <div className="space-y-6">
+                            {structuredData.grammar_summary.key_patterns.map((pattern, idx) => (
+                              <div key={idx} className="flex gap-4 group">
+                                <div className="mt-2 h-1.5 w-1.5 rounded-full bg-sakura flex-shrink-0" />
+                                <div className="font-jp text-base font-bold text-slate-800 dark:text-slate-200">
+                                  {typeof pattern === 'string' ? pattern : (pattern as any).pattern || (pattern as any).name || JSON.stringify(pattern)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
                 </TabsContent>
 
                 {/* Suggested Flashcards Tab */}
-                <TabsContent value="flashcards" className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h4 className="text-sm font-semibold">
-                      {structuredData.suggested_flashcards.length} Suggested Flashcards
+                <TabsContent value="flashcards" className="space-y-8">
+                  <div className="flex justify-between items-center px-2 mb-4">
+                    <h4 className="text-xl font-display font-medium text-slate-900 dark:text-slate-100">
+                      Suggested Flashcards
                     </h4>
-                    <Button size="sm" onClick={handleAddAllFlashcards} variant="outline">
-                      <Plus className="h-3 w-3 mr-1" />
+                    <Button size="sm" onClick={handleAddAllFlashcards} variant="ghost" className="text-xs font-bold text-sakura hover:bg-sakura-light/50 rounded-full">
                       Add All
                     </Button>
                   </div>
 
-                  {structuredData.suggested_flashcards.map((flashcard, idx) => (
-                    <Card key={idx} className="hover:border-primary transition-colors">
-                      <CardContent className="pt-4">
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <div className="text-lg font-japanese">{flashcard.word}</div>
-                            <div className="text-sm text-muted-foreground">{flashcard.reading}</div>
-                            {flashcard.hanviet && (
-                              <div className="text-xs text-muted-foreground">({flashcard.hanviet})</div>
-                            )}
-                          </div>
-                          <div className="flex gap-2">
-                            {flashcard.jlpt_level && (
-                              <Badge className={JLPT_COLORS[flashcard.jlpt_level]}>
-                                {flashcard.jlpt_level}
-                              </Badge>
-                            )}
-                            {flashcard.word_type && (
-                              <Badge variant="outline">{flashcard.word_type}</Badge>
-                            )}
-                          </div>
-                        </div>
+                  <div className="space-y-6 pb-4">
+                    {structuredData.suggested_flashcards.map((flashcard, idx) => (
+                      <motion.div
+                        key={idx}
+                        initial={{ opacity: 0, scale: 0.98 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: idx * 0.05 }}
+                      >
+                        <Card className="border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all bg-white dark:bg-slate-950 rounded-3xl overflow-hidden">
+                          <CardContent className="p-6">
+                            <div className="flex justify-between items-start mb-4">
+                              <div className="space-y-1">
+                                <div className="text-2xl font-jp text-slate-900 dark:text-slate-100 font-bold group-hover:text-sakura transition-colors">{flashcard.word}</div>
+                                <div className="text-sm text-slate-400 font-jp">{flashcard.reading}</div>
+                                {flashcard.hanviet && (
+                                  <div className="text-[11px] text-sakura-dark font-bold uppercase tracking-wider">
+                                    Hán Việt: {flashcard.hanviet}
+                                  </div>
+                                )}
+                              </div>
+                              {flashcard.jlpt_level && (
+                                <Badge variant="secondary" className="text-[10px] rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold">
+                                  {flashcard.jlpt_level}
+                                </Badge>
+                              )}
+                            </div>
 
-                        <div className="text-sm mb-2">
-                          <strong>Meaning:</strong> {flashcard.meaning}
-                        </div>
+                            <div className="p-4 bg-slate-50/50 dark:bg-slate-900/50 rounded-2xl text-base text-slate-700 dark:text-slate-300 mb-6 font-medium">
+                              {flashcard.meaning}
+                            </div>
 
-                        <div className="p-2 bg-muted/30 rounded text-xs space-y-1">
-                          <div className="font-japanese">{flashcard.example_sentence}</div>
-                          <div className="text-muted-foreground">{flashcard.example_translation}</div>
-                        </div>
+                            <div className="space-y-2 px-2">
+                              <div className="text-sm font-jp text-slate-700 dark:text-slate-300 leading-relaxed font-medium">{flashcard.example_sentence}</div>
+                              <div className="text-xs text-slate-400 italic">{flashcard.example_translation}</div>
+                            </div>
 
-                        {flashcard.notes && (
-                          <div className="text-xs text-muted-foreground mt-2 italic">
-                            💡 {flashcard.notes}
-                          </div>
-                        )}
-
-                        <Button
-                          size="sm"
-                          className="w-full mt-3"
-                          onClick={() => handleAddFlashcard(flashcard)}
-                        >
-                          <Plus className="h-3 w-3 mr-1" />
-                          Add to Deck
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
+                            <Button
+                              size="sm"
+                              className="w-full mt-8 bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 font-bold text-xs h-10 rounded-full shadow-sm"
+                              onClick={() => handleAddFlashcard(flashcard)}
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              Save to Deck
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    ))}
+                  </div>
                 </TabsContent>
               </Tabs>
             ) : content ? (
@@ -441,4 +496,4 @@ export const AnalysisPanel: React.FC<AnalysisPanelProps> = ({
   );
 };
 
-// export default AnalysisPanel;
+export default AnalysisPanel;

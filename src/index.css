@@ -222,22 +222,34 @@
 }
 
 @layer components {
-  /* Furigana / Ruby text styling */
+  /* Furigana / Ruby text styling - Optimized for stability */
   ruby {
-    @apply inline-flex flex-col items-center;
+    display: inline-block;
+    ruby-position: over;
     ruby-align: center;
+    text-indent: 0;
+    margin: 0 0.1em;
   }
 
   ruby rt {
-    @apply text-xs text-muted-foreground font-normal;
-    font-size: 0.5em;
-    line-height: 1;
+    display: block;
+    font-size: 0.55em;
+    line-height: 1.2;
+    text-align: center;
+    color: hsl(var(--muted-foreground));
+    font-family: "Noto Sans JP", sans-serif;
+    user-select: none;
+    @apply font-normal;
   }
 
-  /* Japanese text styling */
+  /* Japanese text styling - Optimized for speed and wrapping */
   .jp-text {
     font-family: "Noto Sans JP", sans-serif;
     @apply tracking-wide;
+    text-rendering: optimizeSpeed;
+    line-break: relaxed;
+    overflow-wrap: anywhere;
+    word-break: normal;
   }
 
   .jp-text-lg {

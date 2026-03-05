@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, Volume2, Loader2, Zap, Database, Globe, Filter, Sparkles, History, Trash2, User as UserIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -243,37 +243,39 @@ export const Reading = () => {
       });
 
       setPassages(sorted);
-      
-      // Auto-select first passage of system if nothing is selected
-      if (sorted.length > 0 && !selectedPassage) {
-        const firstSystem = sorted.find(p => !p.user_id);
-        if (firstSystem) setSelectedPassage(firstSystem);
-      }
     } catch (error: unknown) {
       console.error('Error fetching passages:', error);
       toast.error('Không thể tải bài đọc');
     } finally {
       setLoading(false);
     }
-  }, [user?.id, selectedPassage]);
+  }, [user?.id]);
 
   useEffect(() => {
     fetchPassages();
   }, [fetchPassages]);
 
-  // Handle URL parameter for specific passage
+  // Handle auto-selection and URL parameter for specific passage
   useEffect(() => {
-    if (passageId && passages.length > 0) {
+    if (loading || passages.length === 0) return;
+
+    if (passageId) {
       const passage = passages.find(p => p.id === passageId);
       if (passage) {
         setSelectedPassage(passage);
-        // If it's a news article, maybe switch to system or relevant tab
         if (passage.category === 'news') {
           setPassageType('system');
         }
+        return;
       }
     }
-  }, [passageId, passages]);
+
+    // Default auto-select if nothing selected
+    if (!selectedPassage) {
+      const firstSystem = passages.find(p => !p.user_id);
+      if (firstSystem) setSelectedPassage(firstSystem);
+    }
+  }, [passageId, passages, loading, selectedPassage]);
 
   const deletePassage = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -345,13 +347,46 @@ export const Reading = () => {
 
     setIsTranslating(true);
     try {
-      const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=vi&dt=t&q=${encodeURIComponent(selectedPassage.content)}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('Translation API failed');
-      const data = await res.json();
+      // Pre-process content: remove excessive spaces and newlines within segments
+      // Japanese text shouldn't have spaces between words; these often come from segmenters
+      const rawContent = selectedPassage.content;
+      const cleanContent = rawContent.replace(/([ぁ-んァ-ン一-龠])\s+([ぁ-んァ-ン一-龠])/g, '$1$2').trim();
       
-      const translation = data[0].map((item: string[]) => item[0]).join('');
-      setTranslatedText(translation);
+      const MAX_CHUNK_SIZE = 600; // Slightly larger but safer
+      const chunks = [];
+      let currentChunk = "";
+      
+      // Split by sentence boundaries (periods, exclamation, question marks, or double newlines)
+      // We don't use 'g' with space at end anymore
+      const parts = cleanContent.split(/([。！？\n]+)/);
+      
+      for (const part of parts) {
+        if (!part) continue;
+        if ((currentChunk + part).length > MAX_CHUNK_SIZE && currentChunk) {
+          chunks.push(currentChunk);
+          currentChunk = part;
+        } else {
+          currentChunk += part;
+        }
+      }
+      if (currentChunk) chunks.push(currentChunk);
+
+      const translatedChunks = await Promise.all(chunks.map(async (chunk) => {
+        const trimmedChunk = chunk.trim();
+        if (!trimmedChunk) return "";
+        
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=vi&dt=t&q=${encodeURIComponent(trimmedChunk)}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Translation API failed');
+        const data = await res.json();
+        
+        if (data && data[0]) {
+          return data[0].map((item: any) => item[0] || "").join('');
+        }
+        return "";
+      }));
+      
+      setTranslatedText(translatedChunks.filter(Boolean).join(' '));
     } catch (err) {
       console.error(err);
       toast.error('Gặp lỗi khi dịch văn bản. Vui lòng thử lại.');
@@ -374,7 +409,7 @@ export const Reading = () => {
       
       const { data, error } = await supabase.functions.invoke('japanese-analysis', {
         body: { 
-          prompt: "Please provide a deep analysis of this reading passage.", 
+          prompt: "Hãy phân tích cực kỳ chi tiết bài đọc này cho người học tiếng Việt. Bao gồm: 1. Tóm tắt nội dung sâu sắc. 2. Phân tích ít nhất 3-5 câu quan trọng (dịch tự nhiên, bóc tách từ vựng chi tiết với Hán Việt, giải thích ngữ pháp kỹ lưỡng). 3. Tổng hợp ngữ pháp và lưu ý văn hóa.", 
           content: selectedPassage.content,
           saveToHistory: true
         },
@@ -532,12 +567,25 @@ export const Reading = () => {
     }
   };
 
-  // Render clickable text
-  const renderClickableText = (text: string, isHtml: boolean) => {
+  // Memoized character component for better performance
+  const ClickableChar = React.memo(({ char, isSelected, onClick }: { char: string, isSelected: boolean, onClick: () => void }) => (
+    <span
+      className={cn(
+        "cursor-pointer hover:bg-sakura/20 rounded transition-colors duration-150",
+        isSelected && "bg-sakura/30"
+      )}
+      onClick={onClick}
+    >
+      {char}
+    </span>
+  ));
+
+  // Render clickable text - Memoized
+  const renderClickableText = useCallback((text: string, isHtml: boolean) => {
     if (isHtml && displayMode === 'furigana') {
       return (
         <div 
-          className="font-jp text-xl leading-loose cursor-pointer [&_ruby]:hover:bg-sakura/20 [&_ruby]:rounded [&_ruby]:px-1 [&_ruby]:transition-colors"
+          className="font-jp text-xl leading-[2.5] cursor-pointer [&_ruby]:hover:bg-sakura/20 [&_ruby]:rounded [&_ruby]:px-1 [&_ruby]:transition-colors will-change-transform"
           dangerouslySetInnerHTML={{ __html: text }}
           onClick={handleWordClick}
         />
@@ -546,21 +594,25 @@ export const Reading = () => {
 
     const chars = text.split('');
     return (
-      <div className="font-jp text-xl leading-loose">
+      <div className="font-jp text-xl leading-[2.5] will-change-transform">
         {chars.map((char, idx) => (
-          <span
-            key={idx}
-            className={`cursor-pointer hover:bg-sakura/20 rounded transition-colors ${
-              selectedWord === char ? 'bg-sakura/30' : ''
-            }`}
+          <ClickableChar
+            key={`${idx}-${char}`}
+            char={char}
+            isSelected={selectedWord === char}
             onClick={() => lookupWord(char)}
-          >
-            {char}
-          </span>
+          />
         ))}
       </div>
     );
-  };
+  }, [displayMode, selectedWord, handleWordClick, lookupWord]);
+
+  const memoizedContent = useMemo(() => {
+    return renderClickableText(
+      displayContent,
+      displayMode === 'furigana' && !!selectedPassage?.content_with_furigana
+    );
+  }, [renderClickableText, displayContent, displayMode, selectedPassage]);
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
@@ -570,11 +622,11 @@ export const Reading = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <BookOpen className="h-8 w-8 text-sakura" />
+            <BookOpen className="h-8 w-8 text-sakura animate-pulse-subtle" />
             <div>
-              <h1 className="text-2xl font-display font-bold">Luyện Đọc</h1>
+              <h1 className="text-2xl font-display font-medium text-slate-900 dark:text-slate-100 italic">Luyện Đọc</h1>
               <p className="text-muted-foreground text-sm">
-                Đọc hiểu tiếng Nhật • Cache + Jisho + AI
+                Đọc hiểu tiếng Nhật • Sakura Classic Edition
               </p>
             </div>
           </div>
@@ -594,7 +646,7 @@ export const Reading = () => {
         
         {/* History Panel (Expandable) */}
         {historyOpen && (
-          <Card className="mb-6 border-sakura/20 bg-sakura/5 py-4 px-6 rounded-2xl">
+          <Card className="mb-6 border-sakura-light/30 bg-sakura-light/10 py-4 px-6 rounded-3xl backdrop-blur-sm">
             <AnalysisHistory onSelect={handleApplyHistory} />
           </Card>
         )}
@@ -619,10 +671,10 @@ export const Reading = () => {
               </Select>
               
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="flex-1 bg-background">
+                <SelectTrigger className="flex-1 bg-white dark:bg-slate-950 rounded-xl border-sakura-light/50">
                   <SelectValue placeholder="Chủ đề" />
                 </SelectTrigger>
-                <SelectContent className="bg-background border shadow-lg z-50">
+                <SelectContent className="bg-white dark:bg-slate-950 border-sakura-light/30 shadow-xl z-50 rounded-xl">
                   <SelectItem value="all">Tất cả chủ đề</SelectItem>
                   {categories.map(cat => (
                     <SelectItem key={cat} value={cat}>{cat}</SelectItem>
@@ -636,9 +688,9 @@ export const Reading = () => {
               setWordData(null);
               setSelectedWord(null);
             }} className="w-full">
-              <TabsList className="grid w-full grid-cols-2 bg-muted/20">
-                <TabsTrigger value="system" className="text-xs data-[state=active]:bg-sakura/20 data-[state=active]:text-sakura">📖 Hệ thống</TabsTrigger>
-                <TabsTrigger value="personal" className="text-xs data-[state=active]:bg-sakura/20 data-[state=active]:text-sakura">👤 Của tôi</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 bg-sakura-light/20 p-1 rounded-xl">
+                <TabsTrigger value="system" className="text-xs rounded-lg data-[state=active]:bg-white data-[state=active]:text-sakura data-[state=active]:shadow-sm">📖 Hệ thống</TabsTrigger>
+                <TabsTrigger value="personal" className="text-xs rounded-lg data-[state=active]:bg-white data-[state=active]:text-sakura data-[state=active]:shadow-sm">👤 Của tôi</TabsTrigger>
               </TabsList>
             </Tabs>
             
@@ -656,17 +708,12 @@ export const Reading = () => {
             ) : (
               <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-2">
                 {filteredPassages.map((passage) => (
-                  <motion.div
-                    key={passage.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                  >
+                  <div key={passage.id}>
                     <Card
-                      className={`cursor-pointer transition-all hover:shadow-md ${
-                        selectedPassage?.id === passage.id
-                          ? 'border-sakura ring-2 ring-sakura/20'
-                          : ''
-                      }`}
+                      className={cn(
+                        "cursor-pointer transition-all hover:shadow-md border-transparent hover:border-sakura-light/50 rounded-2xl overflow-hidden",
+                        selectedPassage?.id === passage.id && "border-sakura-light ring-4 ring-sakura-light/20 bg-sakura-light/30 shadow-inner"
+                      )}
                       onClick={() => {
                         setSelectedPassage(passage);
                         setWordData(null);
@@ -677,7 +724,7 @@ export const Reading = () => {
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between">
                           <div>
-                            <p className="font-jp font-medium">{passage.title}</p>
+                            <p className="font-jp font-bold text-slate-800 dark:text-slate-200">{passage.title}</p>
                             <div className="flex items-center gap-2 mt-1">
                               {passage.category && (
                                 <span className="text-xs text-muted-foreground">
@@ -708,17 +755,16 @@ export const Reading = () => {
                         </div>
                       </CardContent>
                     </Card>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
             )}
           </div>
 
           {/* Content Area */}
-          <div className="lg:col-span-2 space-y-4">
+          <motion.div className="lg:col-span-2 space-y-4">
             {selectedPassage ? (
               <motion.div
-                key={selectedPassage.id}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 className="space-y-4"
@@ -739,7 +785,7 @@ export const Reading = () => {
                         size="sm"
                         onClick={handleFixFurigana}
                         disabled={isRegeneratingFurigana}
-                        className="gap-2 border-orange-200 text-orange-600 hover:bg-orange-50 animate-pulse-subtle"
+                        className="gap-2 border-rose-100 text-rose-400 hover:bg-rose-50 rounded-full h-10 px-4 transition-all hover:shadow-sm"
                       >
                         {isRegeneratingFurigana ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                         Phục hồi Furigana
@@ -750,7 +796,12 @@ export const Reading = () => {
                       size="sm"
                       onClick={handleTranslate}
                       disabled={isTranslating}
-                      className={cn("gap-2", translatedText ? "bg-sakura hover:bg-sakura-dark text-white" : "border-sakura/30 text-sakura hover:bg-sakura/10")}
+                      className={cn(
+                        "gap-2 rounded-full h-10 px-6 transition-all",
+                        translatedText 
+                          ? "bg-sakura hover:bg-sakura-dark text-white shadow-md shadow-sakura/20 scale-105" 
+                          : "border-sakura-light/50 text-sakura hover:bg-sakura-light/20"
+                      )}
                     >
                       {isTranslating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
                       Dịch
@@ -759,16 +810,16 @@ export const Reading = () => {
                       variant="outline"
                       size="sm"
                       onClick={handleDeepAnalysis}
-                      className="gap-2 border-matcha/50 text-matcha hover:bg-matcha/10"
+                      className="gap-2 border-sakura-light/50 text-sakura-dark hover:bg-sakura-light/20 rounded-full h-10 px-4 transition-all"
                     >
-                      <Sparkles className="h-4 w-4" />
+                      <Sparkles className="h-4 w-4 animate-pulse-subtle" />
                       Phân tích sâu (AI)
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => speak(selectedPassage.content)}
-                      className="gap-2"
+                      className="gap-2 rounded-full h-10 px-4 border-slate-100 hover:bg-slate-50 transition-all"
                     >
                       <Volume2 className="h-4 w-4" />
                       Nghe
@@ -777,10 +828,10 @@ export const Reading = () => {
                 </div>
 
                 {/* Reading Content */}
-                <Card className="shadow-elevated">
+                <Card className="shadow-card border-sakura-light/30 bg-white/50 dark:bg-slate-950/50 backdrop-blur-sm rounded-3xl overflow-hidden border">
                   <CardHeader>
                     <div className="flex items-center justify-between">
-                      <CardTitle className="font-jp text-xl">
+                      <CardTitle className="font-display font-medium text-2xl italic text-slate-900 dark:text-slate-100">
                         {selectedPassage.title}
                       </CardTitle>
                       <div className="flex gap-2">
@@ -791,13 +842,21 @@ export const Reading = () => {
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent>
-                    <div className="p-6 rounded-lg bg-muted/30">
-                      {renderClickableText(
-                        displayContent,
-                        displayMode === 'furigana' && !!selectedPassage.content_with_furigana
-                      )}
-                    </div>
+                  <CardContent className="relative">
+                    <AnimatePresence mode="wait">
+                      <motion.div 
+                        key={`${selectedPassage.id}-${displayMode}`}
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                        transition={{ duration: 0.2 }}
+                        className="p-8 rounded-3xl bg-sakura-light/10 dark:bg-slate-900/40 border border-sakura-light/10 shadow-inner"
+                      >
+                        <div className="relative">
+                          {memoizedContent}
+                        </div>
+                      </motion.div>
+                    </AnimatePresence>
                     {translatedText && (
                       <motion.div 
                         initial={{ opacity: 0, y: 10 }}
@@ -822,19 +881,23 @@ export const Reading = () => {
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {selectedPassage.vocabulary_list.map((vocab, idx) => (
-                            <div
+                            <motion.div
                               key={idx}
-                              className="p-3 rounded-lg bg-muted/50 cursor-pointer hover:bg-sakura/10 transition-colors"
+                              whileHover={{ scale: 1.02 }}
+                              className="p-4 rounded-2xl bg-sakura-light/20 border border-sakura-light/20 cursor-pointer hover:bg-white dark:hover:bg-slate-900 hover:shadow-md transition-all group shadow-sm overflow-hidden"
                               onClick={() => lookupWord(vocab.word)}
                             >
-                              <div className="flex items-baseline gap-2">
-                                <span className="font-jp font-medium">{vocab.word}</span>
-                                <span className="text-sm text-muted-foreground font-jp">
+                              <div className="flex items-baseline gap-2 mb-1">
+                                <span 
+                                  className="font-jp font-bold text-lg text-slate-800 dark:text-slate-200 group-hover:text-sakura transition-colors"
+                                  dangerouslySetInnerHTML={{ __html: vocab.word }}
+                                />
+                                <span className="text-xs text-slate-400 font-jp italic">
                                   {vocab.reading}
                                 </span>
                               </div>
-                              <p className="text-sm text-muted-foreground">{vocab.meaning}</p>
-                            </div>
+                              <p className="text-sm text-slate-600 dark:text-slate-400 font-medium leading-relaxed">{vocab.meaning}</p>
+                            </motion.div>
                           ))}
                         </div>
                       </div>
@@ -862,7 +925,7 @@ export const Reading = () => {
                 <p>Chọn một bài đọc để bắt đầu</p>
               </div>
             )}
-          </div>
+          </motion.div>
         </div>
       </main>
 

@@ -75,9 +75,9 @@ export function WordLookupPanel({ wordData, loading, onClose, onSpeak }: WordLoo
     <AnimatePresence>
       {(loading || wordData) && (
         <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: 20 }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 10 }}
           className="sticky top-6"
         >
           <div className="bg-white dark:bg-slate-900 rounded-xl p-5 mb-6 text-left border border-slate-100 dark:border-slate-800 shadow-sm relative">
