@@ -1,5 +1,7 @@
-// @ts-nocheck
+// Japanese Analysis Edge Function
+// @ts-ignore Deno imports
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// @ts-ignore Deno imports
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -9,6 +11,7 @@ const corsHeaders = {
 };
 
 interface AnalysisRequest {
+  task?: string;
   prompt?: string;
   content: string;
   image?: string;
@@ -16,6 +19,7 @@ interface AnalysisRequest {
   isGrammar?: boolean;
   engine?: "gemini" | "groq";
   saveToHistory?: boolean;
+  history?: Array<{ role: "user" | "assistant"; content: string }>;
 }
 
 const GRAMMAR_SYSTEM_PROMPT = `Bạn là một giáo viên tiếng Nhật (Sensei) chuyên môn cao, chuyên hỗ trợ người học tiếng Việt.
@@ -190,11 +194,21 @@ function extractJSON(text: string) {
   }
 }
 
+// @ts-expect-error Deno serve type
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { prompt, content, image, isImageAnalysis, isGrammar, saveToHistory = true }: AnalysisRequest = await req.json();
+    const { 
+      task, 
+      prompt, 
+      content, 
+      image, 
+      isImageAnalysis, 
+      isGrammar, 
+      saveToHistory = true, 
+      history = [] 
+    }: AnalysisRequest = await req.json();
     
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -224,23 +238,29 @@ serve(async (req: Request) => {
     if (apiKeys.length === 0) throw new Error("No Groq API keys are configured.");
 
     // Helper to call Groq with rotation
-    async function fetchGroqWithRotation(model: string, system: string, user: any, json = true) {
+    async function fetchGroqWithRotation(model: string, system: string, user: string | any[], json = true, history: Array<{ role: string; content: string }> = []) {
       let lastError = null;
       for (const apiKey of apiKeys) {
         try {
+          const messages = [{ role: "system", content: system }];
+          if (history && history.length > 0) {
+            history.forEach(m => messages.push({ role: m.role, content: m.content }));
+          }
+          messages.push({ role: "user", content: Array.isArray(user) ? user as any : user });
+
           const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
             headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
             body: JSON.stringify({
               model,
-              messages: [{ role: "system", content: system }, { role: "user", content: user }],
+              messages,
               response_format: json ? { type: "json_object" } : undefined,
               temperature: 0.7
             }),
           });
           if (response.ok) {
             const data = await response.json();
-            return data.choices[0]?.message?.content || "";
+            return data.choices?.[0]?.message?.content || "";
           } else {
             const err = await response.text();
             lastError = new Error(`Groq API error: ${response.status} ${err}`);
@@ -254,30 +274,37 @@ serve(async (req: Request) => {
       throw lastError || new Error("All Groq keys failed");
     }
 
-    let resultData: any = null;
+    let resultData: { format: string; result?: GrammarAnalysis | VisionAnalysis; analysis?: StructuredAnalysis; text?: string; engine: string } | null = null;
 
-    if (isImageAnalysis && image) {
+    if (task === 'chat') {
+      console.log("Handling Chat Task using Groq...");
+      const systemPrompt = prompt || "You are a helpful Japanese Sensei.";
+      const rawChat = await fetchGroqWithRotation("llama-3.3-70b-versatile", systemPrompt, content, false, history);
+      resultData = { format: 'chat', text: rawChat, engine: "groq" };
+    } else if (isImageAnalysis && image) {
       console.log("Analyzing image using Groq Vision (Key 2)...");
       const userContent = [
         { type: "text", text: "Analyze the Japanese content in this image and return JSON." },
         { type: "image_url", image_url: { url: `data:image/jpeg;base64,${image}` } }
       ];
-      const raw = await fetchGroqWithRotation("llama-3.2-11b-vision-preview", VISION_SYSTEM_PROMPT, userContent);
-      resultData = { format: 'vision', result: extractJSON(raw) as VisionAnalysis };
+      const rawVision = await fetchGroqWithRotation("llama-3.2-11b-vision-preview", VISION_SYSTEM_PROMPT, userContent);
+      resultData = { format: 'vision', result: extractJSON(rawVision) as VisionAnalysis, engine: "groq" };
     } else {
-      const typeLabel = isGrammar ? "grammar" : "text";
+      const typeLabel = (isGrammar || task === 'grammar') ? "grammar" : "text";
       console.log(`Analyzing ${typeLabel} using Groq (Key 2)...`);
-      const systemPrompt = isGrammar ? GRAMMAR_SYSTEM_PROMPT : ENHANCED_SYSTEM_PROMPT;
+      const systemPrompt = (isGrammar || task === 'grammar') ? GRAMMAR_SYSTEM_PROMPT : ENHANCED_SYSTEM_PROMPT;
       let userContent = `Text to analyze:\n"""\n${content}\n"""`;
       if (prompt) {
         userContent += `\n\nUser Instruction/Context:\n"""\n${prompt}\n"""`;
       }
-      const raw = await fetchGroqWithRotation("llama-3.3-70b-versatile", systemPrompt, userContent);
+      const raw = await fetchGroqWithRotation("llama-3.3-70b-versatile", systemPrompt, userContent, true);
       const parsed = extractJSON(raw);
-      resultData = isGrammar 
-        ? { format: 'grammar', result: parsed as GrammarAnalysis }
-        : { format: 'structured', analysis: parsed as StructuredAnalysis };
+      resultData = (isGrammar || task === 'grammar') 
+        ? { format: 'grammar', result: parsed as GrammarAnalysis, engine: "groq" }
+        : { format: 'structured', analysis: parsed as StructuredAnalysis, engine: "groq" };
     }
+
+
 
     if (!resultData) throw new Error("AI analysis failed.");
 
