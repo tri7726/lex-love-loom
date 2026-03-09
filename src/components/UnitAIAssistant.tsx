@@ -71,26 +71,77 @@ export const UnitAIAssistant = ({ unitId, level, unitTitle, contextData }: UnitA
     }
   }, [messages]);
 
-  const handleSendMessage = async () => {
-    if (!input.trim() || isLoading) return;
+  const handleSendMessage = React.useCallback(async (messageOverride?: string) => {
+    const messageToSend = messageOverride || input.trim();
+    if (!messageToSend || isLoading) return;
 
-    const userMessage = input.trim();
     setInput('');
-    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setMessages(prev => [...prev, { role: 'user', content: messageToSend }]);
     setIsLoading(true);
+    console.log(`UnitAIAssistant: Sending message to Sensei: "${messageToSend}"`);
 
     try {
       const userContext = profile ? 
         `User: ${profile.full_name}, Level: ${profile.level}, XP: ${profile.xp}.` : 
         "User: Japanese learner.";
+      
+      const contextString = contextData ? `[Context Data: ${JSON.stringify(contextData).slice(0, 1000)}]` : "";
+      const systemPrompt = `[User Info: ${userContext}]
+Answer like a kind and encouraging Japanese Sensei. Use polite Japanese (Desu/Masu) alongside Vietnamese explanations.
+Current Lesson: ${unitTitle} (${level}).
+${contextString}
+If the user asks to analyze Kanji, provide radicals, mnemonics, and examples.
+If the user asks for a quiz, generate a short 3-question quiz about the lesson contents.`;
 
+      // Try local PicoClaw first
+      let localSuccess = false;
+      try {
+        console.log('UnitAIAssistant: Attempting local PicoClaw check...');
+        const response = await fetch('http://localhost:18790/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'llama3',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              ...messages.slice(-10).map(m => ({ role: m.role, content: m.content })),
+              { role: 'user', content: messageToSend }
+            ]
+          }),
+          // Add a timeout to local fetch
+          signal: AbortSignal.timeout(5000)
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const responseContent = data.choices?.[0]?.message?.content;
+          if (responseContent) {
+            console.log('UnitAIAssistant: PicoClaw response received');
+            setMessages(prev => [...prev, { role: 'assistant', content: responseContent }]);
+            if (responseContent.length < 150) speak(responseContent);
+            localSuccess = true;
+          }
+        } else {
+          console.warn(`UnitAIAssistant: Local PicoClaw returned status: ${response.status}`);
+        }
+      } catch (localErr) {
+        console.log('UnitAIAssistant: Local PicoClaw not available or timed out, falling back to Supabase:', localErr);
+      }
+
+      if (localSuccess) {
+        setIsLoading(false);
+        return;
+      }
+
+      // Fallback to Supabase
+      console.log('UnitAIAssistant: Falling back to Supabase japanese-analysis...');
       const { data, error } = await supabase.functions.invoke('japanese-analysis', {
         body: {
           task: 'chat',
-          text: userMessage,
+          content: messageToSend, 
           history: messages.slice(-10).map(m => ({ role: m.role, content: m.content })),
           isVip: true,
-          prompt: `[Context: ${userContext}] Answer like a kind and encouraging Japanese Sensei. Use polite Japanese (Desu/Masu) alongside Vietnamese explanations.`,
+          prompt: systemPrompt,
           context: {
             unit: unitId,
             level: level,
@@ -100,27 +151,31 @@ export const UnitAIAssistant = ({ unitId, level, unitTitle, contextData }: UnitA
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('UnitAIAssistant: Supabase invocation error:', error);
+        throw error;
+      }
 
-      const responseContent = data.explanation || data.text || "Sensei dường như đang suy nghĩ điều gì đó sâu xa...";
+      console.log('UnitAIAssistant: Supabase check successful:', data);
+      const responseContent = data.explanation || data.text || (data.result && (data.result.explanation || data.result.text)) || "Sensei dường như đang suy nghĩ điều gì đó sâu xa...";
       setMessages(prev => [...prev, { role: 'assistant', content: responseContent }]);
       
-      // Auto-speak if it's short or has Japanese
       if (responseContent.length < 150) {
         speak(responseContent);
       }
     } catch (err) {
-      console.error('AI Error:', err);
+      console.error('UnitAIAssistant: AI Error:', err);
       toast.error('Sensei hiện không thể trả lời.');
-      setMessages(prev => [...prev, { role: 'assistant', content: "Hệ thống Sensei VIP hiện đang được bảo trì nhẹ, bạn quay lại sau nhé!" }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: "Hệ thống Sensei hiện đang gặp chút trục trặc, bạn kiểm tra kết nối nhé!" }]);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast, profile, messages, unitId, level, unitTitle, contextData, speak, input, isLoading]);
+
 
   const handleRoleplay = (scenario: string) => {
-    setInput(`Sensei ơi, chúng ta cùng đóng vai ${scenario} nhé?`);
-    handleSendMessage();
+    const msg = `Sensei ơi, chúng ta cùng đóng vai ${scenario} nhé?`;
+    handleSendMessage(msg);
   };
 
   const scenarios = [
@@ -128,6 +183,15 @@ export const UnitAIAssistant = ({ unitId, level, unitTitle, contextData }: UnitA
     { label: "Mua hàng ở Kombini", value: "khách hàng và nhân viên kombini" },
     { label: "Phỏng vấn xin việc", value: "buổi phỏng vấn Baitô" }
   ];
+
+  const handleQuickAction = (action: string) => {
+    let prompt = "";
+    if (action === 'kanji') prompt = "Sensei ơi, hãy phân tích các chữ Kanji trong bài này giúp em với!";
+    if (action === 'quiz') prompt = "Sensei ơi, kiểm tra kiến thức bài này của em nhé!";
+    if (action === 'grammar') prompt = "Sensei ơi, giải thích kỹ hơn về ngữ pháp của bài này được không ạ?";
+    
+    if (prompt) handleSendMessage(prompt);
+  };
 
   const clearChat = () => {
     setMessages([{ 
@@ -247,9 +311,35 @@ export const UnitAIAssistant = ({ unitId, level, unitTitle, contextData }: UnitA
                       </div>
                     </ScrollArea>
 
+                    {/* Advanced Tool Shortcuts */}
+                    <div className="absolute bottom-32 left-4 right-4 flex flex-wrap gap-2 pointer-events-none">
+                       {messages.length >= 2 && (
+                         <>
+                          <motion.button
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            onClick={() => handleQuickAction('kanji')}
+                            className="pointer-events-auto bg-indigo-600/90 text-white backdrop-blur-md text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-all shadow-md flex items-center gap-2"
+                          >
+                             <Sparkles className="h-3 w-3" />
+                             Phân tích Kanji
+                          </motion.button>
+                          <motion.button
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            onClick={() => handleQuickAction('quiz')}
+                            className="pointer-events-auto bg-sakura/90 text-white backdrop-blur-md text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg hover:bg-rose-500 transition-all shadow-md flex items-center gap-2"
+                          >
+                             <GraduationCap className="h-3 w-3" />
+                             Kiểm tra kiến thức
+                          </motion.button>
+                         </>
+                       )}
+                    </div>
+
                     {/* Quick Roleplay Options */}
                     <div className="absolute bottom-20 left-4 right-4 flex flex-wrap gap-2 pointer-events-none">
-                       {messages.length < 3 && scenarios.map((s) => (
+                       {messages.length < 5 && scenarios.map((s) => (
                          <motion.button
                            key={s.label}
                            initial={{ opacity: 0, y: 10 }}
@@ -293,7 +383,7 @@ export const UnitAIAssistant = ({ unitId, level, unitTitle, contextData }: UnitA
                            <Button 
                              size="icon" 
                              className="h-9 w-9 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm" 
-                             onClick={handleSendMessage}
+                             onClick={() => handleSendMessage()}
                              disabled={isLoading || !input.trim()}
                            >
                              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

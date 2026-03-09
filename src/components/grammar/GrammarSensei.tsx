@@ -97,7 +97,7 @@ export const GrammarSensei = ({ currentPoint }: GrammarSenseiProps) => {
       const responseContent = data.text || "Sensei đang suy nghĩ...";
       setMessages(prev => [...prev, { role: 'assistant', content: responseContent }]);
       
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('AI Error:', err);
       toast.error('Sensei hiện không thể trả lời.');
     } finally {
