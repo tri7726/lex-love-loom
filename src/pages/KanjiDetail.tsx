@@ -107,12 +107,9 @@ export const KanjiDetail: React.FC = () => {
         {/* Left Column: Writing Practice */}
         <div className="lg:col-span-1">
           <SimplifiedCanvas
-            kanji={kanji.character}
-            onStrokeComplete={(strokes) => {
-              console.log('Strokes captured:', strokes.length);
-            }}
-            onValidate={() => {
-              console.log('Validation requested');
+            targetKanji={kanji.character}
+            onSuccess={() => {
+              console.log('Writing practice completed');
             }}
           />
         </div>
