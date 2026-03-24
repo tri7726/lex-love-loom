@@ -32,7 +32,10 @@ import {
   CheckCircle,
   RotateCcw,
   Volume2,
-  Settings
+  Settings,
+  Eye,
+  EyeOff,
+  Brain as BrainIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -41,12 +44,14 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { StreakBadge } from './StreakBadge';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
+import { useFurigana } from '@/contexts/FuriganaContext';
 import { JishoSearch } from './JishoSearch';
 
 const navItems = [
@@ -96,6 +101,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
+  const { mode, setMode, userLevel } = useFurigana();
 
   const handleSignOut = async () => {
     await signOut();
@@ -117,9 +123,9 @@ export const Navigation: React.FC<NavigationProps> = ({
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2 shrink-0">
             <span className="text-2xl">🌸</span>
-            <span className="font-display text-xl font-bold text-gradient-sakura">
+            <span className="font-jp text-xl font-bold text-gradient-sakura whitespace-nowrap">
               日本語マスター
             </span>
           </Link>
@@ -284,6 +290,86 @@ export const Navigation: React.FC<NavigationProps> = ({
                 <DropdownMenuItem onClick={() => setTheme('tokyo')} className="gap-2">
                   <span className="h-2 w-2 rounded-full bg-indigo-jp" />
                   Tokyo Night (Tối)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full">
+                  {mode === 'always' && <Eye className="h-5 w-5 text-sakura" />}
+                  {mode === 'never' && <EyeOff className="h-5 w-5 text-muted-foreground" />}
+                  {mode === 'smart' && <BrainIcon className="h-5 w-5 text-matcha" />}
+                  {(mode === 'n5' || mode === 'n4' || mode === 'n3' || mode === 'n2') && (
+                    <span className="text-xs font-black text-gold">{mode.toUpperCase()}</span>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 p-2 rounded-2xl border-2 border-border shadow-soft">
+                <DropdownMenuLabel className="text-[10px] uppercase font-black tracking-widest text-muted-foreground px-2 pb-1">Chế độ Furigana</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setMode('always')} className="gap-3 rounded-xl cursor-pointer">
+                  <div className="h-8 w-8 rounded-lg bg-sakura/10 flex items-center justify-center text-sakura">
+                    <Eye className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-xs">Luôn hiện</p>
+                    <p className="text-[9px] text-muted-foreground">Hiện tất cả Furigana</p>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setMode('never')} className="gap-3 rounded-xl cursor-pointer">
+                  <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
+                    <EyeOff className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-xs">Luôn ẩn</p>
+                    <p className="text-[9px] text-muted-foreground">Tắt toàn bộ Furigana</p>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setMode('smart')} className="gap-3 rounded-xl cursor-pointer">
+                  <div className="h-8 w-8 rounded-lg bg-matcha/10 flex items-center justify-center text-matcha">
+                    <BrainIcon className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-xs">Thông minh</p>
+                    <p className="text-[9px] text-muted-foreground">Ẩn các từ đã biết ({userLevel})</p>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setMode('n5')} className="gap-3 rounded-xl cursor-pointer">
+                  <div className="h-8 w-8 rounded-lg bg-gold/10 flex items-center justify-center text-gold">
+                    <span className="text-xs font-black">N5</span>
+                  </div>
+                  <div>
+                    <p className="font-bold text-xs">N5 Preset</p>
+                    <p className="text-[9px] text-muted-foreground">Ẩn furigana từ N5</p>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setMode('n4')} className="gap-3 rounded-xl cursor-pointer">
+                  <div className="h-8 w-8 rounded-lg bg-gold/10 flex items-center justify-center text-gold">
+                    <span className="text-xs font-black">N4</span>
+                  </div>
+                  <div>
+                    <p className="font-bold text-xs">N4 Preset</p>
+                    <p className="text-[9px] text-muted-foreground">Ẩn furigana từ N4</p>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setMode('n3')} className="gap-3 rounded-xl cursor-pointer">
+                  <div className="h-8 w-8 rounded-lg bg-gold/10 flex items-center justify-center text-gold">
+                    <span className="text-xs font-black">N3</span>
+                  </div>
+                  <div>
+                    <p className="font-bold text-xs">N3 Preset</p>
+                    <p className="text-[9px] text-muted-foreground">Ẩn furigana từ N3</p>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setMode('n2')} className="gap-3 rounded-xl cursor-pointer">
+                  <div className="h-8 w-8 rounded-lg bg-gold/10 flex items-center justify-center text-gold">
+                    <span className="text-xs font-black">N2</span>
+                  </div>
+                  <div>
+                    <p className="font-bold text-xs">N2 Preset</p>
+                    <p className="text-[9px] text-muted-foreground">Ẩn furigana từ N2</p>
+                  </div>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

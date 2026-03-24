@@ -1,21 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
   Clock, 
   ChevronLeft, 
   ChevronRight, 
-  Flag, 
-  AlertCircle,
   CheckCircle2,
   Trophy,
-  ArrowLeft,
   X,
   Menu
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { 
   Dialog,
@@ -24,9 +20,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
+} from "@/components/ui/dialog";
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
-// Mock questions for the exam
 const mockQuestions = [
   {
     id: 1,
@@ -54,33 +51,44 @@ const mockQuestions = [
   }
 ];
 
+const EXAM_DURATION = 7200; // 120 minutes
+
+// Map examId -> JLPT level label
+const EXAM_LEVELS: Record<number, string> = {
+  1: 'N5',
+  2: 'N5',
+  3: 'N4',
+};
+
 export const JLPTMockExam = () => {
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
-  
+  const { user } = useAuth();
+
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
-  const [timeLeft, setTimeLeft] = useState(7200); // 120 minutes in seconds
+  const [timeLeft, setTimeLeft] = useState(EXAM_DURATION);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [isExamFinished, setIsExamFinished] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const savedRef = useRef(false);
 
-  // Timer logic
+  // Timer
   useEffect(() => {
     if (isExamFinished) return;
-    
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 0) {
           clearInterval(timer);
-          finishExam();
+          handleFinish();
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
-    
     return () => clearInterval(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExamFinished]);
 
   const formatTime = (seconds: number) => {
@@ -89,36 +97,54 @@ export const JLPTMockExam = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleSelectOption = (optionIdx: number) => {
-    setAnswers({ ...answers, [currentQuestionIdx]: optionIdx });
+  const calculateScore = () => {
+    let correct = 0;
+    mockQuestions.forEach((q, idx) => {
+      if (answers[idx] === q.correct) correct++;
+    });
+    return Math.floor((correct / mockQuestions.length) * 180);
   };
 
-  const finishExam = () => {
+  const handleFinish = async () => {
+    if (savedRef.current) return;
+    savedRef.current = true;
     setIsExamFinished(true);
     setShowSubmitDialog(false);
-  };
 
-  const calculateScore = () => {
-    let score = 0;
-    mockQuestions.forEach((q, idx) => {
-      if (answers[idx] === q.correct) score++;
+    if (!user) return;
+
+    const score = calculateScore();
+    const timeTaken = EXAM_DURATION - timeLeft;
+    const numericExamId = Number(examId) || 1;
+    const level = EXAM_LEVELS[numericExamId] ?? 'N5';
+
+    setSaving(true);
+    await (supabase.from('mock_exam_results' as any) as any).insert({
+      user_id: user.id,
+      exam_id: numericExamId,
+      score,
+      max_score: 180,
+      time_taken: timeTaken,
+      completed_at: new Date().toISOString(),
+      level,
     });
-    return Math.floor((score / mockQuestions.length) * 180);
+    setSaving(false);
   };
 
   if (isExamFinished) {
     const finalScore = calculateScore();
+    const timeTaken = EXAM_DURATION - timeLeft;
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
         <motion.div
-           initial={{ opacity: 0, scale: 0.9 }}
-           animate={{ opacity: 1, scale: 1 }}
-           className="max-w-md w-full space-y-8"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="max-w-md w-full space-y-8"
         >
           <div className="flex justify-center">
-             <div className="w-24 h-24 rounded-full bg-gold/10 flex items-center justify-center">
-                <Trophy className="h-12 w-12 text-gold" />
-             </div>
+            <div className="w-24 h-24 rounded-full bg-gold/10 flex items-center justify-center">
+              <Trophy className="h-12 w-12 text-gold" />
+            </div>
           </div>
           <div className="space-y-2">
             <h1 className="text-3xl font-bold font-display">Kết quả bài thi</h1>
@@ -129,35 +155,40 @@ export const JLPTMockExam = () => {
             <CardContent className="p-8 space-y-6">
               <div className="space-y-1">
                 <p className="text-sm font-medium text-muted-foreground uppercase">Tổng điểm đạt được</p>
-                <h2 className="text-6xl font-bold text-gradient-gold">{finalScore}<span className="text-2xl text-muted-foreground ml-1">/180</span></h2>
+                <h2 className="text-6xl font-bold text-gradient-gold">
+                  {finalScore}<span className="text-2xl text-muted-foreground ml-1">/180</span>
+                </h2>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
-                 <div className="p-4 bg-muted/50 rounded-xl">
-                    <p className="text-2xl font-bold">{Math.floor((finalScore/180)*100)}%</p>
-                    <p className="text-xs text-muted-foreground uppercase">Tỷ lệ đúng</p>
-                 </div>
-                 <div className="p-4 bg-muted/50 rounded-xl">
-                    <p className="text-2xl font-bold">{formatTime(7200 - timeLeft)}</p>
-                    <p className="text-xs text-muted-foreground uppercase">Thời gian làm</p>
-                 </div>
+                <div className="p-4 bg-muted/50 rounded-xl">
+                  <p className="text-2xl font-bold">{Math.floor((finalScore / 180) * 100)}%</p>
+                  <p className="text-xs text-muted-foreground uppercase">Tỷ lệ đúng</p>
+                </div>
+                <div className="p-4 bg-muted/50 rounded-xl">
+                  <p className="text-2xl font-bold">{formatTime(timeTaken)}</p>
+                  <p className="text-xs text-muted-foreground uppercase">Thời gian làm</p>
+                </div>
               </div>
 
               <div className="space-y-3 pt-2">
-                 <Badge className={finalScore >= 80 ? 'bg-matcha text-white' : 'bg-destructive'}>
-                    {finalScore >= 80 ? 'ĐẠT (PASS)' : 'CHƯA ĐẠT (FAIL)'}
-                 </Badge>
+                <Badge className={finalScore >= 80 ? 'bg-matcha text-white' : 'bg-destructive'}>
+                  {finalScore >= 80 ? 'ĐẠT (PASS)' : 'CHƯA ĐẠT (FAIL)'}
+                </Badge>
+                {saving && (
+                  <p className="text-xs text-muted-foreground">Đang lưu kết quả...</p>
+                )}
               </div>
             </CardContent>
           </Card>
 
           <div className="flex flex-col gap-3">
-             <Button className="w-full h-12 text-lg font-bold" onClick={() => navigate('/learning-path')}>
-                Về lộ trình học tập
-             </Button>
-             <Button variant="ghost" className="w-full" onClick={() => navigate('/mock-tests')}>
-                Làm đề khác
-             </Button>
+            <Button className="w-full h-12 text-lg font-bold" onClick={() => navigate('/learning-path')}>
+              Về lộ trình học tập
+            </Button>
+            <Button variant="ghost" className="w-full" onClick={() => navigate('/mock-tests')}>
+              Làm đề khác
+            </Button>
           </div>
         </motion.div>
       </div>
@@ -186,7 +217,7 @@ export const JLPTMockExam = () => {
             {formatTime(timeLeft)}
           </div>
           <Button variant="destructive" className="font-bold shadow-soft" onClick={() => setShowSubmitDialog(true)}>
-             Nộp bài
+            Nộp bài
           </Button>
         </div>
       </header>
@@ -209,7 +240,7 @@ export const JLPTMockExam = () => {
               {currentQ.options.map((option, idx) => (
                 <button
                   key={idx}
-                  onClick={() => handleSelectOption(idx)}
+                  onClick={() => setAnswers({ ...answers, [currentQuestionIdx]: idx })}
                   className={`
                     w-full text-left p-6 rounded-2xl border-2 transition-all flex items-center gap-4 group
                     ${answers[currentQuestionIdx] === idx 
@@ -241,7 +272,7 @@ export const JLPTMockExam = () => {
               </Button>
               
               <div className="hidden md:flex items-center gap-1 text-sm text-muted-foreground font-medium">
-                  {currentQuestionIdx + 1} / {mockQuestions.length} câu hỏi
+                {currentQuestionIdx + 1} / {mockQuestions.length} câu hỏi
               </div>
 
               {currentQuestionIdx === mockQuestions.length - 1 ? (
@@ -269,39 +300,39 @@ export const JLPTMockExam = () => {
 
         {/* Sidebar Question Navigator */}
         <aside className={`bg-background border-l transition-all duration-300 flex flex-col ${isSidebarOpen ? 'w-80' : 'w-0 overflow-hidden'}`}>
-           <div className="p-6 border-b flex items-center justify-between shrink-0">
-             <h3 className="font-bold flex items-center gap-2">
-               <Menu className="h-4 w-4" />
-               Bảng câu hỏi
-             </h3>
-             <Badge variant="outline">{Object.keys(answers).length}/{mockQuestions.length}</Badge>
-           </div>
-           <div className="p-6 overflow-y-auto flex-1">
-             <div className="grid grid-cols-5 gap-3">
-               {mockQuestions.map((_, idx) => (
-                 <button
-                    key={idx}
-                    onClick={() => setCurrentQuestionIdx(idx)}
-                    className={`
-                      h-10 rounded-lg text-sm font-bold flex items-center justify-center transition-all
-                      ${currentQuestionIdx === idx ? 'ring-2 ring-primary ring-offset-2' : ''}
-                      ${answers[idx] !== undefined ? 'bg-primary text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'}
-                    `}
-                 >
-                   {idx + 1}
-                 </button>
-               ))}
-             </div>
-           </div>
-           <div className="p-6 border-t space-y-4 shrink-0 bg-muted/20">
-              <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-                <div className="w-3 h-3 rounded-sm bg-primary" /> Đã trả lời
-                <div className="w-3 h-3 rounded-sm bg-muted ml-2" /> Chưa trả lời
-              </div>
-              <Button variant="outline" className="w-full gap-2 border-primary/20 hover:bg-primary/5 h-12" onClick={() => setIsSidebarOpen(false)}>
-                Ẩn bảng điều khiển
-              </Button>
-           </div>
+          <div className="p-6 border-b flex items-center justify-between shrink-0">
+            <h3 className="font-bold flex items-center gap-2">
+              <Menu className="h-4 w-4" />
+              Bảng câu hỏi
+            </h3>
+            <Badge variant="outline">{Object.keys(answers).length}/{mockQuestions.length}</Badge>
+          </div>
+          <div className="p-6 overflow-y-auto flex-1">
+            <div className="grid grid-cols-5 gap-3">
+              {mockQuestions.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setCurrentQuestionIdx(idx)}
+                  className={`
+                    h-10 rounded-lg text-sm font-bold flex items-center justify-center transition-all
+                    ${currentQuestionIdx === idx ? 'ring-2 ring-primary ring-offset-2' : ''}
+                    ${answers[idx] !== undefined ? 'bg-primary text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'}
+                  `}
+                >
+                  {idx + 1}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="p-6 border-t space-y-4 shrink-0 bg-muted/20">
+            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+              <div className="w-3 h-3 rounded-sm bg-primary" /> Đã trả lời
+              <div className="w-3 h-3 rounded-sm bg-muted ml-2" /> Chưa trả lời
+            </div>
+            <Button variant="outline" className="w-full gap-2 border-primary/20 hover:bg-primary/5 h-12" onClick={() => setIsSidebarOpen(false)}>
+              Ẩn bảng điều khiển
+            </Button>
+          </div>
         </aside>
         
         {!isSidebarOpen && (
@@ -326,7 +357,7 @@ export const JLPTMockExam = () => {
           </DialogHeader>
           <DialogFooter className="flex sm:justify-between gap-3 pt-6">
             <Button variant="ghost" onClick={() => setShowSubmitDialog(false)} className="flex-1">Tiếp tục làm bài</Button>
-            <Button onClick={finishExam} className="flex-1 font-bold">Nộp bài ngay</Button>
+            <Button onClick={handleFinish} className="flex-1 font-bold">Nộp bài ngay</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

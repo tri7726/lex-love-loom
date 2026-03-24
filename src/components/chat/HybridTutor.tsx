@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useProfile } from '@/hooks/useProfile';
-import { supabase } from '@/integrations/supabase/client';
+import { useAI } from '@/contexts/AIContext';
 
 const scenarios = [
   { 
@@ -85,7 +85,7 @@ interface HybridTutorProps {
 export const HybridTutor = ({ initialData }: HybridTutorProps) => {
   const [content, setContent] = useState('');
   const [prompt, setPrompt] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const { analyzeText, isAnalyzing: isLoading } = useAI();
   const [result, setResult] = useState<AnalysisData | null>(null);
   const [engine] = useState<'gemini' | 'groq'>('gemini');
   const [isListening, setIsListening] = useState(false);
@@ -112,7 +112,6 @@ export const HybridTutor = ({ initialData }: HybridTutorProps) => {
 
   const handleAnalyze = async () => {
     if (!content.trim()) return;
-    setIsLoading(true);
     setIsPanelOpen(true);
     
     try {
@@ -120,32 +119,24 @@ export const HybridTutor = ({ initialData }: HybridTutorProps) => {
         `User Level: ${profile.level || 'N5'}, name ${profile.full_name || 'Gakusei'}.` : 
         "User is learning Japanese.";
 
-      const { data, error } = await supabase.functions.invoke('japanese-analysis', {
-        body: { 
-          content: content, // The edge function expects 'content'
-          prompt: prompt ? `[Context: ${userContext}] ${prompt}` : undefined, 
-          engine,
-          isVip: true 
-        },
-      });
+      const data = await analyzeText(
+        content,
+        selectedMode,
+        prompt ? `[Context: ${userContext}] ${prompt}` : undefined
+      );
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      
-      // The structured format returns { format: 'structured', analysis: { ... } }
-      if (data.format === 'structured' && data.analysis) {
-        setResult(data.analysis);
-      } else if (data.format === 'grammar' && data.result) {
-        // Handle grammar if needed, though HybridTutor usually shows structured analysis
-        setResult(data.result);
-      } else {
-        setResult(data);
+      if (data) {
+        // The structured format returns { format: 'structured', analysis: { ... } }
+        if (data.format === 'structured' && data.analysis) {
+          setResult(data.analysis);
+        } else if (data.format === 'grammar' && data.result) {
+          setResult(data.result);
+        } else {
+          setResult(data);
+        }
       }
     } catch (err) {
       console.error('Analysis error:', err);
-      toast.error('Có lỗi xảy ra khi phân tích. Vui lòng thử lại sau.');
-    } finally {
-      setIsLoading(false);
     }
   };
 

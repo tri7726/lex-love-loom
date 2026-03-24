@@ -16,8 +16,43 @@ import { AnalysisPanel } from '@/components/video/AnalysisPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
+import { useFurigana } from '@/contexts/FuriganaContext';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+
+const JLPT_LEVELS: Record<string, number> = {
+  'N5': 5,
+  'N4': 4,
+  'N3': 3,
+  'N2': 2,
+  'N1': 1,
+  'all': 6
+};
+
+/**
+ * Filters furigana based on user level and mode.
+ * If mode is 'smart', it hides furigana for kanji at or below the user's level.
+ * Example: User is N3 (3), it hides N5 (5), N4 (4), N3 (3).
+ */
+export const filterFurigana = (html: string, mode: string, userLevel: string): string => {
+  if (mode === 'always') return html;
+  if (mode === 'never') {
+    return html.replace(/<ruby>(.*?)<rt>.*?<\/rt><\/ruby>/g, '$1');
+  }
+  
+  // Smart mode
+  const userLevelNum = JLPT_LEVELS[userLevel] || 5;
+  
+  return html.replace(/<ruby data-level="(N[1-5])">(.*?)<rt>.*?<\/rt><\/ruby>/g, (match, level, kanji) => {
+    const kanjiLevelNum = JLPT_LEVELS[level] || 5;
+    // If kanji level is >= user level (e.g. N5 >= N3), hide it.
+    // Remember: N5 is 5, N1 is 1. So 5 >= 3 is true. 
+    if (kanjiLevelNum >= userLevelNum) {
+      return kanji;
+    }
+    return match;
+  });
+};
 
 interface VocabItem {
   word: string;
@@ -79,6 +114,7 @@ const SourceBadge = ({ source, cached }: { source?: string; cached?: boolean }) 
 export const Reading = () => {
   const { user } = useAuth();
   const { profile } = useProfile();
+  const { mode: globalFuriganaMode, userLevel } = useFurigana();
   const [passages, setPassages] = useState<ReadingPassage[]>([]);
   const [selectedPassage, setSelectedPassage] = useState<ReadingPassage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -448,19 +484,26 @@ export const Reading = () => {
   const displayContent = useMemo(() => {
     if (!selectedPassage) return '';
     
+    let baseContent = '';
     switch (displayMode) {
       case 'kanji':
-        return selectedPassage.content;
+        baseContent = selectedPassage.content;
+        break;
       case 'furigana':
-        return selectedPassage.content_with_furigana || selectedPassage.content;
+        baseContent = selectedPassage.content_with_furigana || selectedPassage.content;
+        // Apply global filter
+        baseContent = filterFurigana(baseContent, globalFuriganaMode, userLevel);
+        break;
       case 'kana':
-        return selectedPassage.content_with_furigana 
+        baseContent = selectedPassage.content_with_furigana 
           ? extractKanaOnly(selectedPassage.content_with_furigana)
           : selectedPassage.content;
+        break;
       default:
-        return selectedPassage.content;
+        baseContent = selectedPassage.content;
     }
-  }, [selectedPassage, displayMode]);
+    return baseContent;
+  }, [selectedPassage, displayMode, globalFuriganaMode, userLevel]);
 
   // Text-to-speech
   const speak = (text: string) => {

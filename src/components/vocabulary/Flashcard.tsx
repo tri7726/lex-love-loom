@@ -21,6 +21,8 @@ export interface FlashcardProps {
   onPrev: (e?: React.MouseEvent) => void;
   onNext: (e?: React.MouseEvent) => void;
   onReset: () => void;
+  isWordSaved?: (word: string) => boolean;
+  toggleSaved?: (vocab: VocabWord) => void;
   grad?: string;
   isCustom?: boolean;
 }
@@ -41,6 +43,8 @@ export const Flashcard: React.FC<FlashcardProps> = ({
   onPrev,
   onNext,
   onReset,
+  isWordSaved,
+  toggleSaved,
   grad = 'from-rose-300 via-pink-300 to-rose-400',
   isCustom = false,
 }) => {
@@ -89,8 +93,17 @@ export const Flashcard: React.FC<FlashcardProps> = ({
                     animate={{ opacity: 1, rotateY: 0 }}
                     exit={{ opacity: 0, rotateY: 90 }}
                     transition={{ duration: 0.3 }}
-                    className="text-center"
+                    className="text-center relative w-full"
                   >
+                    {isWordSaved && toggleSaved && (
+                      <Button
+                        variant="ghost" size="icon"
+                        className="absolute -top-12 right-0 h-10 w-10 text-rose-300 hover:text-amber-400 active:scale-125 transition-all"
+                        onClick={(e) => { e.stopPropagation(); toggleSaved(currentWord); }}
+                      >
+                        <Star className={cn('h-6 w-6', isWordSaved(currentWord.word) && 'fill-amber-400 text-amber-400')} />
+                      </Button>
+                    )}
                     <p className="text-6xl md:text-7xl font-jp text-rose-800 mb-4 drop-shadow-sm">{currentWord.word}</p>
                     {currentWord.reading && (
                       <p className="text-xl text-rose-400 font-jp">{currentWord.reading}</p>

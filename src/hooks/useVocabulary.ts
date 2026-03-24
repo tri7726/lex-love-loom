@@ -15,12 +15,14 @@ export function useVocabulary() {
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [lessonRange, setLessonRange] = useState<[number, number]>([1, 5]);
 
+  // Word History Link
+  const { history: savedHistory, saveWord, removeWord, isWordSaved } = useWordHistory();
+
   // Flashcard State
   const [flashcardIndex, setFlashcardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [showReviewPanel, setShowReviewPanel] = useState(false);
   const [activeGame, setActiveGame] = useState<GameMode | null>(null);
-  const [savedWords, setSavedWords] = useState<Set<string>>(new Set());
   const [showKanji, setShowKanji] = useState(false);
   const [shuffled, setShuffled] = useState(false);
   const [displayWords, setDisplayWords] = useState<VocabWord[]>([]);
@@ -143,12 +145,17 @@ export function useVocabulary() {
     if (view === 'lessons') { setView('series'); setSelectedSeries(null); setSelectedLevel(null); return; }
   };
 
-  const toggleSaved = (wordId: string) => {
-    setSavedWords((prev) => {
-      const next = new Set(prev);
-      if (next.has(wordId)) next.delete(wordId); else next.add(wordId);
-      return next;
-    });
+  const toggleSaved = (vocab: VocabWord) => {
+    if (isWordSaved(vocab.word)) {
+      const item = savedHistory.find(h => h.word === vocab.word);
+      if (item) removeWord(item.id);
+    } else {
+      saveWord({
+        word: vocab.word,
+        reading: vocab.reading || '',
+        meaning: vocab.meaning
+      });
+    }
   };
 
   const handleAddWord = () => {
@@ -184,15 +191,16 @@ export function useVocabulary() {
     state: {
       user, savedHistory, historyLoading, view,
       selectedSeries, selectedLevel, selectedLesson, lessonRange,
-      flashcardIndex, isFlipped, showReviewPanel, activeGame, savedWords,
+      flashcardIndex, isFlipped, showReviewPanel, activeGame, 
       showKanji, shuffled, displayWords, autoSpeak, reversedCard,
       customFolders, selectedCustomFolder,
       showCreateDialog, showImportDialog, showAddWordForm,
-      newFolderName, newFolderEmoji, newWord
+      newFolderName, newFolderEmoji, newWord,
+      isWordSaved // Added this to help UI check saved status
     },
     setters: {
       setView, setSelectedSeries, setSelectedLevel, setSelectedLesson, setLessonRange,
-      setFlashcardIndex, setIsFlipped, setShowReviewPanel, setActiveGame, setSavedWords,
+      setFlashcardIndex, setIsFlipped, setShowReviewPanel, setActiveGame,
       setShowKanji, setShuffled, setDisplayWords, setAutoSpeak, setReversedCard,
       setSelectedCustomFolder, setShowCreateDialog, setShowImportDialog, setShowAddWordForm,
       setNewFolderName, setNewFolderEmoji, setNewWord

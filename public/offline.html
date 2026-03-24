@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Đang offline — 日本語マスター</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "Noto Sans JP", system-ui, sans-serif;
+      background: #fdf8f5;
+      color: #1a1a1a;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .container {
+      text-align: center;
+      max-width: 400px;
+      space-y: 1.5rem;
+    }
+    .emoji { font-size: 4rem; margin-bottom: 1.5rem; display: block; }
+    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.75rem; color: #e8547a; }
+    p { color: #666; line-height: 1.6; margin-bottom: 1rem; }
+    .modules {
+      background: #fff;
+      border: 2px solid #fce4ec;
+      border-radius: 1.25rem;
+      padding: 1.25rem;
+      margin: 1.5rem 0;
+      text-align: left;
+    }
+    .modules h2 { font-size: 0.875rem; font-weight: 700; color: #e8547a; margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .modules ul { list-style: none; }
+    .modules li { padding: 0.375rem 0; font-size: 0.9rem; }
+    .modules li::before { content: "✓ "; color: #e8547a; font-weight: 700; }
+    a {
+      display: inline-block;
+      background: #e8547a;
+      color: white;
+      padding: 0.75rem 2rem;
+      border-radius: 1.25rem;
+      text-decoration: none;
+      font-weight: 600;
+      margin-top: 0.5rem;
+    }
+    a:hover { background: #d4436a; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <span class="emoji">🌸</span>
+    <h1>Bạn đang offline</h1>
+    <p>Không có kết nối mạng. Nhưng bạn vẫn có thể học với các module đã được tải về!</p>
+    <div class="modules">
+      <h2>Có thể dùng offline</h2>
+      <ul>
+        <li>Flashcards (thẻ ghi nhớ)</li>
+        <li>Ngữ pháp (Grammar)</li>
+        <li>Kanji</li>
+      </ul>
+    </div>
+    <a href="/">Về trang chủ</a>
+  </div>
+</body>
+</html>

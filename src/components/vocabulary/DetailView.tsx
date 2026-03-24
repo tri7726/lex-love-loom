@@ -22,8 +22,8 @@ interface DetailViewProps {
   selectedLevel: JLPTLevel;
   selectedLesson: Lesson;
   displayWords: VocabWord[];
-  savedWords: Set<string>;
-  toggleSaved: (id: string) => void;
+  isWordSaved: (word: string) => boolean;
+  toggleSaved: (vocab: VocabWord) => void;
   goBack: () => void;
   navigateToDetail: (lesson: Lesson) => void;
   
@@ -48,7 +48,7 @@ interface DetailViewProps {
 }
 
 export const DetailView: React.FC<DetailViewProps> = ({
-  selectedSeries, selectedLevel, selectedLesson, displayWords, savedWords, toggleSaved, goBack, navigateToDetail,
+  selectedSeries, selectedLevel, selectedLesson, displayWords, isWordSaved, toggleSaved, goBack, navigateToDetail,
   flashcardIndex, setFlashcardIndex, isFlipped, setIsFlipped, autoSpeak, setAutoSpeak, reversedCard, setReversedCard, shuffled, setShuffled, speak,
   activeGame, setActiveGame, showReviewPanel, setShowReviewPanel,
 }) => {
@@ -114,6 +114,8 @@ export const DetailView: React.FC<DetailViewProps> = ({
           shuffled={shuffled}
           setShuffled={setShuffled}
           speak={speak}
+          isWordSaved={isWordSaved}
+          toggleSaved={toggleSaved}
           onPrev={(e) => {
              e?.stopPropagation();
              const prev = Math.max(0, flashcardIndex - 1);
@@ -146,7 +148,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-lg">Thuật ngữ trong bài ({words.length})</h3>
           <Badge variant="outline" className="text-xs">
-            {savedWords.size} đã lưu
+            {words.filter(w => isWordSaved(w.word)).length} đã lưu
           </Badge>
         </div>
         <div className="space-y-2">
@@ -179,12 +181,14 @@ export const DetailView: React.FC<DetailViewProps> = ({
                     >
                       <Volume2 className="h-3.5 w-3.5" />
                     </Button>
-                    <Button
-                      variant="ghost" size="icon" className="h-8 w-8"
-                      onClick={(e) => { e.stopPropagation(); toggleSaved(word.id); }}
-                    >
-                      <Star className={cn('h-4 w-4 transition-colors', savedWords.has(word.id) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground')} />
-                    </Button>
+                    <motion.div whileTap={{ scale: 1.5 }} transition={{ type: "spring", stiffness: 400, damping: 10 }}>
+                      <Button
+                        variant="ghost" size="icon" className="h-8 w-8"
+                        onClick={(e) => { e.stopPropagation(); toggleSaved(word); }}
+                      >
+                        <Star className={cn('h-4 w-4 transition-colors', isWordSaved(word.word) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground')} />
+                      </Button>
+                    </motion.div>
                   </div>
                 </CardContent>
               </Card>

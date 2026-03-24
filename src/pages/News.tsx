@@ -13,6 +13,7 @@ import {
   Loader2,
   RefreshCw
 } from 'lucide-react';
+import { SakuraSkeleton } from '@/components/ui/SakuraSkeleton';
 import { Navigation } from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -178,10 +179,7 @@ export const News = () => {
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {isLoading ? (
-            <div className="col-span-full py-20 flex flex-col items-center justify-center space-y-4">
-              <Loader2 className="h-12 w-12 animate-spin text-primary" />
-              <p className="text-muted-foreground font-medium">Đang tải tin tức mới nhất...</p>
-            </div>
+            <SakuraSkeleton variant="news-card" count={3} className="col-span-full grid md:grid-cols-2 lg:grid-cols-3 gap-8" />
           ) : filteredNews.length > 0 ? (
             filteredNews.map((item, idx) => (
               <motion.div

@@ -1,213 +1,206 @@
-import React, { useRef, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Eraser, Pencil } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { RotateCcw, Check, Sparkles, AlertCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { recognizeHandwriting } from '@/utils/kanjiRecognition';
+import { toast } from 'sonner';
 
-interface SimplifiedCanvasProps {
-  kanji: string;
-  onStrokeComplete?: (strokes: number[]) => void;
-  onValidate?: () => void;
+interface HandwritingCanvasProps {
+  targetKanji: string;
+  onSuccess?: () => void;
+  width?: number;
+  height?: number;
 }
 
-export const SimplifiedCanvas: React.FC<SimplifiedCanvasProps> = ({
-  kanji,
-  onStrokeComplete,
-  onValidate,
+export const HandwritingCanvas: React.FC<HandwritingCanvasProps> = ({
+  targetKanji,
+  onSuccess,
+  width = 300,
+  height = 300,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [strokes, setStrokes] = useState<number[]>([]);
-  const [context, setContext] = useState<CanvasRenderingContext2D | null>(null);
-  const { toast } = useToast();
+  const [strokes, setStrokes] = useState<number[][][]>([]);
+  const [currentStroke, setCurrentStroke] = useState<{ x: number; y: number }[]>([]);
+  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  const [isRecognizing, setIsRecognizing] = useState(false);
+  const [results, setResults] = useState<string[]>([]);
 
-  const CANVAS_SIZE = 400;
-
-  React.useEffect(() => {
-    if (canvasRef.current) {
-      const canvas = canvasRef.current;
-      canvas.width = CANVAS_SIZE;
-      canvas.height = CANVAS_SIZE;
-      
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        setContext(ctx);
-        
-        // Draw background
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-        
-        // Draw grid
-        ctx.strokeStyle = '#e0e0e0';
-        ctx.lineWidth = 1;
-        
-        // Vertical lines
-        for (let i = 1; i < 3; i++) {
-          const x = (CANVAS_SIZE / 3) * i;
-          ctx.beginPath();
-          ctx.moveTo(x, 0);
-          ctx.lineTo(x, CANVAS_SIZE);
-          ctx.stroke();
-        }
-        
-        // Horizontal lines
-        for (let i = 1; i < 3; i++) {
-          const y = (CANVAS_SIZE / 3) * i;
-          ctx.beginPath();
-          ctx.moveTo(0, y);
-          ctx.lineTo(CANVAS_SIZE, y);
-          ctx.stroke();
-        }
-        
-        // Draw guide kanji
-        ctx.fillStyle = '#e8e8e8';
-        ctx.font = '300px "Noto Sans JP", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(kanji, CANVAS_SIZE / 2, CANVAS_SIZE / 2);
-        
-        // Set drawing style
-        ctx.strokeStyle = '#1a1a1a';
-        ctx.lineWidth = 8;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-      }
-    }
-  }, [kanji]);
-
- const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!context || !canvasRef.current) return;
-    
+  const getCoordinates = (e: React.MouseEvent | React.TouchEvent): { x: number; y: number } | null => {
+    if (!canvasRef.current) return null;
     const rect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top,
+    };
+  };
+
+  const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    const coords = getCoordinates(e);
+    if (!coords) return;
+
     setIsDrawing(true);
-    context.beginPath();
-    context.moveTo(x, y);
+    setCurrentStroke([coords]);
+    setIsCorrect(null);
   };
 
-  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing || !context || !canvasRef.current) return;
-    
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    context.lineTo(x, y);
-    context.stroke();
+  const draw = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isDrawing || !canvasRef.current) return;
+    e.preventDefault();
+    const coords = getCoordinates(e);
+    if (!coords) return;
+
+    const ctx = canvasRef.current.getContext('2d');
+    if (!ctx) return;
+
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#1a1a1a';
+
+    const lastPoint = currentStroke[currentStroke.length - 1];
+    ctx.beginPath();
+    ctx.moveTo(lastPoint.x, lastPoint.y);
+    ctx.lineTo(coords.x, coords.y);
+    ctx.stroke();
+
+    setCurrentStroke((prev) => [...prev, coords]);
   };
 
-  const stopDrawing = () => {
+  const endDrawing = () => {
     if (!isDrawing) return;
-    
     setIsDrawing(false);
-    const newStrokes = [...strokes, Date.now()];
-    setStrokes(newStrokes);
-    
-    if (onStrokeComplete) {
-      onStrokeComplete(newStrokes);
+    if (currentStroke.length > 0) {
+      // Format for Google Input Tools: [[x1, x2, ...], [y1, y2, ...], [t1, t2, ...]]
+      const newStroke = [
+        currentStroke.map(p => Math.round(p.x)),
+        currentStroke.map(p => Math.round(p.y)),
+        currentStroke.map((_, i) => i * 10)
+      ];
+      setStrokes(prev => [...prev, newStroke]);
+      setCurrentStroke([]);
     }
   };
 
-  const handleClear = () => {
-    if (!context || !canvasRef.current) return;
-    
+  const clearCanvas = () => {
     const canvas = canvasRef.current;
-    context.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-    
-    // Redraw background
-    context.fillStyle = '#ffffff';
-    context.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-    
-    // Redraw grid
-    context.strokeStyle = '#e0e0e0';
-    context.lineWidth = 1;
-    
-    for (let i = 1; i < 3; i++) {
-      const x = (CANVAS_SIZE / 3) * i;
-      context.beginPath();
-      context.moveTo(x, 0);
-      context.lineTo(x, CANVAS_SIZE);
-      context.stroke();
-    }
-    
-    for (let i = 1; i < 3; i++) {
-      const y = (CANVAS_SIZE / 3) * i;
-      context.beginPath();
-      context.moveTo(0, y);
-      context.lineTo(CANVAS_SIZE, y);
-      context.stroke();
-    }
-    
-    // Redraw guide
-    context.fillStyle = '#e8e8e8';
-    context.font = '300px "Noto Sans JP", sans-serif';
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    context.fillText(kanji, CANVAS_SIZE / 2, CANVAS_SIZE / 2);
-    
-    // Reset drawing style
-    context.strokeStyle = '#1a1a1a';
-    context.lineWidth = 8;
-    context.lineCap = 'round';
-    context.lineJoin = 'round';
-    
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     setStrokes([]);
+    setCurrentStroke([]);
+    setIsCorrect(null);
+    setResults([]);
+  };
+
+  const handleRecognize = async () => {
+    if (strokes.length === 0) return;
     
-    toast({
-      title: "Canvas cleared",
-      description: "Ready to practice again!",
-    });
+    setIsRecognizing(true);
+    try {
+      const candidates = await recognizeHandwriting(strokes);
+      setResults(candidates);
+      
+      const matched = candidates.includes(targetKanji);
+      setIsCorrect(matched);
+      
+      if (matched) {
+        toast.success('Xuất sắc! Bạn đã viết đúng.', {
+          icon: <Sparkles className="h-4 w-4 text-yellow-500" />
+        });
+        if (onSuccess) onSuccess();
+      } else if (candidates.length > 0) {
+        toast.error(`Chưa chính xác. Có vẻ bạn đang viết: ${candidates.slice(0, 3).join(', ')}`, {
+          icon: <AlertCircle className="h-4 w-4 text-red-500" />
+        });
+      }
+    } catch (error) {
+      toast.error('Lỗi nhận diện. Vui lòng thử lại.');
+    } finally {
+      setIsRecognizing(false);
+    }
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span>Luyện viết Kanji</span>
-          <Badge variant="outline">{strokes.length} nét</Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Canvas */}
-        <div className="border-2 border-gray-300 rounded-lg overflow-hidden shadow-inner">
-          <canvas
-            ref={canvasRef}
-            className="cursor-crosshair"
-            onMouseDown={startDrawing}
-            onMouseMove={draw}
-            onMouseUp={stopDrawing}
-            onMouseLeave={stopDrawing}
-            style={{ display: 'block', width: '100%', height: 'auto' }}
-          />
+    <div className="flex flex-col items-center gap-4 w-full">
+      <div className="relative w-full aspect-square max-w-[320px]">
+        <canvas
+          ref={canvasRef}
+          width={width}
+          height={height}
+          className={cn(
+            "w-full h-full border-4 rounded-3xl bg-white shadow-xl cursor-crosshair touch-none transition-all duration-300",
+            isCorrect === true && "border-green-400 bg-green-50/20",
+            isCorrect === false && "border-red-400 bg-red-50/20",
+            isCorrect === null && "border-slate-200"
+          )}
+          onMouseDown={startDrawing}
+          onMouseMove={draw}
+          onMouseUp={endDrawing}
+          onMouseLeave={endDrawing}
+          onTouchStart={startDrawing}
+          onTouchMove={draw}
+          onTouchEnd={endDrawing}
+        />
+        
+        {/* Helper Grid */}
+        <div className="absolute inset-0 pointer-events-none border-slate-100 border-dashed border-2 m-6 rounded-2xl opacity-30">
+          <div className="absolute top-1/2 left-0 w-full h-px border-t border-dashed border-slate-300 -translate-y-1/2" />
+          <div className="absolute top-0 left-1/2 w-px h-full border-l border-dashed border-slate-300 -translate-x-1/2" />
         </div>
 
-        {/* Controls */}
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            variant="outline"
-            onClick={handleClear}
-            className="gap-2"
-          >
-            <Eraser className="h-4 w-4" />
-            Clear
-          </Button>
+        {/* Target Kanji Ghost */}
+        {isCorrect === null && strokes.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-5">
+            <span className="text-[180px] font-jp font-bold">{targetKanji}</span>
+          </div>
+        )}
+      </div>
 
-          <Button variant="outline" className="gap-2" disabled>
-            <Pencil className="h-4 w-4" />
-            More tools coming
-          </Button>
+      <div className="flex gap-2 w-full max-w-[320px]">
+        <Button 
+          variant="outline" 
+          onClick={clearCanvas} 
+          className="flex-1 gap-2 rounded-2xl h-12 border-2 hover:bg-slate-50 transition-all font-bold"
+        >
+          <RotateCcw className="h-4 w-4" />
+          Làm lại
+        </Button>
+        <Button 
+          onClick={handleRecognize} 
+          className="flex-[2] gap-2 rounded-2xl h-12 shadow-lg shadow-primary/20 transition-all font-bold"
+          disabled={strokes.length === 0 || isRecognizing}
+        >
+          {isRecognizing ? (
+            <span className="flex items-center gap-2">
+              <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              Đang kiểm tra...
+            </span>
+          ) : (
+            <>
+              <Check className="h-4 w-4" />
+              Kiểm tra
+            </>
+          )}
+        </Button>
+      </div>
+      
+      {results.length > 0 && !isCorrect && (
+        <div className="text-center animate-fade-in">
+          <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground mb-1">Gợi ý gần đúng</p>
+          <div className="flex gap-1 justify-center">
+            {results.slice(0, 5).map((r, i) => (
+              <span key={i} className="h-8 w-8 flex items-center justify-center rounded-lg bg-muted text-lg font-jp">{r}</span>
+            ))}
+          </div>
         </div>
-
-        {/* Info */}
-        <div className="text-xs text-muted-foreground text-center">
-          💡 Draw the kanji following the stroke order. Basic canvas (Fabric.js upgrade pending)
-        </div>
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
 };
-
-// export default SimplifiedCanvas;

@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, Plus, Upload, FolderOpen, Volume2, Trash2 } from 'lucide-react';
+import { ChevronLeft, Plus, Upload, FolderOpen, Volume2, Trash2, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -31,6 +31,8 @@ interface CustomDetailViewProps {
   shuffled: boolean;
   setShuffled: (s: boolean) => void;
   speak: (t: string) => void;
+  isWordSaved: (word: string) => boolean;
+  toggleSaved: (vocab: VocabWord) => void;
   
   // Game & Review
   activeGame: GameMode | null;
@@ -50,6 +52,7 @@ interface CustomDetailViewProps {
 export const CustomDetailView: React.FC<CustomDetailViewProps> = ({
   selectedCustomFolder, removeWordFromFolder, goBack,
   flashcardIndex, setFlashcardIndex, isFlipped, setIsFlipped, autoSpeak, setAutoSpeak, reversedCard, setReversedCard, shuffled, setShuffled, speak,
+  isWordSaved, toggleSaved,
   activeGame, setActiveGame, showReviewPanel, setShowReviewPanel,
   showAddWordForm, setShowAddWordForm, setShowImportDialog, newWord, setNewWord, handleAddWord,
 }) => {
@@ -154,6 +157,8 @@ export const CustomDetailView: React.FC<CustomDetailViewProps> = ({
             shuffled={shuffled}
             setShuffled={setShuffled}
             speak={speak}
+            isWordSaved={isWordSaved}
+            toggleSaved={toggleSaved}
             onPrev={(e) => {
                e?.stopPropagation();
                const prev = Math.max(0, flashcardIndex - 1);
@@ -212,6 +217,14 @@ export const CustomDetailView: React.FC<CustomDetailViewProps> = ({
                       <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); speak(word.word); }}>
                         <Volume2 className="h-3.5 w-3.5" />
                       </Button>
+                      <motion.div whileTap={{ scale: 1.5 }} transition={{ type: "spring", stiffness: 400, damping: 10 }}>
+                        <Button
+                          variant="ghost" size="icon" className="h-8 w-8"
+                          onClick={(e) => { e.stopPropagation(); toggleSaved(word); }}
+                        >
+                          <Star className={cn('h-4 w-4 transition-colors', isWordSaved(word.word) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground')} />
+                        </Button>
+                      </motion.div>
                       <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-600" onClick={(e) => {
                         e.stopPropagation();
                         // wait, removeWordFromFolder needs to be passed in props directly from the hook or handled in Vocabulary.tsx

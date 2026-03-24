@@ -70,7 +70,7 @@ export const Vocabulary = () => {
                 selectedLevel={state.selectedLevel}
                 selectedLesson={state.selectedLesson}
                 displayWords={state.displayWords}
-                savedWords={state.savedWords}
+                isWordSaved={state.isWordSaved}
                 toggleSaved={actions.toggleSaved}
                 goBack={actions.goBack}
                 navigateToDetail={actions.navigateToDetail}
@@ -96,6 +96,8 @@ export const Vocabulary = () => {
               <CustomDetailView
                 key="custom-detail"
                 selectedCustomFolder={state.selectedCustomFolder}
+                isWordSaved={state.isWordSaved}
+                toggleSaved={actions.toggleSaved}
                 removeWordFromFolder={(folderId, wordId) => {
                   actions.removeWordFromFolder(folderId, wordId);
                   setters.setSelectedCustomFolder(f => f ? { ...f, words: f.words.filter(w => w.id !== wordId) } : f);

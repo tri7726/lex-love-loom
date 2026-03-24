@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Navigation } from '@/components/Navigation';
-import { supabase } from '@/integrations/supabase/client';
+import { useAI } from '@/contexts/AIContext';
 import { useTTS } from '@/hooks/useTTS';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -93,7 +93,7 @@ export const AIRoleplay = () => {
   const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const { chat, isChatting: isLoading } = useAI();
   const scrollRef = useRef<HTMLDivElement>(null);
   const { speak, isSpeaking } = useTTS();
 
@@ -115,31 +115,29 @@ export const AIRoleplay = () => {
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setInput('');
-    setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('japanese-chat', {
-        body: {
-          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
-          systemPrompt: selectedScenario.systemPrompt,
-          engine: 'gemini'
+      const data = await chat(
+        newMessages.map(m => ({ role: m.role, content: m.content })),
+        selectedScenario.systemPrompt
+      );
+
+      if (data) {
+        let content = '';
+        if (typeof data === 'string') {
+          content = data;
+        } else if (data.content) {
+          content = data.content;
+        } else if (data.text) {
+          content = data.text;
         }
-      });
-
-      if (error) throw error;
-
-      // The edge function returns a stream, but since we are using invoke, 
-      // it might be handled differently depending on the library. 
-      // If it's a regular response:
-      if (typeof data === 'string') {
-        setMessages([...newMessages, { role: 'assistant', content: data }]);
-      } else if (data.content) {
-         setMessages([...newMessages, { role: 'assistant', content: data.content }]);
+        
+        if (content) {
+          setMessages([...newMessages, { role: 'assistant', content }]);
+        }
       }
     } catch (error) {
       console.error('Roleplay chat error:', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 

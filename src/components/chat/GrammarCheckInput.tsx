@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
+import { useAI } from '@/contexts/AIContext';
 import { useSpeechToText } from '@/hooks/useSpeechToText';
 import { useTTS } from '@/hooks/useTTS';
 import { useProfile } from '@/hooks/useProfile';
@@ -66,7 +66,7 @@ export const GrammarCheckInput: React.FC<GrammarCheckInputProps> = ({
   onClear,
 }) => {
   const [text, setText] = useState(initialValue);
-  const [isLoading, setIsLoading] = useState(false);
+  const { checkGrammar: aiCheckGrammar, isAnalyzing: isLoading } = useAI();
   const [result, setResult] = useState<GrammarResult | null>(null);
   const { toast } = useToast();
   const { profile } = useProfile();
@@ -77,37 +77,14 @@ export const GrammarCheckInput: React.FC<GrammarCheckInputProps> = ({
 
   const checkGrammar = useCallback(async (textToCheck: string) => {
     if (!textToCheck.trim() || textToCheck.length < 2) { 
-      console.log('Text too short for grammar check');
       setResult(null); 
       return; 
     }
     
-    setIsLoading(true);
-    console.log(`Starting grammar check for: "${textToCheck}"`);
-    
     try {
-      const userContext = profile
-        ? `User is level ${profile.level}, name ${profile.full_name || 'Gakusei'}.`
-        : 'User is learning Japanese.';
-
-      const prompt = `[Context: ${userContext}]
-Hãy đóng vai một Sensei người Nhật dạy tiếng Việt/Nhật.
-Nhiệm vụ: Kiểm tra ngữ pháp và dịch câu sau sang tiếng Nhật tự nhiên nhất.
-Text to analyze: "${textToCheck}"
-
-Yêu cầu trả về kết quả dưới định dạng JSON duy nhất như sau:
-{
-  "isCorrect": boolean,
-  "corrected": "câu tiếng Nhật đúng/tự nhiên nhất",
-  "explanation": "giải thích chi tiết bằng tiếng Việt, dùng 「」 để đánh dấu từ tiếng Nhật",
-  "rules": ["quy tắc 1", "quy tắc 2"],
-  "suggestions": ["cách nói tự nhiên 1", "cách nói tự nhiên 2"]
-}`;
-
-      // Try local PicoClaw first
+      // Local PicoClaw check (Low latency)
       let localSuccess = false;
       try {
-        console.log('Attempting local PicoClaw check...');
         const response = await fetch('http://localhost:18790/v1/chat/completions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -115,83 +92,46 @@ Yêu cầu trả về kết quả dưới định dạng JSON duy nhất như sa
             model: 'llama3',
             messages: [
               { role: 'system', content: 'You are a helpful Japanese Sensei. Always respond in valid JSON format.' },
-              { role: 'user', content: prompt }
+              { role: 'user', content: `Check grammar for: "${textToCheck}"` }
             ],
             response_format: { type: "json_object" }
           }),
-          // Add a timeout to local fetch
-          signal: AbortSignal.timeout(5000)
+          signal: AbortSignal.timeout(3000)
         });
 
         if (response.ok) {
           const data = await response.json();
           const content = data.choices?.[0]?.message?.content;
-          
           if (content) {
-            console.log('PicoClaw raw response:', content);
-            // Attempt to parse JSON from content (llama3 might wrap it in tags)
             const jsonMatch = content.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
-              try {
-                const grammarResult = JSON.parse(jsonMatch[0]);
-                console.log('PicoClaw parsed result:', grammarResult);
-                setResult(grammarResult);
-                localSuccess = true;
-              } catch (parseErr) {
-                console.warn('Failed to parse PicoClaw JSON:', parseErr);
-              }
-            } else {
-              console.warn('No JSON found in PicoClaw response');
+              setResult(JSON.parse(jsonMatch[0]));
+              localSuccess = true;
             }
           }
-        } else {
-          console.warn(`Local PicoClaw returned status: ${response.status}`);
         }
       } catch (localErr) {
-        console.log('Local PicoClaw not available or timed out, falling back to Supabase:', localErr);
+        console.log('Local PicoClaw not available.');
       }
 
-      if (localSuccess) {
-        setIsLoading(false);
-        return;
-      }
+      if (localSuccess) return;
 
-      // Fallback to Supabase
-      console.log('Falling back to Supabase japanese-analysis...');
-      const { data, error: invokeError } = await supabase.functions.invoke('japanese-analysis', {
-        body: {
-          content: textToCheck,
-          isGrammar: true,
-          isVip: true,
-          prompt: `[Context: ${userContext}] Vui lòng kiểm tra ngữ pháp hoặc dịch câu này sang tiếng Nhật tự nhiên nhất. Chỉ tập trung vào phần Text to analyze.`
-        },
-      });
-
-      if (invokeError) {
-        console.error('Supabase invocation error:', invokeError);
-        throw invokeError;
+      // Fallback to Unified AI Provider
+      const data = await aiCheckGrammar(textToCheck);
+      
+      if (data) {
+        const grammarResult = data.format === 'grammar' ? data.result : data;
+        setResult(grammarResult);
       }
-      
-      console.log('Supabase check successful:', data);
-      const grammarResult = data?.format === 'grammar' ? data.result : data;
-      
-      if (!grammarResult) {
-        console.error('Invalid response format from Supabase:', data);
-        throw new Error('Invalid response format');
-      }
-      
-      setResult(grammarResult);
     } catch (error) {
-      console.error('Grammar check failed completely:', error);
+      console.error('Grammar check failed:', error);
       toast({ 
         title: 'Lỗi Sensei', 
-        description: 'Sensei đang bận hoặc gặp sự cố kết nối, vui lòng thử lại sau.', 
+        description: 'Sensei đang bận, vui lòng thử lại sau.', 
         variant: 'destructive' 
       });
-    } finally {
-      setIsLoading(false);
     }
-  }, [toast, profile]);
+  }, [toast, aiCheckGrammar]);
 
   // Removed automatic debounce as per user request for manual "Gửi" button
   useEffect(() => {
