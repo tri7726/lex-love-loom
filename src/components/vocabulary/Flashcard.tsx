@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, X, CheckCircle2, RotateCcw, Volume2, Shuffle, ArrowUpDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, CheckCircle2, RotateCcw, Volume2, Shuffle, ArrowUpDown, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { VocabWord } from '@/hooks/useFlashcardFolders';

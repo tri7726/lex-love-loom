@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Star, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useKanjiDetails } from '@/hooks/useKanjiDetails';
-import { SimplifiedCanvas } from '@/components/kanji/HandwritingCanvas';
+import { HandwritingCanvas as SimplifiedCanvas } from '@/components/kanji/HandwritingCanvas';
 import { useToast } from '@/hooks/use-toast';
 import { KanjiInfoPanel } from '@/components/kanji/KanjiInfoPanel';
 import { VocabularyPanel } from '@/components/kanji/VocabularyPanel';
