@@ -62,8 +62,8 @@ export function WordLookupPanel({ wordData, loading, onClose, onSpeak }: WordLoo
 
   const handleCreateAndSave = () => {
     if (!searchQuery.trim() || !wordData) return;
-    const newFolder = createFolder(searchQuery.trim(), '📚');
-    handleSaveToFolder(newFolder.id);
+    const newFolder = await createFolder(searchQuery.trim(), '📚');
+    if (newFolder) handleSaveToFolder(newFolder.id);
     setSearchQuery('');
   };
 
