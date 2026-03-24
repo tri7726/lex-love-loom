@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Star, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useKanjiDetails } from '@/hooks/useKanjiDetails';
-import { SimplifiedCanvas } from '@/components/kanji/HandwritingCanvas';
+import { HandwritingCanvas as SimplifiedCanvas } from '@/components/kanji/HandwritingCanvas';
 import { useToast } from '@/hooks/use-toast';
 import { KanjiInfoPanel } from '@/components/kanji/KanjiInfoPanel';
 import { VocabularyPanel } from '@/components/kanji/VocabularyPanel';
@@ -107,12 +107,9 @@ export const KanjiDetail: React.FC = () => {
         {/* Left Column: Writing Practice */}
         <div className="lg:col-span-1">
           <SimplifiedCanvas
-            kanji={kanji.character}
-            onStrokeComplete={(strokes) => {
-              console.log('Strokes captured:', strokes.length);
-            }}
-            onValidate={() => {
-              console.log('Validation requested');
+            targetKanji={kanji.character}
+            onSuccess={() => {
+              console.log('Writing practice completed');
             }}
           />
         </div>

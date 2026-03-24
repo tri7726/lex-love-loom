@@ -60,10 +60,10 @@ export function WordLookupPanel({ wordData, loading, onClose, onSpeak }: WordLoo
     }, 1000);
   };
 
-  const handleCreateAndSave = () => {
+  const handleCreateAndSave = async () => {
     if (!searchQuery.trim() || !wordData) return;
-    const newFolder = createFolder(searchQuery.trim(), '📚');
-    handleSaveToFolder(newFolder.id);
+    const newFolder = await createFolder(searchQuery.trim(), '📚');
+    if (newFolder) handleSaveToFolder(newFolder.id);
     setSearchQuery('');
   };
 

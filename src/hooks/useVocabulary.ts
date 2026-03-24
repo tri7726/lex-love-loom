@@ -6,7 +6,7 @@ import { TextbookSeries, JLPTLevel, Lesson, ViewState, GameMode } from '@/compon
 
 export function useVocabulary() {
   const { user } = useAuth();
-  const { history: savedHistory, isLoading: historyLoading } = useWordHistory();
+  const { history: savedHistory, isLoading: historyLoading, saveWord, removeWord, isWordSaved } = useWordHistory();
   const [view, setView] = useState<ViewState>('series');
   
   // Selections
@@ -14,9 +14,6 @@ export function useVocabulary() {
   const [selectedLevel, setSelectedLevel] = useState<JLPTLevel | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [lessonRange, setLessonRange] = useState<[number, number]>([1, 5]);
-
-  // Word History Link
-  const { history: savedHistory, saveWord, removeWord, isWordSaved } = useWordHistory();
 
   // Flashcard State
   const [flashcardIndex, setFlashcardIndex] = useState(0);

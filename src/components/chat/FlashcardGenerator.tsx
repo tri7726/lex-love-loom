@@ -145,9 +145,10 @@ export const FlashcardGenerator = () => {
     setPendingCards([]);
   };
 
-  const createFolderAndAdd = () => {
+  const createFolderAndAdd = async () => {
     if (!newFolderName.trim()) return;
-    const newFolder = createFolder(newFolderName.trim(), '📚');
+    const newFolder = await createFolder(newFolderName.trim(), '📚');
+    if (!newFolder) return;
     setNewFolderName('');
     
     // Add cards to the new folder
