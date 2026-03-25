@@ -61,7 +61,6 @@ export const PracticeOverlay: React.FC<PracticeOverlayProps> = ({
         <PronunciationGame 
           words={words} 
           onFinish={handleComplete} 
-          onBack={() => setMode(null)} 
         />
       );
       default: return null;
