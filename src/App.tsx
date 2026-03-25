@@ -57,7 +57,10 @@ const queryClient = new QueryClient();
 
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center bg-background">
-    <SakuraSkeleton className="w-64 h-8" />
+    <div className="flex flex-col items-center gap-3">
+      <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <p className="text-sm text-muted-foreground">読み込み中...</p>
+    </div>
   </div>
 );
 
