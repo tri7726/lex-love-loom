@@ -15,7 +15,6 @@ import { Auth } from "./pages/Auth";
 import { NotFound } from "./pages/NotFound";
 
 // All other pages lazy-loaded
-const Quiz = React.lazy(() => import("./pages/Quiz").then(m => ({ default: m.Quiz })));
 const Vocabulary = React.lazy(() => import("./pages/Vocabulary").then(m => ({ default: m.Vocabulary })));
 const LeaderboardPage = React.lazy(() => import("./pages/LeaderboardPage").then(m => ({ default: m.LeaderboardPage })));
 const Reading = React.lazy(() => import("./pages/Reading").then(m => ({ default: m.Reading })));
@@ -43,14 +42,13 @@ const UserProfile = React.lazy(() => import("./pages/UserProfile").then(m => ({ 
 const EditProfile = React.lazy(() => import("./pages/EditProfile").then(m => ({ default: m.EditProfile })));
 const Messages = React.lazy(() => import("./pages/Messages").then(m => ({ default: m.Messages })));
 const Leagues = React.lazy(() => import("./pages/Leagues").then(m => ({ default: m.Leagues })));
-const Flashcards = React.lazy(() => import("./pages/Flashcards"));
-const FlashcardReview = React.lazy(() => import("./pages/FlashcardReview").then(m => ({ default: m.FlashcardReview })));
-const FlashcardGames = React.lazy(() => import("./pages/FlashcardGames").then(m => ({ default: m.FlashcardGames })));
-const Pronunciation = React.lazy(() => import("./pages/Pronunciation"));
 const AdminImport = React.lazy(() => import("./pages/AdminImport").then(m => ({ default: m.AdminImport })));
+const AdminExamManager = React.lazy(() => import("./pages/AdminExamManager").then(m => ({ default: m.AdminExamManager })));
 const StoryMode = React.lazy(() => import("./pages/StoryMode").then(m => ({ default: m.StoryMode })));
 const StoryModeFrame = React.lazy(() => import("./components/chat/SenseiChatHub/StoryModeFrame").then(m => ({ default: m.StoryModeFrame })));
 const SenseiHub = React.lazy(() => import("./pages/SenseiHub"));
+const PvPBattle = React.lazy(() => import("./pages/PvPBattle").then(m => ({ default: m.PvPBattle })));
+const ExamManager = React.lazy(() => import("./pages/admin/ExamManager").then(m => ({ default: m.ExamManager })));
 
 const queryClient = new QueryClient();
 
@@ -79,7 +77,6 @@ function App() {
                     <Routes>
                       <Route path="/" element={<Index />} />
                       <Route path="/auth" element={<Auth />} />
-                      <Route path="/quiz" element={<Quiz />} />
                       <Route path="/vocabulary" element={<Vocabulary />} />
                       <Route path="/leaderboard" element={<LeaderboardPage />} />
                       <Route path="/reading" element={<Reading />} />
@@ -108,13 +105,12 @@ function App() {
                       <Route path="/edit-profile" element={<EditProfile />} />
                       <Route path="/messages" element={<Messages />} />
                       <Route path="/leagues" element={<Leagues />} />
-                      <Route path="/flashcards" element={<Flashcards />} />
-                      <Route path="/flashcard-review" element={<FlashcardReview />} />
-                      <Route path="/flashcard-games" element={<FlashcardGames />} />
-                      <Route path="/pronunciation" element={<Pronunciation />} />
                       <Route path="/admin/import" element={<AdminImport />} />
+                      <Route path="/admin/exam-manager" element={<AdminExamManager />} />
                       <Route path="/quiz/story" element={<StoryMode />} />
                       <Route path="/quiz/story/:episodeId" element={<StoryModeFrame />} />
+                      <Route path="/pvp/:challengeId" element={<PvPBattle />} />
+                      <Route path="/admin/exam-manager" element={<ExamManager />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </Suspense>

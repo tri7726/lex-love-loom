@@ -98,12 +98,18 @@ export function useVocabulary() {
     setView('lessons');
   };
 
-  const navigateToDetail = (lesson: Lesson) => {
+  const navigateToDetail = (lesson: Lesson, autoGame?: string) => {
     setSelectedLesson(lesson);
     setFlashcardIndex(0);
     setIsFlipped(false);
     setShuffled(false);
     setView('detail');
+    // Auto-launch game if requested (e.g. Quick Quiz from lesson list)
+    if (autoGame) {
+      setActiveGame(autoGame as GameMode);
+    } else {
+      setActiveGame(null);
+    }
   };
 
   const navigateToCustomFolder = (folder: CustomFolder) => {

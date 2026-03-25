@@ -6,7 +6,6 @@ import {
   BookOpen,
   Brain,
   Mic,
-  Layers,
   Menu,
   Trophy,
   MessageSquare,
@@ -30,7 +29,6 @@ import {
   Bell,
   ShieldCheck,
   CheckCircle,
-  RotateCcw,
   Volume2,
   Settings,
   Eye,
@@ -63,21 +61,17 @@ const studyItems = [
   { path: '/learning-path', icon: MapIcon, label: 'Lộ trình', description: 'Chinh phục JLPT N5-N1' },
   { path: '/vocabulary', icon: BookOpen, label: 'Từ vựng', description: 'Kho từ & Hán tự' },
   { path: '/grammar', icon: BookMarked, label: 'Ngữ pháp', description: 'Cấu trúc & Mẫu câu' },
-  { path: '/flashcards', icon: Layers, label: 'Flashcard', description: 'Tạo & quản lý thẻ' },
   { path: '/kanji-worksheet', icon: Palette, label: 'Tập viết', description: 'Tạo bảng tập viết Hán tự' },
 ];
 
 const assessItems = [
   { path: '/quiz/story', icon: MapIcon, label: 'Cốt truyện', description: 'Học qua tình huống' },
   { path: '/mock-tests', icon: ShieldCheck, label: 'Thi thử JLPT', description: 'Đề thi thực tế' },
-  { path: '/flashcard-review', icon: RotateCcw, label: 'Ôn tập SRS', description: 'Ôn tập ngắt quãng' },
-  { path: '/flashcard-games', icon: Gamepad2, label: 'Flashcard Games', description: 'Học qua trò chơi' },
 ];
 
 const skillItems = [
   { path: '/reading', icon: Book, label: 'Đọc hiểu', description: 'Luyện đọc báo & truyền thuyết' },
   { path: '/speaking-practice', icon: Mic, label: 'Luyện nói AI', description: 'Phát âm & Hội thoại' },
-  { path: '/pronunciation', icon: Volume2, label: 'Phát âm', description: 'Luyện âm chuẩn' },
   { path: '/roleplay', icon: MessageSquare, label: 'Hội thoại tình huống', description: 'Giao tiếp thực tế với AI' },
   { path: '/video-learning', icon: Video, label: 'Học qua Video', description: 'Phim & Nhạc Nhật' },
   { path: '/news', icon: Globe, label: 'Tin tức', description: 'Báo NHK Easy' },
@@ -205,17 +199,6 @@ export const Navigation: React.FC<NavigationProps> = ({
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-
-            {/* Quiz Link */}
-            <Link to="/quiz">
-              <Button
-                variant="ghost"
-                className="gap-1.5 font-black uppercase text-[10px] tracking-widest h-9 px-3 text-muted-foreground hover:text-gold hover:bg-gold/5 transition-all"
-              >
-                <Zap className="h-4 w-4" />
-                Quiz hằng ngày
-              </Button>
-            </Link>
 
             {/* Kỹ năng Dropdown */}
             <DropdownMenu>
@@ -466,7 +449,6 @@ export const Navigation: React.FC<NavigationProps> = ({
               { path: '/', icon: Home, label: 'Trang chủ' },
               { path: '/ai-tutor', icon: Brain, label: 'AI Tutor' },
               { path: '/learning-path', icon: BookOpen, label: 'Học tập' },
-              { path: '/quiz', icon: Zap, label: 'Quiz' },
               { path: '/leagues', icon: Trophy, label: 'XH' },
             ].map((mItem) => {
               const isActive = location.pathname === mItem.path;

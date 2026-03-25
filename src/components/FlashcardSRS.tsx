@@ -4,8 +4,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, Volume2, EyeOff, Eye, RotateCcw } from 'lucide-react';
+import { Sparkles, Volume2, EyeOff, Eye, RotateCcw, Loader2 } from 'lucide-react';
 import { calculateNextReview, getQualityFromAction, getIntervalText, getMasteryPercentage, getMasteryColor } from '@/lib/srs';
+import { useAI } from '@/contexts/AIContext';
+import { toast } from 'sonner';
 
 interface Flashcard {
   id: string;
@@ -38,6 +40,8 @@ export const FlashcardSRS: React.FC<FlashcardSRSProps> = ({
   const [isFlipped, setIsFlipped] = useState(false);
   const [reviewedCount, setReviewedCount] = useState(0);
   const [showReading, setShowReading] = useState(false);
+  const [aiTranslation, setAiTranslation] = useState<string | null>(null);
+  const { analyzeText, isAnalyzing } = useAI();
 
   const currentCard = flashcards[currentIndex];
   const progress = ((reviewedCount / flashcards.length) * 100);
@@ -47,6 +51,7 @@ export const FlashcardSRS: React.FC<FlashcardSRSProps> = ({
     // Reset flip state when card changes
     setIsFlipped(false);
     setShowReading(false);
+    setAiTranslation(null);
   }, [currentIndex]);
 
   const handleRating = async (action: 'again' | 'hard' | 'good' | 'easy') => {
@@ -93,6 +98,21 @@ export const FlashcardSRS: React.FC<FlashcardSRSProps> = ({
     setCurrentIndex(0);
     setReviewedCount(0);
     setIsFlipped(false);
+    setAiTranslation(null);
+  };
+
+  const handleAiTranslate = async () => {
+    if (!currentCard || aiTranslation || isAnalyzing) return;
+    
+    try {
+      const textToTranslate = currentCard.example_sentence || currentCard.word;
+      const result = await analyzeText(textToTranslate, 'translation');
+      if (result?.translation) {
+        setAiTranslation(result.translation);
+      }
+    } catch (err) {
+      toast.error('Không thể dịch lúc này');
+    }
   };
 
   if (flashcards.length === 0) {
@@ -223,13 +243,33 @@ export const FlashcardSRS: React.FC<FlashcardSRSProps> = ({
 
                       {currentCard.example_sentence && (
                         <div className="border-t pt-4 space-y-2">
-                          <p className="text-lg">{currentCard.example_sentence}</p>
-                          {currentCard.example_translation && (
-                            <p className="text-sm text-muted-foreground">
-                              {currentCard.example_translation}
+                          <p className="text-lg font-jp">{currentCard.example_sentence}</p>
+                          {(currentCard.example_translation || aiTranslation) && (
+                            <p className="text-sm text-muted-foreground italic">
+                              — {aiTranslation || currentCard.example_translation}
                             </p>
                           )}
+                          {!currentCard.example_translation && !aiTranslation && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={(e) => { e.stopPropagation(); handleAiTranslate(); }}
+                              disabled={isAnalyzing}
+                              className="h-8 text-[10px] text-indigo-500 hover:text-indigo-600 hover:bg-indigo-50 gap-2"
+                            >
+                              {isAnalyzing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                              Dịch câu ví dụ với AI
+                            </Button>
+                          )}
                         </div>
+                      )}
+                      
+                      {aiTranslation && !currentCard.example_sentence && (
+                        <p className="text-sm text-indigo-500 italic mt-2">Dịch: {aiTranslation}</p>
+                      )}
+                      
+                      {!isLastCard && !isFlipped && (
+                        <p className="text-muted-foreground text-sm">Click to see meaning</p>
                       )}
                     </div>
                   )}

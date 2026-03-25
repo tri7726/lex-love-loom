@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Zap } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +16,7 @@ interface LessonListViewProps {
   lessonRange: [number, number];
   setLessonRange: (range: [number, number]) => void;
   handleStudyRange: () => void;
-  navigateToDetail: (lesson: Lesson) => void;
+  navigateToDetail: (lesson: Lesson, autoGame?: string) => void;
   goBack: () => void;
 }
 
@@ -111,7 +111,7 @@ export const LessonListView: React.FC<LessonListViewProps> = ({
             >
               <CardContent className="p-4 flex items-center gap-3">
                 <div className={cn(
-                  'w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 transition-colors',
+                  'w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0',
                   accent.badge, 'group-hover:scale-110 transition-transform'
                 )}>
                   {idx + 1}
@@ -120,7 +120,22 @@ export const LessonListView: React.FC<LessonListViewProps> = ({
                   <p className="font-semibold text-sm truncate">{lesson.name}</p>
                   <p className="text-xs text-muted-foreground">{lesson.words.length} từ vựng</p>
                 </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="flex items-center gap-1 shrink-0">
+                  {/* Quick Quiz shortcut */}
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-amber-500 hover:bg-amber-50"
+                    title="Quick Quiz"
+                    onClick={e => {
+                      e.stopPropagation();
+                      navigateToDetail(lesson, 'quiz');
+                    }}
+                  >
+                    <Zap className="h-3.5 w-3.5" />
+                  </Button>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
               </CardContent>
             </Card>
           </motion.div>

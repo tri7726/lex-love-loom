@@ -34,6 +34,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Navigation } from '@/components/Navigation';
+import { StreakReminderBanner } from '@/components/StreakReminderBanner';
 import { DailyPractice } from '@/components/DailyPractice';
 import { SkillHeatmap } from '@/components/analytics/SkillHeatmap';
 import { JapaneseText } from '@/components/JapaneseText';
@@ -83,17 +84,6 @@ const dailyTasks = [
     xp: 50,
     completed: false,
     estimatedTime: 8,
-  },
-  {
-    id: '4',
-    type: 'pronunciation' as const,
-    title: 'Pronunciation Practice',
-    description: 'Practice 3 sentences',
-    progress: 1,
-    total: 3,
-    xp: 20,
-    completed: false,
-    estimatedTime: 5,
   },
   {
     id: '5',
@@ -226,8 +216,8 @@ export const Index = () => {
       case 'quiz':
         navigate('/quiz');
         break;
-      case 'pronunciation':
-        navigate('/vocabulary');
+      case 'quiz':
+        navigate('/quiz');
         break;
       case 'reading':
         navigate('/reading');
@@ -250,6 +240,9 @@ export const Index = () => {
       <Navigation streak={userStats.streak} xp={userStats.totalXp} />
 
       <main className="container py-6 space-y-6">
+        {/* Streak Reminder */}
+        <StreakReminderBanner />
+
         {/* Welcome Section */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}

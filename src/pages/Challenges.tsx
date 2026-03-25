@@ -37,6 +37,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -60,8 +61,10 @@ interface Challenge {
   created_at: string;
   expires_at: string | null;
   completed_at: string | null;
-  opponent_profile?: OpponentProfile | null;
-  challenger_profile?: OpponentProfile | null;
+  opponent_profile?: OpponentProfile & { total_xp?: number } | null;
+  challenger_profile?: OpponentProfile & { total_xp?: number } | null;
+  bet_amount?: number;
+  multiplier?: number;
 }
 
 interface Friend {
@@ -85,23 +88,47 @@ function formatTimeRemaining(expiresAt: string | null): string {
 
 function getOpponentInfo(challenge: Challenge, userId: string) {
   const isChallenger = challenge.challenger_id === userId;
-  const profile = isChallenger
-    ? challenge.opponent_profile
-    : challenge.challenger_profile;
+  const profile = isChallenger ? challenge.opponent_profile : challenge.challenger_profile;
+  const myProfile = isChallenger ? challenge.challenger_profile : challenge.opponent_profile;
+  
+  // Topic parsing for bet/multiplier
+  let displayTopic = challenge.topic;
+  let bet = 0;
+  try {
+    if (challenge.topic.startsWith('{')) {
+      const parsed = JSON.parse(challenge.topic);
+      displayTopic = parsed.topic;
+      bet = parsed.bet || 0;
+    }
+  } catch (e) {}
+
   return {
     name: profile?.display_name ?? 'Người dùng',
     avatar: profile?.avatar_url ?? '',
     myScore: isChallenger ? challenge.challenger_score : challenge.opponent_score,
     theirScore: isChallenger ? challenge.opponent_score : challenge.challenger_score,
     isChallenger,
+    bet,
+    displayTopic,
+    opponentXP: profile?.total_xp || 0,
+    myXP: myProfile?.total_xp || 0
   };
 }
+
+const calculateLevel = (xp: number) => Math.floor(Math.sqrt(xp / 100)) + 1;
+const calculateMultiplier = (myXP: number, oppXP: number) => {
+  const myLvl = calculateLevel(myXP);
+  const oppLvl = calculateLevel(oppXP);
+  const gap = oppLvl - myLvl;
+  return Math.max(0.1, Math.min(5.0, 1 + (gap * 0.15)));
+};
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export const Challenges = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const [activeChallenges, setActiveChallenges] = useState<Challenge[]>([]);
   const [completedChallenges, setCompletedChallenges] = useState<Challenge[]>([]);
@@ -113,6 +140,7 @@ export const Challenges = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedFriend, setSelectedFriend] = useState<string>('');
   const [topic, setTopic] = useState('');
+  const [betAmount, setBetAmount] = useState<number>(0);
   const [creating, setCreating] = useState(false);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
@@ -121,13 +149,12 @@ export const Challenges = () => {
     if (!user) return;
     setLoading(true);
     try {
-      // Active challenges (pending or accepted) where user is challenger or opponent
       const { data: active, error: activeErr } = await (supabase
         .from('challenges' as any)
         .select(`
           *,
-          opponent_profile:profiles!challenges_opponent_id_fkey(display_name, avatar_url),
-          challenger_profile:profiles!challenges_challenger_id_fkey(display_name, avatar_url)
+          opponent_profile:profiles!challenges_opponent_id_fkey(display_name, avatar_url, total_xp),
+          challenger_profile:profiles!challenges_challenger_id_fkey(display_name, avatar_url, total_xp)
         `)
         .in('status', ['pending', 'accepted'])
         .or(`challenger_id.eq.${user.id},opponent_id.eq.${user.id}`)
@@ -136,13 +163,12 @@ export const Challenges = () => {
       if (activeErr) throw activeErr;
       setActiveChallenges((active as Challenge[]) ?? []);
 
-      // Completed challenges
       const { data: completed, error: completedErr } = await (supabase
         .from('challenges' as any)
         .select(`
           *,
-          opponent_profile:profiles!challenges_opponent_id_fkey(display_name, avatar_url),
-          challenger_profile:profiles!challenges_challenger_id_fkey(display_name, avatar_url)
+          opponent_profile:profiles!challenges_opponent_id_fkey(display_name, avatar_url, total_xp),
+          challenger_profile:profiles!challenges_challenger_id_fkey(display_name, avatar_url, total_xp)
         `)
         .eq('status', 'completed')
         .or(`challenger_id.eq.${user.id},opponent_id.eq.${user.id}`)
@@ -166,7 +192,7 @@ export const Challenges = () => {
         .from('friendships' as any)
         .select(`
           friend_id,
-          friend_profile:profiles!friendships_friend_id_fkey(display_name, avatar_url)
+          friend_profile:profiles!friendships_friend_id_fkey(display_name, avatar_url, total_xp)
         `)
         .eq('user_id', user.id) as any);
 
@@ -212,12 +238,13 @@ export const Challenges = () => {
     setCreating(true);
     try {
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      const topicData = JSON.stringify({ topic: topic.trim(), bet: betAmount });
       const { error } = await (supabase
         .from('challenges' as any)
         .insert({
           challenger_id: user.id,
           opponent_id: selectedFriend,
-          topic: topic.trim(),
+          topic: topicData,
           status: 'pending',
           expires_at: expiresAt,
         }) as any);
@@ -241,7 +268,6 @@ export const Challenges = () => {
       <Navigation />
 
       <main className="container py-10 space-y-10">
-        {/* Header */}
         <section className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="space-y-3">
             <Badge variant="outline" className="text-secondary border-secondary/20 bg-secondary/5 font-bold">
@@ -264,7 +290,6 @@ export const Challenges = () => {
 
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
-            {/* Active Challenges */}
             <section className="space-y-4">
               <h2 className="text-xl font-bold flex items-center gap-2 px-1">
                 <Zap className="h-5 w-5 text-secondary" /> Thử thách đang diễn ra
@@ -283,17 +308,12 @@ export const Challenges = () => {
                   </CardContent>
                 </Card>
               ) : (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3 }}
-                  className="grid gap-4"
-                >
+                <div className="grid gap-4">
                   {activeChallenges.map((challenge, idx) => {
                     if (!user) return null;
                     const { name, avatar, myScore, isChallenger } = getOpponentInfo(challenge, user.id);
                     const isPending = challenge.status === 'pending';
-                    const isMyTurn = isPending && !isChallenger; // opponent needs to accept
+                    const isMyTurn = isPending && !isChallenger;
 
                     return (
                       <motion.div
@@ -323,7 +343,14 @@ export const Challenges = () => {
                                     {isChallenger ? 'Bạn đã thách' : 'Thử thách từ'}
                                   </p>
                                   <h3 className="text-lg font-bold">{name}</h3>
-                                  <p className="text-sm font-medium text-secondary">{challenge.topic}</p>
+                                  <div className="flex items-center gap-2">
+                                     <p className="text-sm font-medium text-secondary">{getOpponentInfo(challenge, user?.id || '').displayTopic}</p>
+                                     {getOpponentInfo(challenge, user?.id || '').bet > 0 && (
+                                       <Badge variant="secondary" className="bg-amber-100 text-amber-700 border-amber-200 text-[10px] font-black">
+                                         BET: {getOpponentInfo(challenge, user?.id || '').bet} XP
+                                       </Badge>
+                                     )}
+                                  </div>
                                 </div>
                               </div>
 
@@ -343,7 +370,10 @@ export const Challenges = () => {
                                     }
                                   </Button>
                                 ) : challenge.status === 'accepted' ? (
-                                  <Button className="w-full sm:w-auto rounded-xl bg-secondary text-secondary-foreground shadow-lg px-8 font-black gap-2 h-12">
+                                  <Button 
+                                    onClick={() => navigate(`/pvp/${challenge.id}`)}
+                                    className="w-full sm:w-auto rounded-xl bg-secondary text-secondary-foreground shadow-lg px-8 font-black gap-2 h-12"
+                                  >
                                     <Play className="h-4 w-4" /> CHƠI NGAY
                                   </Button>
                                 ) : (
@@ -354,7 +384,6 @@ export const Challenges = () => {
                               </div>
                             </div>
 
-                            {/* Progress */}
                             <div className="pt-2">
                               <div className="flex justify-between text-[10px] font-black uppercase tracking-widest mb-2 px-1">
                                 <span className="text-secondary">Bạn: {myScore != null ? `${myScore}%` : '--'}</span>
@@ -373,11 +402,10 @@ export const Challenges = () => {
                       </motion.div>
                     );
                   })}
-                </motion.div>
+                </div>
               )}
             </section>
 
-            {/* History */}
             <section className="space-y-4">
               <h2 className="text-xl font-bold flex items-center gap-2 px-1">
                 <History className="h-5 w-5 text-muted-foreground" /> Lịch sử đối đầu
@@ -411,7 +439,7 @@ export const Challenges = () => {
                             </Avatar>
                             <div>
                               <p className="font-bold text-sm">{name}</p>
-                              <p className="text-[10px] text-muted-foreground uppercase">{item.topic}</p>
+                              <p className="text-[10px] text-muted-foreground uppercase">{getOpponentInfo(item, user?.id || '').displayTopic}</p>
                             </div>
                           </div>
                           <div className="text-right space-y-1">
@@ -437,7 +465,6 @@ export const Challenges = () => {
             </section>
           </div>
 
-          {/* Sidebar */}
           <aside className="space-y-6">
             <Card className="border-2 border-sakura/20 shadow-elevated overflow-hidden relative bg-white/40 dark:bg-sakura-dark/10 backdrop-blur-md">
               <div className="absolute -top-12 -right-12 p-8 opacity-10 rotate-12">
@@ -519,7 +546,6 @@ export const Challenges = () => {
         </div>
       </main>
 
-      {/* ── Create Challenge Dialog ── */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -529,7 +555,6 @@ export const Challenges = () => {
           </DialogHeader>
 
           <div className="space-y-5 py-2">
-            {/* Friend picker */}
             <div className="space-y-2">
               <Label className="text-sm font-bold">Chọn đối thủ</Label>
               {friends.length === 0 ? (
@@ -564,16 +589,41 @@ export const Challenges = () => {
               )}
             </div>
 
-            {/* Topic input */}
             <div className="space-y-2">
               <Label htmlFor="topic" className="text-sm font-bold">Chủ đề thử thách</Label>
               <Input
                 id="topic"
-                placeholder="VD: Từ vựng N3 - Bài 5, Hán tự N2..."
+                placeholder="VD: Từ vựng N5 - Bài 5, Hán tự N4..."
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 className="rounded-xl"
               />
+            </div>
+
+            <div className="space-y-3">
+              <Label className="text-sm font-bold flex justify-between items-center">
+                 <span>Mức cược (XP)</span>
+                 <span className="text-amber-600">Stake: {betAmount} XP</span>
+              </Label>
+              <div className="grid grid-cols-4 gap-2">
+                {[0, 50, 100, 200, 500].map((val) => (
+                  <Button
+                    key={val}
+                    type="button"
+                    variant={betAmount === val ? 'default' : 'outline'}
+                    onClick={() => setBetAmount(val)}
+                    className={cn(
+                      "h-10 rounded-xl text-xs font-bold",
+                      betAmount === val && "bg-secondary text-secondary-foreground"
+                    )}
+                  >
+                    {val === 0 ? 'FREE' : val}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted-foreground italic text-center">
+                 * Nếu cấp độ đối thủ cao hơn bạn, phần thưởng thắng sẽ được nhân hệ số!
+              </p>
             </div>
           </div>
 

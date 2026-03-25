@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, GraduationCap, BookOpen, Languages, TrendingUp, Plus, FolderOpen, Trash2 } from 'lucide-react';
+import { Sparkles, GraduationCap, BookOpen, Languages, TrendingUp, Plus, FolderOpen, Trash2, Zap } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -154,6 +154,17 @@ export const SeriesView: React.FC<SeriesViewProps> = ({
                           </div>
                           <p className="text-[10px] text-muted-foreground mt-1">0% hoàn thành</p>
                         </div>
+                        {/* Quick Quiz button */}
+                        <Button
+                          size="sm"
+                          className="mt-3 w-full h-8 rounded-xl text-[10px] font-black uppercase tracking-wider gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 text-foreground hover:bg-white border border-border shadow-sm"
+                          onClick={e => {
+                            e.stopPropagation();
+                            navigateToLessons(series, level);
+                          }}
+                        >
+                          <Zap className="h-3 w-3 text-amber-500" /> Quick Quiz
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>

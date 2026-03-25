@@ -31,7 +31,7 @@ export const useXP = () => {
     if (!user) return;
 
     const xpAmount = amount ?? XP_REWARDS[source];
-    if (xpAmount <= 0) return;
+    if (xpAmount === 0) return;
 
     try {
       // 1. Log xp_event
@@ -49,7 +49,7 @@ export const useXP = () => {
         .eq('user_id', user.id)
         .single();
 
-      const newXP = (profile?.total_xp ?? 0) + xpAmount;
+      const newXP = Math.max(0, (profile?.total_xp ?? 0) + xpAmount);
 
       await (supabase as any)
         .from('profiles')
