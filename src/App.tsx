@@ -8,7 +8,6 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { FuriganaProvider } from "@/contexts/FuriganaContext";
 import { AIProvider } from "@/contexts/AIContext";
-import { SakuraSkeleton } from "@/components/ui/SakuraSkeleton";
 
 // Critical pages loaded eagerly
 import { Index } from "./pages/Index";
