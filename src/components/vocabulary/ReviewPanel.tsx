@@ -21,7 +21,7 @@ const MODES = [
   { mode: 'speed' as GameMode, icon: Zap, label: 'Tốc độ', desc: '10 giây mỗi câu', gradient: 'from-pink-50 to-rose-50', border: 'border-pink-200 hover:border-pink-400', iconColor: 'text-pink-500', shadow: 'hover:shadow-pink-100' },
   { mode: 'listening' as GameMode, icon: Headphones, label: 'Nghe', desc: 'Nghe và chọn đáp án', gradient: 'from-rose-50 to-pink-50', border: 'border-rose-200 hover:border-rose-400', iconColor: 'text-rose-400', shadow: 'hover:shadow-rose-100' },
   { mode: 'writing' as GameMode, icon: PenTool, label: 'Viết', desc: 'Tự gõ đáp án', gradient: 'from-pink-50 to-rose-50', border: 'border-pink-200 hover:border-pink-400', iconColor: 'text-pink-400', shadow: 'hover:shadow-pink-100' },
-  { mode: 'pronunciation' as GameMode, icon: Mic, label: 'Phát âm', desc: 'Luyện nói từ vựng', gradient: 'from-rose-50 to-pink-50', border: 'border-sakura/20 hover:border-sakura', iconColor: 'text-sakura', shadow: 'hover:shadow-sakura/10' },
+  { mode: 'match' as GameMode, icon: Sparkles, label: 'Ghép cặp', desc: 'Kanji, Furigana & Nghĩa', gradient: 'from-amber-50 to-orange-50', border: 'border-amber-200 hover:border-amber-400', iconColor: 'text-amber-500', shadow: 'hover:shadow-amber-100' },
 ];
 
 export const ReviewPanel: React.FC<ReviewPanelProps> = ({
