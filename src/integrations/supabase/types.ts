@@ -897,6 +897,36 @@ export type Database = {
           },
         ]
       }
+      user_mistakes: {
+        Row: {
+          context: string | null
+          created_at: string | null
+          id: string
+          last_mistake_at: string | null
+          mistake_count: number | null
+          user_id: string
+          word: string
+        }
+        Insert: {
+          context?: string | null
+          created_at?: string | null
+          id?: string
+          last_mistake_at?: string | null
+          mistake_count?: number | null
+          user_id: string
+          word: string
+        }
+        Update: {
+          context?: string | null
+          created_at?: string | null
+          id?: string
+          last_mistake_at?: string | null
+          mistake_count?: number | null
+          user_id?: string
+          word?: string
+        }
+        Relationships: []
+      }
       user_video_progress: {
         Row: {
           attempts: number | null
