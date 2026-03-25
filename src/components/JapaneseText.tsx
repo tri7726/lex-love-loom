@@ -90,9 +90,7 @@ export const JapaneseText: React.FC<JapaneseTextProps> = ({
     <ruby className={`font-jp ${sizeClasses[size]} ${className}`}>
       {text}
       {activeShowFurigana && furigana && (
-        <rt className={`${furiganaSizes[size]} text-muted-foreground`}>
-          {furigana}
-        </rt>
+        <rt>{furigana}</rt>
       )}
     </ruby>
   );
@@ -104,7 +102,7 @@ export const JapaneseText: React.FC<JapaneseTextProps> = ({
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <button className="inline-block cursor-pointer hover:bg-sakura-light/50 rounded px-1 transition-colors click-feedback">
+        <button className="inline-flex cursor-pointer hover:bg-sakura-light/50 rounded px-0.5 transition-colors click-feedback" style={{ alignItems: 'flex-start' }}>
           {content}
         </button>
       </PopoverTrigger>
@@ -150,7 +148,7 @@ export const JapaneseSentence: React.FC<JapaneseSentenceProps> = ({
   size = 'md',
 }) => {
   return (
-    <div className="flex flex-wrap items-end gap-1">
+    <div className="font-jp" style={{ lineHeight: showFurigana ? '3' : '1.8', wordBreak: 'keep-all', display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: '0 2px' }}>
       {segments.map((segment, index) => (
         <JapaneseText
           key={index}

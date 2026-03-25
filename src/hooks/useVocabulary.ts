@@ -157,16 +157,19 @@ export function useVocabulary() {
 
   const handleAddWord = () => {
     if (!newWord.word.trim() || !newWord.meaning.trim() || !selectedCustomFolder) return;
-    const word: VocabWord = {
-      id: `w-${Date.now()}`,
+    const word: Omit<VocabWord, 'id'> = {
       word: newWord.word.trim(),
       reading: newWord.reading.trim() || null,
       hanviet: newWord.hanviet.trim() || null,
       meaning: newWord.meaning.trim(),
       mastery_level: null,
     };
-    addWordToFolder(selectedCustomFolder.id, word);
-    setSelectedCustomFolder((f) => f ? { ...f, words: [...f.words, word] } : f);
+    // addWordToFolder saves to DB and returns the real word with DB id
+    addWordToFolder(selectedCustomFolder.id, word).then((saved) => {
+      if (saved) {
+        setSelectedCustomFolder((f) => f ? { ...f, words: [...f.words, saved] } : f);
+      }
+    });
     setNewWord({ word: '', reading: '', hanviet: '', meaning: '' });
     setShowAddWordForm(false);
   };
@@ -178,10 +181,18 @@ export function useVocabulary() {
     setShowCreateDialog(false);
   };
 
-  const handleImportWords = (words: VocabWord[]) => {
+  const handleImportWords = async (words: VocabWord[]) => {
     if (!selectedCustomFolder) return;
-    words.forEach((w) => addWordToFolder(selectedCustomFolder.id, w));
-    setSelectedCustomFolder((f) => f ? { ...f, words: [...f.words, ...words] } : f);
+    const saved: VocabWord[] = [];
+    for (const w of words) {
+      // Strip the fake id, let addWordToFolder create real DB record
+      const { id: _id, ...wordWithoutId } = w;
+      const result = await addWordToFolder(selectedCustomFolder.id, wordWithoutId);
+      if (result) saved.push(result);
+    }
+    if (saved.length > 0) {
+      setSelectedCustomFolder((f) => f ? { ...f, words: [...f.words, ...saved] } : f);
+    }
   };
 
   return {

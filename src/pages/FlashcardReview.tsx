@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { isDue } from '@/lib/srs';
+import { useXP } from '@/hooks/useXP';
 import { Sparkles, FolderOpen } from 'lucide-react';
 
 interface Flashcard {
@@ -37,6 +38,7 @@ interface Folder {
 export const FlashcardReview = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { awardXP, updateStreak } = useXP();
   const [searchParams, setSearchParams] = useSearchParams();
   const folderId = searchParams.get('folder');
 
@@ -156,9 +158,12 @@ export const FlashcardReview = () => {
   };
 
   const handleComplete = () => {
+    // Award XP for flashcard review session
+    awardXP('flashcard', dueFlashcards.length * 2, { cards_reviewed: dueFlashcards.length });
+    updateStreak();
     toast({
       title: 'Hoàn thành!',
-      description: 'Bạn đã hoàn thành tất cả flashcards cần ôn tập.',
+      description: `Bạn đã ôn tập ${dueFlashcards.length} flashcard. +${dueFlashcards.length * 2} XP`,
     });
   };
 

@@ -44,6 +44,8 @@ import { FlashcardReview } from "./pages/FlashcardReview";
 import { FlashcardGames } from "./pages/FlashcardGames";
 import Pronunciation from "./pages/Pronunciation";
 import { AdminImport } from "./pages/AdminImport";
+import { StoryMode } from "./pages/StoryMode";
+import { StoryModeFrame } from "./components/chat/SenseiChatHub/StoryModeFrame";
 
 const queryClient = new QueryClient();
 
@@ -96,6 +98,8 @@ function App() {
                     <Route path="/pronunciation" element={<Pronunciation />} />
                     <Route path="/admin/import" element={<AdminImport />} />
 
+                    <Route path="/quiz/story" element={<StoryMode />} />
+                    <Route path="/quiz/story/:episodeId" element={<StoryModeFrame />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </BrowserRouter>

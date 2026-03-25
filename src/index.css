@@ -222,13 +222,13 @@
 }
 
 @layer components {
-  /* Furigana / Ruby text styling - Optimized for stability */
+  /* Furigana / Ruby text styling — furigana nằm DƯỚI kanji (design gốc) */
   ruby {
-    display: inline-block;
-    ruby-position: over;
-    ruby-align: center;
-    text-indent: 0;
-    margin: 0 0.1em;
+    display: inline-flex;
+    flex-direction: column-reverse; /* kanji trên, rt dưới */
+    align-items: center;
+    vertical-align: top;
+    line-height: 1.4;
   }
 
   ruby rt {
@@ -238,8 +238,16 @@
     text-align: center;
     color: hsl(var(--muted-foreground));
     font-family: "Noto Sans JP", sans-serif;
+    font-weight: 400;
     user-select: none;
-    @apply font-normal;
+    white-space: nowrap;
+  }
+
+  /* Container bọc ruby text cần đủ line-height để rt không bị cắt */
+  .reading-content,
+  [class*="leading-"] ruby,
+  .font-jp ruby {
+    vertical-align: top;
   }
 
   /* Japanese text styling - Optimized for speed and wrapping */

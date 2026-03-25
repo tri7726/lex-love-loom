@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Navigation } from '@/components/Navigation';
 import { useTTS } from '@/hooks/useTTS';
+import { useXP } from '@/hooks/useXP';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
@@ -148,6 +149,7 @@ export const Quiz = () => {
   const [shuffledQuestions, setShuffledQuestions] = useState<QuizQuestion[]>([]);
 
   const { speak, isSpeaking, isSupported: ttsSupported } = useTTS({ lang: 'ja-JP' });
+  const { awardXP, updateStreak } = useXP();
   
   const question = shuffledQuestions[currentQuestion];
   const progress = shuffledQuestions.length > 0 
@@ -252,6 +254,11 @@ export const Quiz = () => {
       setWrittenAnswer('');
     } else {
       setIsComplete(true);
+      const percentage = Math.round((score / shuffledQuestions.length) * 100);
+      const isPerfect = percentage === 100;
+      // Award XP: per correct answer + bonus if perfect
+      awardXP('quiz', totalXP, { score, total: shuffledQuestions.length, perfect: isPerfect, mode });
+      updateStreak();
     }
   };
 

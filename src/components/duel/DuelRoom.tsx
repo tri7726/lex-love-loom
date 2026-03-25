@@ -8,6 +8,7 @@ import { DuelQuestion, DuelQuestionData } from './DuelQuestion';
 import { useDuelChannel } from '@/hooks/useDuelChannel';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useXP } from '@/hooks/useXP';
 
 // ─── Fallback N5 word list ────────────────────────────────────────────────────
 const N5_WORDS: Omit<DuelQuestionData, 'options'>[] = [
@@ -72,6 +73,7 @@ interface DuelRoomProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 export const DuelRoom = ({ challenge, onClose }: DuelRoomProps) => {
   const { user } = useAuth();
+  const { awardXP } = useXP();
   const userId = user?.id ?? '';
 
   const isChallenger = challenge.challenger_id === userId;
@@ -122,9 +124,11 @@ export const DuelRoom = ({ challenge, onClose }: DuelRoomProps) => {
           })
           .eq('id', challenge.id);
 
-        // XP bonus for winner
+        // XP bonus for winner/loser
         if (winnerId === userId) {
-          supabase.rpc('increment_xp' as any, { user_id: userId, amount: 50 }).then(() => {});
+          awardXP('duel_win', 50, { challenge_id: challenge.id });
+        } else {
+          awardXP('duel_loss', 10, { challenge_id: challenge.id });
         }
       } else {
         setQuestionIdx((i) => i + 1);

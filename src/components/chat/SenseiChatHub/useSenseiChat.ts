@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { SenseiConversation, SenseiMessage, SenseiMessageType } from './types';
+import { SenseiConversation, SenseiMessage, SenseiMessageType, SenseiMode } from './types';
 import { useAI } from '@/contexts/AIContext';
 import { toast } from 'sonner';
 import { Json } from '@/integrations/supabase/types';
@@ -46,6 +46,7 @@ export const useSenseiChat = () => {
       id: item.id,
       user_id: item.user_id,
       title: (item.analysis as any)?.title || item.content.substring(0, 30),
+      mode: (item.analysis as any)?.mode || 'tutor',
       is_pinned: (item.analysis as any)?.is_pinned || false,
       updated_at: item.created_at, // Use created_at as updated_at for now
       created_at: item.created_at
@@ -98,12 +99,12 @@ export const useSenseiChat = () => {
     loadMessages();
   }, [activeConversationId, conversations]);
 
-  const createNewConversation = () => {
+  const createNewConversation = (title: string = 'Cuộc hội thoại mới', mode: SenseiMode = 'tutor') => {
     setActiveConversationId(null);
     setMessages([]);
   };
 
-  const sendMessage = async (content: string, type: SenseiMessageType) => {
+  const sendMessage = async (content: string, type: SenseiMessageType, metadata?: any) => {
     if (!user) return;
     setIsLoading(true);
 
@@ -113,6 +114,7 @@ export const useSenseiChat = () => {
       role: 'user',
       content,
       type,
+      metadata: metadata as Json,
       created_at: new Date().toISOString()
     };
 
@@ -130,7 +132,19 @@ export const useSenseiChat = () => {
          const chatHistory = messages.map(m => ({ role: m.role, content: m.content }));
          chatHistory.push({ role: 'user', content });
          
-         const systemPrompt = "Bạn là Sensei, một trợ lý học tiếng Nhật thông minh, thân thiện và am hiểu sâu sắc về ngôn ngữ, văn hóa Nhật Bản. Hãy trả lời người dùng một cách ngắn gọn, súc tích và hữu ích.";
+         // Fetch user mistakes for personalization
+         const { data: mistakes } = await (supabase as any)
+           .from('user_mistakes')
+           .select('word')
+           .eq('user_id', user.id)
+           .order('last_mistake_at', { ascending: false })
+           .limit(5);
+         
+         const mistakeContext = mistakes && mistakes.length > 0 
+           ? `\nLưu ý: Người dùng gần đây hay gặp khó khăn với: ${mistakes.map(m => m.word).join(', ')}. Hãy lồng ghép việc ôn tập các phần này nếu phù hợp.`
+           : "";
+
+         const systemPrompt = `Bạn là Sensei, một trợ lý học tiếng Nhật thông minh, thân thiện và am hiểu sâu sắc về ngôn ngữ, văn hóa Nhật Bản. Hãy trả lời người dùng một cách ngắn gọn, súc tích và hữu ích.${mistakeContext}`;
          const result = await chat(chatHistory, systemPrompt);
          aiResponse = typeof result === 'string' ? result : (result?.content || "Sensei đang suy nghĩ...");
       }
@@ -141,7 +155,7 @@ export const useSenseiChat = () => {
         role: 'assistant',
         content: aiResponse,
         type,
-        metadata: metadata as Json,
+        metadata: { ...metadata, source: 'Notebook N5' } as any,
         created_at: new Date().toISOString()
       };
 
@@ -156,6 +170,7 @@ export const useSenseiChat = () => {
             content: content,
             analysis: { 
               title: content.substring(0, 20), 
+              mode: type === 'analysis' ? 'analysis' : (type === 'correction' ? 'tutor' : 'tutor'), // Map type to mode for new sessions
               messages: [userMsg, aiMsg] as any 
             } as Json,
             engine: 'gemini'
@@ -197,15 +212,18 @@ export const useSenseiChat = () => {
     fetchConversations();
   };
 
+  const activeConversation = conversations.find(c => c.id === activeConversationId) || null;
+
   return {
     conversations,
     activeConversationId,
+    activeConversation,
     setActiveConversationId,
     messages,
     isLoading,
     sendMessage,
     createNewConversation,
-    togglePin,
+    pinConversation: togglePin,
     deleteConversation
   };
 };

@@ -106,6 +106,14 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSaveWord, o
       )}>
         {renderContent()}
         
+        {isAssistant && (message.metadata as any)?.source && (
+          <div className="absolute -top-3 right-4">
+            <Badge variant="secondary" className="bg-sakura/10 text-sakura border-sakura/20 text-[7px] px-1.5 py-0 rounded font-black uppercase tracking-widest">
+              Source: {(message.metadata as any).source}
+            </Badge>
+          </div>
+        )}
+        
         {isAssistant && (
           <div className="absolute -bottom-10 left-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-sakura/10" onClick={() => onSpeak?.(message.content)}>

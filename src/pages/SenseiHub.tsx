@@ -17,6 +17,19 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger,
+  DialogFooter
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const MODES = [
   { id: 'tutor' as SenseiMode, name: 'Sensei Tutor', icon: BrainCircuit, color: 'text-blue-500', bg: 'bg-blue-500/10', desc: 'Học tập và giải đáp thắc mắc' },
@@ -39,6 +52,45 @@ export default function SenseiHub() {
   } = useSenseiChat();
 
   const [activeMode, setActiveMode] = useState<SenseiMode>('tutor');
+  const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
+  const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
+  const [cookieInput, setCookieInput] = useState('');
+  const [isSavingSession, setIsSavingSession] = useState(false);
+
+  const handleSaveSession = async () => {
+    if (!cookieInput.trim()) {
+      toast.error("Vui lòng nhập mã cookie");
+      return;
+    }
+
+    setIsSavingSession(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Bạn cần đăng nhập để thực hiện việc này");
+        return;
+      }
+
+      const { error } = await supabase
+        .from('notebooklm_sessions')
+        .upsert({ 
+          user_id: user.id, 
+          cookies: cookieInput.trim(),
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+
+      toast.success("Đã lưu session NotebookLM thành công!");
+      setIsAuthDialogOpen(false);
+      setCookieInput('');
+    } catch (error: any) {
+      console.error('Error saving session:', error);
+      toast.error("Lỗi khi lưu session: " + error.message);
+    } finally {
+      setIsSavingSession(false);
+    }
+  };
 
   const filteredConversations = conversations.filter(c => c.mode === activeMode);
 
@@ -74,7 +126,55 @@ export default function SenseiHub() {
               </button>
             ))}
             
-            <div className="mt-auto pb-4">
+            <div className="mt-auto pb-4 flex flex-col gap-4">
+               <Dialog open={isAuthDialogOpen} onOpenChange={setIsAuthDialogOpen}>
+                 <DialogTrigger asChild>
+                   <Button variant="ghost" size="icon" className="rounded-2xl text-slate-400 hover:text-sakura group relative">
+                      <BrainCircuit className="h-5 w-5" />
+                      <div className="absolute left-full ml-4 px-3 py-1.5 bg-slate-900 text-white text-[11px] font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-white/10">
+                        Kết nối NotebookLM
+                      </div>
+                   </Button>
+                 </DialogTrigger>
+                 <DialogContent className="sm:max-w-[500px] border-sakura/20 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl">
+                   <DialogHeader>
+                     <DialogTitle className="flex items-center gap-2 text-sakura">
+                       <BrainCircuit className="h-5 w-5" />
+                       Kết nối NotebookLM Brain
+                     </DialogTitle>
+                     <DialogDescription>
+                       Dán đoạn mã (cookie hoặc cURL) từ NotebookLM để kích hoạt bộ não AI cá nhân hóa của bạn.
+                     </DialogDescription>
+                   </DialogHeader>
+                   <div className="grid gap-4 py-4">
+                     <div className="grid gap-2">
+                       <Label htmlFor="cookie" className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                         Mã định danh (Cookie String / cURL)
+                       </Label>
+                       <textarea
+                         id="cookie"
+                         placeholder="Dán mã tại đây..."
+                         className="flex min-h-[120px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sakura disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-950"
+                         value={cookieInput}
+                         onChange={(e) => setCookieInput(e.target.value)}
+                       />
+                       <p className="text-[10px] text-slate-400 italic">
+                         Mẹo: Bạn có thể dán toàn bộ đoạn lệnh cURL (từ tab Network) vào đây, hệ thống sẽ tự động xử lý.
+                       </p>
+                     </div>
+                   </div>
+                   <DialogFooter>
+                     <Button 
+                       onClick={handleSaveSession} 
+                       disabled={isSavingSession}
+                       className="bg-sakura hover:bg-sakura-dark text-white rounded-xl w-full"
+                     >
+                       {isSavingSession ? "Đang lưu..." : "Kích hoạt bộ não Sensei"}
+                     </Button>
+                   </DialogFooter>
+                 </DialogContent>
+               </Dialog>
+
                <Button variant="ghost" size="icon" className="rounded-2xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                   <Settings2 className="h-5 w-5" />
                </Button>
@@ -109,14 +209,10 @@ export default function SenseiHub() {
             
             <div className="p-4 md:p-8 w-full max-w-4xl mx-auto">
               <SenseiInput 
-                onSend={(content) => sendMessage(content, activeMode)}
-                disabled={isLoading || (!activeConversation && messages.length > 0)}
-                placeholder={
-                  activeMode === 'speaking' ? "Nhấn micro để luyện nói..." :
-                  activeMode === 'analysis' ? "Tải lên ảnh để phân tích..." :
-                  "Nhập tin nhắn cho Sensei..."
-                }
-                mode={activeMode}
+                onSend={(content, type, metadata) => sendMessage(content, type, metadata)}
+                isLoading={isLoading}
+                isAnalyzingImage={isAnalyzingImage}
+                setIsAnalyzingImage={setIsAnalyzingImage}
               />
             </div>
           </div>

@@ -63,28 +63,32 @@ const studyItems = [
   { path: '/learning-path', icon: MapIcon, label: 'Lộ trình', description: 'Chinh phục JLPT N5-N1' },
   { path: '/vocabulary', icon: BookOpen, label: 'Từ vựng', description: 'Kho từ & Hán tự' },
   { path: '/grammar', icon: BookMarked, label: 'Ngữ pháp', description: 'Cấu trúc & Mẫu câu' },
+  { path: '/flashcards', icon: Layers, label: 'Flashcard', description: 'Tạo & quản lý thẻ' },
   { path: '/kanji-worksheet', icon: Palette, label: 'Tập viết', description: 'Tạo bảng tập viết Hán tự' },
 ];
 
 const assessItems = [
+  { path: '/quiz/story', icon: MapIcon, label: 'Cốt truyện', description: 'Học qua tình huống' },
   { path: '/mock-tests', icon: ShieldCheck, label: 'Thi thử JLPT', description: 'Đề thi thực tế' },
-  { path: '/flashcard-review', icon: RotateCcw, label: 'Thẻ ghi nhớ (SRS)', description: 'Ôn tập ngắt quãng' },
+  { path: '/flashcard-review', icon: RotateCcw, label: 'Ôn tập SRS', description: 'Ôn tập ngắt quãng' },
+  { path: '/flashcard-games', icon: Gamepad2, label: 'Flashcard Games', description: 'Học qua trò chơi' },
 ];
 
 const skillItems = [
   { path: '/reading', icon: Book, label: 'Đọc hiểu', description: 'Luyện đọc báo & truyền thuyết' },
   { path: '/speaking-practice', icon: Mic, label: 'Luyện nói AI', description: 'Phát âm & Hội thoại' },
   { path: '/pronunciation', icon: Volume2, label: 'Phát âm', description: 'Luyện âm chuẩn' },
+  { path: '/roleplay', icon: MessageSquare, label: 'Hội thoại tình huống', description: 'Giao tiếp thực tế với AI' },
   { path: '/video-learning', icon: Video, label: 'Học qua Video', description: 'Phim & Nhạc Nhật' },
   { path: '/news', icon: Globe, label: 'Tin tức', description: 'Báo NHK Easy' },
 ];
 
 const socialItems = [
-  { path: '/roleplay', icon: MessageSquare, label: 'Hội thoại AI', description: 'Giao tiếp tình huống' },
-  { path: '/leagues', icon: Trophy, label: 'Giải đấu', description: 'Xếp hạng hàng tuần' },
-  { path: '/leaderboard', icon: Trophy, label: 'Bảng xếp hạng', description: 'Top học viên' },
+  { path: '/leagues', icon: Trophy, label: 'Giải đấu & XH', description: 'Xếp hạng & giải đấu hàng tuần' },
+  { path: '/challenges', icon: Sword, label: 'Thách đấu', description: 'Duel 1vs1 với bạn bè' },
+  { path: '/squads', icon: Users, label: 'Nhóm học', description: 'Học cùng squad' },
   { path: '/friends', icon: User, label: 'Bạn bè', description: 'Kết nối đồng đội' },
-  { path: '/messages', icon: MessageSquare, label: 'Tin nhắn', description: 'Trò chuyện trò' },
+  { path: '/messages', icon: MessageSquare, label: 'Tin nhắn', description: 'Trò chuyện trực tiếp' },
   { path: '/achievements', icon: Trophy, label: 'Thành tích', description: 'Huy hiệu của bạn' },
 ];
 
@@ -121,17 +125,17 @@ export const Navigation: React.FC<NavigationProps> = ({
   return (
     <>
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between">
+        <div className="container flex h-14 items-center justify-between gap-2">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 shrink-0">
-            <span className="text-2xl">🌸</span>
-            <span className="font-jp text-xl font-bold text-gradient-sakura whitespace-nowrap">
+            <span className="text-xl">🌸</span>
+            <span className="font-jp text-base font-bold text-gradient-sakura whitespace-nowrap hidden xl:block">
               日本語マスター
             </span>
           </Link>
 
           {/* Navigation */}
-          <nav className="hidden lg:flex items-center gap-2">
+          <nav className="hidden lg:flex items-center gap-0.5">
             {navItems.map((item) => {
               const isActive = location.pathname === item.path;
               return (
@@ -139,7 +143,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                   <Button
                     variant="ghost"
                     className={cn(
-                      'relative gap-2 font-black uppercase text-[10px] tracking-widest h-10 px-4 transition-all',
+                      'relative gap-1.5 font-black uppercase text-[10px] tracking-widest h-9 px-3 transition-all',
                       isActive
                         ? 'text-sakura bg-sakura/10'
                         : 'text-muted-foreground hover:text-sakura hover:bg-sakura/5'
@@ -155,7 +159,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             {/* Bài học Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="gap-2 font-black uppercase text-[10px] tracking-widest h-10 px-4 text-muted-foreground hover:text-sakura hover:bg-sakura/5 transition-all">
+                <Button variant="ghost" className="gap-1.5 font-black uppercase text-[10px] tracking-widest h-9 px-3 text-muted-foreground hover:text-sakura hover:bg-sakura/5 transition-all">
                   <BookOpen className="h-4 w-4" />
                   Bài học
                 </Button>
@@ -180,7 +184,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             {/* Đánh giá Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="gap-2 font-black uppercase text-[10px] tracking-widest h-10 px-4 text-muted-foreground hover:text-matcha hover:bg-matcha/5 transition-all">
+                <Button variant="ghost" className="gap-1.5 font-black uppercase text-[10px] tracking-widest h-9 px-3 text-muted-foreground hover:text-matcha hover:bg-matcha/5 transition-all">
                   <CheckCircle className="h-4 w-4" />
                   Đánh giá
                 </Button>
@@ -206,7 +210,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             <Link to="/quiz">
               <Button
                 variant="ghost"
-                className="gap-2 font-black uppercase text-[10px] tracking-widest h-10 px-4 text-muted-foreground hover:text-gold hover:bg-gold/5 transition-all"
+                className="gap-1.5 font-black uppercase text-[10px] tracking-widest h-9 px-3 text-muted-foreground hover:text-gold hover:bg-gold/5 transition-all"
               >
                 <Zap className="h-4 w-4" />
                 Quiz hằng ngày
@@ -216,7 +220,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             {/* Kỹ năng Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="gap-2 font-black uppercase text-[10px] tracking-widest h-10 px-4 text-muted-foreground hover:text-indigo-jp hover:bg-indigo-jp/5 transition-all">
+                <Button variant="ghost" className="gap-1.5 font-black uppercase text-[10px] tracking-widest h-9 px-3 text-muted-foreground hover:text-indigo-jp hover:bg-indigo-jp/5 transition-all">
                   <Zap className="h-4 w-4" />
                   Kỹ năng
                 </Button>
@@ -241,7 +245,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             {/* Kết nối Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="gap-2 font-black uppercase text-[10px] tracking-widest h-10 px-4 text-muted-foreground hover:text-gold hover:bg-gold/5 transition-all">
+                <Button variant="ghost" className="gap-1.5 font-black uppercase text-[10px] tracking-widest h-9 px-3 text-muted-foreground hover:text-gold hover:bg-gold/5 transition-all">
                   <Users className="h-4 w-4" />
                   Kết nối
                 </Button>
@@ -265,8 +269,8 @@ export const Navigation: React.FC<NavigationProps> = ({
           </nav>
 
           {/* User section */}
-          <div className="flex items-center gap-4">
-            <div className="hidden md:block">
+          <div className="flex items-center gap-2">
+            <div className="hidden xl:block">
               <JishoSearch />
             </div>
             
@@ -376,8 +380,8 @@ export const Navigation: React.FC<NavigationProps> = ({
 
             {streak > 0 && <StreakBadge streak={streak} />}
 
-            <div className="hidden sm:flex items-center gap-1 px-3 py-1 rounded-full bg-gold/10 text-gold font-semibold">
-              <span className="text-sm">{xp.toLocaleString()} XP</span>
+            <div className="hidden lg:flex items-center gap-1 px-2.5 py-1 rounded-full bg-gold/10 text-gold font-semibold">
+              <span className="text-xs">{xp.toLocaleString()} XP</span>
             </div>
 
             {user && (

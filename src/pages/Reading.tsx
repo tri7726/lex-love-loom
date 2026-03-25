@@ -628,7 +628,8 @@ export const Reading = () => {
     if (isHtml && displayMode === 'furigana') {
       return (
         <div 
-          className="font-jp text-xl leading-[2.5] cursor-pointer [&_ruby]:hover:bg-sakura/20 [&_ruby]:rounded [&_ruby]:px-1 [&_ruby]:transition-colors will-change-transform"
+          className="reading-content font-jp text-xl cursor-pointer [&_ruby]:hover:bg-sakura/20 [&_ruby]:rounded [&_ruby]:px-0.5 [&_ruby]:transition-colors will-change-transform"
+          style={{ lineHeight: '3', wordBreak: 'keep-all' }}
           dangerouslySetInnerHTML={{ __html: text }}
           onClick={handleWordClick}
         />
@@ -637,7 +638,7 @@ export const Reading = () => {
 
     const chars = text.split('');
     return (
-      <div className="font-jp text-xl leading-[2.5] will-change-transform">
+      <div className="font-jp text-xl leading-relaxed will-change-transform">
         {chars.map((char, idx) => (
           <ClickableChar
             key={`${idx}-${char}`}
