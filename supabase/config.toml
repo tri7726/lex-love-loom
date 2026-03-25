@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.japanese-news]
 verify_jwt = false
+
+[functions.notebooklm-proxy]
+verify_jwt = false

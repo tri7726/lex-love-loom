@@ -18,7 +18,7 @@ export const AITutor = () => {
     isLoading, 
     sendMessage, 
     createNewConversation,
-    togglePin,
+    pinConversation: togglePin,
     deleteConversation
   } = useSenseiChat();
 

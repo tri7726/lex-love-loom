@@ -567,6 +567,33 @@ export type Database = {
         }
         Relationships: []
       }
+      notebooklm_sessions: {
+        Row: {
+          cookies: string
+          created_at: string
+          id: string
+          notebook_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cookies: string
+          created_at?: string
+          id?: string
+          notebook_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cookies?: string
+          created_at?: string
+          id?: string
+          notebook_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
