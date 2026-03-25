@@ -81,8 +81,7 @@ export const PracticeOverlay: React.FC<PracticeOverlayProps> = ({
             {mode ? 'Quay lại' : 'Đóng'}
           </Button>
           <div className="flex items-center gap-2">
-            {isDailyReview && <Zap className="h-4 w-4 text-yellow-500 fill-yellow-500" />}
-            <span className="font-bold">{isDailyReview ? 'Ôn tập hàng ngày' : 'Thực hành'}</span>
+            <span className="font-bold">Thực hành</span>
           </div>
           <div className="w-10" /> {/* Spacer */}
         </div>
