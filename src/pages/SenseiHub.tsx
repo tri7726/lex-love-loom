@@ -71,12 +71,13 @@ export default function SenseiHub() {
         return;
       }
 
-      // Store session in localStorage for now (will migrate to DB later)
-      localStorage.setItem('notebooklm_session', JSON.stringify({
-        user_id: user.id,
-        cookies: cookieInput.trim(),
-        updated_at: new Date().toISOString()
-      }));
+      // Save session via Edge Function proxy
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await supabase.functions.invoke('notebooklm-proxy', {
+        body: { action: 'save_session', cookies: cookieInput.trim() }
+      });
+
+      if (response.error) throw new Error(response.error.message);
 
       toast.success("Đã lưu session NotebookLM thành công!");
       setIsAuthDialogOpen(false);
