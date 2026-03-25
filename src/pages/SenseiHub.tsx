@@ -71,15 +71,12 @@ export default function SenseiHub() {
         return;
       }
 
-      const { error } = await supabase
-        .from('notebooklm_sessions')
-        .upsert({ 
-          user_id: user.id, 
-          cookies: cookieInput.trim(),
-          updated_at: new Date().toISOString()
-        });
-
-      if (error) throw error;
+      // Store session in localStorage for now (will migrate to DB later)
+      localStorage.setItem('notebooklm_session', JSON.stringify({
+        user_id: user.id,
+        cookies: cookieInput.trim(),
+        updated_at: new Date().toISOString()
+      }));
 
       toast.success("Đã lưu session NotebookLM thành công!");
       setIsAuthDialogOpen(false);
