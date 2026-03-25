@@ -72,7 +72,6 @@ export default function SenseiHub() {
       }
 
       // Save session via Edge Function proxy
-      const { data: { session } } = await supabase.auth.getSession();
       const response = await supabase.functions.invoke('notebooklm-proxy', {
         body: { action: 'save_session', cookies: cookieInput.trim() }
       });
