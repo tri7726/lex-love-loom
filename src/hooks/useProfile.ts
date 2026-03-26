@@ -33,28 +33,35 @@ export const useProfile = () => {
 
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
+      const [profileResult, rolesResult] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .single(),
+        supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id),
+      ]);
 
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // Profile not found, wait for trigger or manually create
+      if (profileResult.error) {
+        if (profileResult.error.code === 'PGRST116') {
           console.log('Profile not found, might be still creating...');
         } else {
-          throw error;
+          throw profileResult.error;
         }
       } else {
-        const raw = data as Record<string, unknown>;
+        const raw = profileResult.data as Record<string, unknown>;
+        const roles = (rolesResult.data || []).map((r: { role: string }) => r.role);
+        const topRole = roles.includes('admin') ? 'admin' : roles.includes('moderator') ? 'moderator' : 'user';
         setProfile({
           ...raw,
           full_name: raw.display_name,
           level: raw.jlpt_level,
           xp: raw.total_xp || 0,
           streak: raw.current_streak || 0,
-          role: raw.role || 'user',
+          role: topRole,
         } as Profile);
       }
     } catch (error: unknown) {
