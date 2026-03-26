@@ -25,6 +25,8 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/comp
 import { cn } from '@/lib/utils';
 import { useSpeechToText } from '@/hooks/useSpeechToText';
 import { analyzePronunciation, PronunciationScore } from '@/components/PronunciationAnalysis';
+import { VoiceHub } from '@/components/chat/VoiceHub';
+import { Sparkles } from 'lucide-react';
 
 interface VocabularyItem {
   word: string;
@@ -110,6 +112,7 @@ export const SpeakingMode: React.FC<SpeakingModeProps> = ({
   const [pronunciationScore, setPronunciationScore] = useState<PronunciationScore | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [speakingScores, setSpeakingScores] = useState<Map<number, number>>(new Map());
+  const [isVoiceHubOpen, setIsVoiceHubOpen] = useState(false);
 
   const currentSegment = segments[currentIndex];
 
@@ -418,6 +421,21 @@ export const SpeakingMode: React.FC<SpeakingModeProps> = ({
                 </div>
               </Button>
 
+              <Button
+                size="lg"
+                variant="outline"
+                className="h-12 flex-[2] sm:flex-none gap-2 px-6 rounded-xl font-bold border-sakura/30 text-sakura hover:bg-sakura/10 hover:text-sakura group"
+                onClick={() => setIsVoiceHubOpen(true)}
+              >
+                <div className="flex flex-col items-center">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 group-hover:animate-pulse" />
+                    <span>Luyện cùng AI Sensei</span>
+                  </div>
+                  <span className="text-[10px] opacity-60 mt-0.5 font-light">Giọng nói thực tế</span>
+                </div>
+              </Button>
+
               {/* Nav buttons */}
               <div className="flex gap-2 w-full sm:w-auto">
                 <Button
@@ -628,6 +646,16 @@ export const SpeakingMode: React.FC<SpeakingModeProps> = ({
             {Math.round((completedSegments.size / segments.length) * 100)}%
           </span>
         </div>
+
+        <VoiceHub
+          isOpen={isVoiceHubOpen}
+          onClose={() => setIsVoiceHubOpen(false)}
+          targetSentence={currentSegment.japanese_text}
+          onSuccess={(score) => {
+            onComplete(score);
+            // hub stays open for feedback, but we mark as complete
+          }}
+        />
       </div>
     </TooltipProvider>
   );

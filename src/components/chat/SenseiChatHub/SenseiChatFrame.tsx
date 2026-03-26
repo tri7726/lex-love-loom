@@ -55,7 +55,7 @@ export const SenseiChatFrame: React.FC<SenseiChatFrameProps> = ({
       </header>
 
       {/* Message Area */}
-      <ScrollArea ref={scrollRef} className="flex-1 p-6 h-[calc(100vh-320px)]">
+      <ScrollArea ref={scrollRef} className="flex-1 p-4 md:p-6 overflow-y-auto">
         <div className="max-w-4xl mx-auto py-4">
           {messages?.map((m) => (
             <ChatMessage 

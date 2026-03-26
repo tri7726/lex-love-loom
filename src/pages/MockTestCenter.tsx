@@ -44,41 +44,31 @@ export const MockTestCenter = () => {
     const fetchAll = async () => {
       setLoading(true);
 
-      // Fetch exams from DB
-      const { data: examData, error: examErr } = await (supabase as any)
-        .from('mock_exams')
-        .select('id, title, level, duration')
-        .eq('is_published', true)
-        .order('created_at', { ascending: false });
+      // Improved fetching: Get exams and results in parallel, 
+      // and use a more efficient way to get counts if possible, 
+      // but for now let's at least batch the result fetching.
+      const [examRes, resultsRes] = await Promise.all([
+        (supabase as any).from('mock_exams').select(`
+          id, title, level, duration,
+          mock_exam_questions ( id )
+        `).eq('is_published', true).order('created_at', { ascending: false }),
+        user ? (supabase as any).from('mock_exam_results').select('exam_id, score, max_score, time_taken, completed_at').eq('user_id', user.id).order('completed_at', { ascending: false }) : Promise.resolve({ data: [] })
+      ]);
 
-      if (examErr) {
-        console.error("Exam load error:", examErr);
+      if (examRes.error) {
+        console.error("Exam load error:", examRes.error);
         toast.error("Không thể tải danh sách đề thi");
-        setLoading(false);
-        return;
+      } else {
+        const examList = (examRes.data || []).map((e: any) => ({
+          ...e,
+          difficulty: 'Medium',
+          question_count: e.mock_exam_questions?.length || 0
+        }));
+        setExams(examList);
       }
 
-      // Count questions per exam
-      const examList: MockExam[] = [];
-      for (const exam of examData || []) {
-        const { count, error: countErr } = await (supabase as any)
-          .from('mock_exam_questions')
-          .select('id', { count: 'exact', head: true })
-          .eq('exam_id', exam.id);
-        
-        if (countErr) console.error(`Error counting questions for ${exam.id}:`, countErr);
-        examList.push({ ...exam, difficulty: 'Medium', question_count: count || 0 });
-      }
-      setExams(examList);
-
-      // Fetch user results
-      if (user) {
-        const { data: resultData } = await (supabase as any)
-          .from('mock_exam_results')
-          .select('exam_id, score, max_score, time_taken, completed_at')
-          .eq('user_id', user.id)
-          .order('completed_at', { ascending: false });
-        setResults((resultData as any) || []);
+      if (resultsRes.data) {
+        setResults(resultsRes.data);
       }
 
       setLoading(false);

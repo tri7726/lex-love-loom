@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import {
-  Users,
-  Plus,
-  Search,
-  Trophy,
-  Shield,
-  UserPlus,
-  TrendingUp,
-  Loader2,
+import { 
+  Users, 
+  Plus, 
+  Search, 
+  Trophy, 
+  TrendingUp, 
+  Shield, 
+  UserPlus, 
+  Loader2, 
   X,
+  LogOut
 } from 'lucide-react';
 import { SakuraSkeleton } from '@/components/ui/SakuraSkeleton';
 import { Navigation } from '@/components/Navigation';
@@ -55,9 +56,9 @@ export const Squads = () => {
 
   const [squads, setSquads] = useState<Squad[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [tab, setTab] = useState<'all' | 'mine'>('all');
   const [joiningId, setJoiningId] = useState<string | null>(null);
+  const [squadXP, setSquadXP] = useState(0);
+  const [topPerformers, setTopPerformers] = useState<{name: string, xp: number, squad: string}[]>([]);
 
   // Create dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -114,7 +115,83 @@ export const Squads = () => {
         tags: s.tags || [],
       }));
 
-      setSquads(mapped);
+      setSquads(formattedSquads);
+
+      // Fetch Squad Missions XP (Aggregation since Monday)
+      if (user && mySquadIds.size > 0) {
+        const myFirstSquadId = Array.from(mySquadIds)[0];
+        const now = new Date();
+        const day = now.getDay();
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+        const lastMonday = new Date(now.setDate(diff));
+        lastMonday.setHours(0, 0, 0, 0);
+
+        // 1. Get all members of my squad
+        const { data: squadMembers } = await (supabase as any)
+          .from('squad_members')
+          .select('user_id')
+          .eq('squad_id', myFirstSquadId);
+
+        const memberIds = (squadMembers || []).map((m: any) => m.user_id);
+
+        if (memberIds.length > 0) {
+          // 2. Sum XP for these members since Monday
+          const { data: xpEvents } = await (supabase as any)
+            .from('xp_events')
+            .select('amount')
+            .in('user_id', memberIds)
+            .gte('created_at', lastMonday.toISOString());
+
+          const total = (xpEvents || []).reduce((sum: number, e: any) => sum + e.amount, 0);
+          setSquadXP(total);
+        }
+      }
+
+      // Fetch Top Performers (Global for the week)
+      const fetchTop = async () => {
+        const now = new Date();
+        const day = now.getDay();
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+        const lastMonday = new Date(now.setDate(diff));
+        lastMonday.setHours(0, 0, 0, 0);
+
+        const { data: events } = await (supabase as any)
+          .from('xp_events')
+          .select('user_id, amount')
+          .gte('created_at', lastMonday.toISOString());
+
+        const xpMap: Record<string, number> = {};
+        (events || []).forEach((e: any) => xpMap[e.user_id] = (xpMap[e.user_id] || 0) + e.amount);
+
+        const sortedUsers = Object.entries(xpMap)
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 3);
+
+        const userIds = sortedUsers.map(([id]) => id);
+        if (userIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('user_id, display_name')
+            .in('user_id', userIds);
+          
+          const tops = sortedUsers.map(([id, xp]) => {
+            const p = profiles?.find(prof => prof.user_id === id);
+            return {
+              name: p?.display_name || 'Người học',
+              xp,
+              squad: 'Thành viên'
+            };
+          });
+          setTopPerformers(tops);
+        } else {
+          setTopPerformers([
+            { name: 'Đang cập nhật...', xp: 0, squad: '-' },
+          ]);
+        }
+      };
+      
+      fetchTop();
+
     } catch (err: any) {
       console.error('Error fetching squads:', err);
       toast({ title: 'Lỗi tải dữ liệu', description: err.message, variant: 'destructive' });
@@ -132,20 +209,44 @@ export const Squads = () => {
       toast({ title: 'Bạn chưa đăng nhập', variant: 'destructive' });
       return;
     }
-    setJoiningId(squadId);
     try {
       const { error } = await (supabase as any)
         .from('squad_members')
         .insert({ squad_id: squadId, user_id: user.id, role: 'member' });
 
       if (error) throw error;
-
-      toast({ title: 'Tham gia thành công!' });
-      await fetchSquads();
+      toast({ title: "Đã tham gia squad!" });
+      fetchSquads();
     } catch (err: any) {
-      toast({ title: 'Lỗi tham gia squad', description: err.message, variant: 'destructive' });
-    } finally {
-      setJoiningId(null);
+      toast({ 
+        title: "Lỗi khi tham gia", 
+        description: err.message, 
+        variant: "destructive" 
+      });
+    }
+  };
+
+  const handleLeave = async (squadId: string) => {
+    if (!user) {
+      toast({ title: 'Bạn chưa đăng nhập', variant: 'destructive' });
+      return;
+    }
+    try {
+      const { error } = await (supabase as any)
+        .from('squad_members')
+        .delete()
+        .eq('squad_id', squadId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      toast({ title: "Đã rời khỏi squad!" });
+      fetchSquads();
+    } catch (err: any) {
+      toast({ 
+        title: "Lỗi khi rời khỏi", 
+        description: err.message, 
+        variant: "destructive" 
+      });
     }
   };
 
@@ -312,9 +413,18 @@ export const Squads = () => {
 
                       <CardFooter className="p-5 mt-auto">
                         {squad.is_member ? (
-                          <Button variant="outline" className="w-full gap-2 rounded-xl" disabled>
-                            <Shield className="h-4 w-4" /> Đã là thành viên
-                          </Button>
+                          <div className="flex gap-2 w-full">
+                            <Button variant="outline" className="flex-1 gap-2 rounded-xl bg-primary/5 text-primary border-primary/20 cursor-default">
+                              <Shield className="h-4 w-4" /> Đã tham gia
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              className="px-3 rounded-xl hover:bg-red-50 text-red-400 hover:text-red-500 transition-colors"
+                              onClick={() => handleLeave(squad.id)}
+                            >
+                              <LogOut className="h-4 w-4" />
+                            </Button>
+                          </div>
                         ) : (
                           <Button
                             variant="outline"
@@ -353,11 +463,7 @@ export const Squads = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {[
-                  { name: 'Minh Tuấn', xp: 2450, squad: 'N2 Warriors' },
-                  { name: 'Sakura-chan', xp: 2100, squad: 'Manga Lovers' },
-                  { name: 'Kenji', xp: 1980, squad: 'N2 Warriors' },
-                ].map((top, i) => (
+                {topPerformers.map((top, i) => (
                   <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10">
                     <div className="flex items-center gap-3">
                       <span className="font-bold text-lg opacity-50 w-4">{i + 1}</span>
@@ -386,23 +492,31 @@ export const Squads = () => {
               <CardContent className="p-5 space-y-6">
                 {SQUAD_MISSIONS.map((m) => (
                   <div key={m.id} className="space-y-2">
-                    <div className="flex justify-between items-end">
-                      <div>
-                        <p className="text-xs font-black uppercase text-foreground">{m.title}</p>
-                        <p className="text-[10px] text-muted-foreground">{m.goal}</p>
-                      </div>
-                      <Badge variant="outline" className="text-[9px] font-black border-sakura/30 text-sakura">
-                        +{m.reward}
-                      </Badge>
-                    </div>
-                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${m.progress}%` }}
-                        className="h-full bg-sakura shadow-[0_0_8px_rgba(244,63,94,0.3)]"
-                      />
-                    </div>
-                    <p className="text-[9px] text-right text-muted-foreground font-bold">{m.progress}% Đã xong</p>
+                    {(() => {
+                      const goalValue = m.id === 'm1' ? 1000 : 500; // Example goals
+                      const progress = Math.min(100, Math.floor((squadXP / goalValue) * 100));
+                      return (
+                        <>
+                          <div className="flex justify-between items-end">
+                            <div>
+                              <p className="text-xs font-black uppercase text-foreground">{m.title}</p>
+                              <p className="text-[10px] text-muted-foreground">Mục tiêu: {goalValue} XP tuần</p>
+                            </div>
+                            <Badge variant="outline" className="text-[9px] font-black border-sakura/30 text-sakura">
+                              +{m.reward}
+                            </Badge>
+                          </div>
+                          <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${progress}%` }}
+                              className="h-full bg-sakura shadow-[0_0_8px_rgba(244,63,94,0.3)]"
+                            />
+                          </div>
+                          <p className="text-[9px] text-right text-muted-foreground font-bold">{progress}% Đã xong ({squadXP}/{goalValue} XP)</p>
+                        </>
+                      );
+                    })()}
                   </div>
                 ))}
               </CardContent>

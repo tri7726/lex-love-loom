@@ -1,53 +1,44 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Wifi, WifiOff, Trophy, Loader2 } from 'lucide-react';
+import { Wifi, WifiOff, X, Trophy, AlertCircle, CheckCircle2, Timer, Award, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { DuelQuestion, DuelQuestionData } from './DuelQuestion';
 import { useDuelChannel } from '@/hooks/useDuelChannel';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useXP } from '@/hooks/useXP';
-
-// ─── Fallback N5 word list ────────────────────────────────────────────────────
-const N5_WORDS: Omit<DuelQuestionData, 'options'>[] = [
-  { word: '水', reading: 'みず (mizu)', correct: 'Nước' },
-  { word: '火', reading: 'ひ (hi)', correct: 'Lửa' },
-  { word: '山', reading: 'やま (yama)', correct: 'Núi' },
-  { word: '川', reading: 'かわ (kawa)', correct: 'Sông' },
-  { word: '空', reading: 'そら (sora)', correct: 'Bầu trời' },
-  { word: '花', reading: 'はな (hana)', correct: 'Hoa' },
-  { word: '木', reading: 'き (ki)', correct: 'Cây' },
-  { word: '犬', reading: 'いぬ (inu)', correct: 'Chó' },
-  { word: '猫', reading: 'ねこ (neko)', correct: 'Mèo' },
-  { word: '魚', reading: 'さかな (sakana)', correct: 'Cá' },
-  { word: '本', reading: 'ほん (hon)', correct: 'Sách' },
-  { word: '車', reading: 'くるま (kuruma)', correct: 'Xe hơi' },
-  { word: '電車', reading: 'でんしゃ (densha)', correct: 'Tàu điện' },
-  { word: '学校', reading: 'がっこう (gakkou)', correct: 'Trường học' },
-  { word: '先生', reading: 'せんせい (sensei)', correct: 'Giáo viên' },
-  { word: '友達', reading: 'ともだち (tomodachi)', correct: 'Bạn bè' },
-  { word: '食べる', reading: 'たべる (taberu)', correct: 'Ăn' },
-  { word: '飲む', reading: 'のむ (nomu)', correct: 'Uống' },
-  { word: '見る', reading: 'みる (miru)', correct: 'Nhìn / Xem' },
-  { word: '行く', reading: 'いく (iku)', correct: 'Đi' },
-];
-
-const DISTRACTORS = [
-  'Núi', 'Sông', 'Lửa', 'Nước', 'Bầu trời', 'Hoa', 'Cây', 'Chó', 'Mèo', 'Cá',
-  'Sách', 'Xe hơi', 'Tàu điện', 'Trường học', 'Giáo viên', 'Bạn bè', 'Ăn', 'Uống', 'Nhìn / Xem', 'Đi',
-];
+import { useConfetti } from '@/components/ConfettiProvider';
+import { useToast } from '@/hooks/use-toast';
+import { MINNA_N5_VOCAB } from '@/data/minna-n5';
+import { MINNA_N4_VOCAB } from '@/data/minna-n4';
 
 function shuffle<T>(arr: T[]): T[] {
   return [...arr].sort(() => Math.random() - 0.5);
 }
 
-function buildQuestions(count = 6): DuelQuestionData[] {
-  const pool = shuffle(N5_WORDS).slice(0, count);
+function buildQuestions(vocabPool: any[], count = 6): DuelQuestionData[] {
+  const pool = shuffle(vocabPool).slice(0, count);
+  // Flatten all words to use as potential distractors
+  const allMeanings = vocabPool.map(w => w.meaning).filter(Boolean);
+  
   return pool.map((w) => {
-    const wrong = shuffle(DISTRACTORS.filter((d) => d !== w.correct)).slice(0, 3);
-    return { ...w, options: shuffle([w.correct, ...wrong]) };
+    const wrong = shuffle(allMeanings.filter((m) => m !== w.meaning)).slice(0, 3);
+    // If we don't have enough dynamic distractors, use some generic ones
+    while (wrong.length < 3) {
+      const generic = shuffle(['Nước', 'Lửa', 'Núi', 'Cây', 'Sông']).find(g => g !== w.meaning && !wrong.includes(g));
+      if (generic) wrong.push(generic);
+      else break;
+    }
+    
+    return { 
+      word: w.word, 
+      reading: w.reading, 
+      correct: w.meaning,
+      options: shuffle([w.meaning, ...wrong]) 
+    };
   });
 }
 
@@ -74,6 +65,7 @@ interface DuelRoomProps {
 export const DuelRoom = ({ challenge, onClose }: DuelRoomProps) => {
   const { user } = useAuth();
   const { awardXP } = useXP();
+  const { fire } = useConfetti();
   const userId = user?.id ?? '';
 
   const isChallenger = challenge.challenger_id === userId;
@@ -85,7 +77,42 @@ export const DuelRoom = ({ challenge, onClose }: DuelRoomProps) => {
   const [phase, setPhase] = useState<DuelPhase>('waiting');
   const [countdown, setCountdown] = useState(3);
   const [questionIdx, setQuestionIdx] = useState(0);
-  const questions = useMemo(() => buildQuestions(6), []);
+  const [questions, setQuestions] = useState<DuelQuestionData[]>([]);
+  const [loadingQuestions, setLoadingQuestions] = useState(true);
+
+  // Build questions from topic
+  useEffect(() => {
+    const initQuestions = () => {
+      let topicStr = challenge.topic;
+      try {
+        if (topicStr.startsWith('{')) {
+          topicStr = JSON.parse(topicStr).topic || topicStr;
+        }
+      } catch (e) {}
+
+      let vocabPool: any[] = [];
+      const chapterMatch = topicStr.match(/(\d+)/);
+      const isN4 = topicStr.toUpperCase().includes('N4');
+      const minnaPool = isN4 ? MINNA_N4_VOCAB : MINNA_N5_VOCAB;
+
+      if (chapterMatch) {
+        const chapterIdx = parseInt(chapterMatch[1]) - 1;
+        if (minnaPool[chapterIdx]) {
+          vocabPool = minnaPool[chapterIdx];
+        }
+      }
+
+      if (vocabPool.length < 6) {
+        // Just Use standard pool if no chapter match or not enough words
+        vocabPool = minnaPool.flat();
+      }
+
+      setQuestions(buildQuestions(vocabPool, 6));
+      setLoadingQuestions(false);
+    };
+
+    initQuestions();
+  }, [challenge.topic]);
 
   // Waiting → Countdown when opponent connects
   useEffect(() => {
@@ -107,28 +134,58 @@ export const DuelRoom = ({ challenge, onClose }: DuelRoomProps) => {
       const score = correct ? calcScore(timeLeft) : 0;
       broadcastAnswer(questionIdx, score);
 
-      if (questionIdx + 1 >= questions.length) {
+        if (questionIdx + 1 >= questions.length) {
         setPhase('finished');
-        // Upsert result to DB
         const myScore = duelState.myScore + score;
         const opponentScore = duelState.opponentScore;
-        const winnerId = myScore >= opponentScore ? userId : (isChallenger ? challenge.opponent_id : challenge.challenger_id);
-        (supabase as any)
-          .from('challenges')
-          .update({
-            challenger_score: isChallenger ? myScore : opponentScore,
-            opponent_score: isChallenger ? opponentScore : myScore,
-            winner_id: winnerId,
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-          })
-          .eq('id', challenge.id);
+        
+        // DRAW REFUND logic: winner_id is null if scores are equal
+        let winnerId = null;
+        if (myScore > opponentScore) {
+          winnerId = userId;
+        } else if (opponentScore > myScore) {
+          winnerId = isChallenger ? challenge.opponent_id : challenge.challenger_id;
+        }
 
-        // XP bonus for winner/loser
+        // Update result in DB
+        const updateChallenge = async () => {
+          try {
+            await (supabase as any)
+              .from('challenges')
+              .update({
+                challenger_score: isChallenger ? myScore : opponentScore,
+                opponent_score: isChallenger ? opponentScore : myScore,
+                winner_id: winnerId,
+                status: 'completed',
+                completed_at: new Date().toISOString(),
+              })
+              .eq('id', challenge.id);
+          } catch (err) {
+            console.error('Error updating challenge result:', err);
+          }
+        };
+
+        updateChallenge();
+
+        // XP bonus for winner/loser/draw
+        let bet = 0;
+        try {
+          const topicObj = JSON.parse(challenge.topic);
+          bet = topicObj.bet || 0;
+        } catch (e) {}
+
+        const winBonus = 50 + bet;
+        const drawBonus = 20 + (bet > 0 ? bet : 0); // refund bet + base
+        const lossBonus = 10;
+
         if (winnerId === userId) {
-          awardXP('duel_win', 50, { challenge_id: challenge.id });
+          awardXP('duel_win', winBonus, { challenge_id: challenge.id });
+          fire('school');
+        } else if (winnerId === null) {
+          // Draw - refund the bet
+          awardXP('duel_draw', drawBonus, { challenge_id: challenge.id });
         } else {
-          awardXP('duel_loss', 10, { challenge_id: challenge.id });
+          awardXP('duel_loss', lossBonus, { challenge_id: challenge.id });
         }
       } else {
         setQuestionIdx((i) => i + 1);
@@ -139,7 +196,8 @@ export const DuelRoom = ({ challenge, onClose }: DuelRoomProps) => {
 
   const myFinalScore = duelState.myScore;
   const opponentFinalScore = duelState.opponentScore;
-  const won = myFinalScore >= opponentFinalScore;
+  const won = myFinalScore > opponentFinalScore;
+  const draw = myFinalScore === opponentFinalScore;
 
   return (
     <motion.div
@@ -173,9 +231,27 @@ export const DuelRoom = ({ challenge, onClose }: DuelRoomProps) => {
             />
           </div>
           <div className="text-center">
-            <p className="text-xs font-black uppercase text-muted-foreground mb-1">{opponentName}</p>
+            <p className="text-xs font-black uppercase text-secondary mb-1">{opponentName}</p>
             <p className="text-3xl font-black text-secondary">{duelState.opponentScore}</p>
           </div>
+        </div>
+
+        {/* Rival Progress Bars */}
+        <div className="grid grid-cols-2 gap-4">
+           <div className="space-y-1">
+             <div className="flex justify-between items-center text-[10px] font-black uppercase text-muted-foreground mr-1">
+               <span>Tiến độ của bạn</span>
+               <span>{duelState.myQuestion}/{questions.length}</span>
+             </div>
+             <Progress value={(duelState.myQuestion / questions.length) * 100} className="h-1.5" />
+           </div>
+           <div className="space-y-1">
+             <div className="flex justify-between items-center text-[10px] font-black uppercase text-muted-foreground ml-1">
+               <span>{opponentName}</span>
+               <span>{duelState.opponentQuestion}/{questions.length}</span>
+             </div>
+             <Progress value={(duelState.opponentQuestion / questions.length) * 100} className="h-1.5" indicatorClassName="bg-secondary" />
+           </div>
         </div>
 
         {/* Progress */}
@@ -239,15 +315,18 @@ export const DuelRoom = ({ challenge, onClose }: DuelRoomProps) => {
 
             {phase === 'finished' && (
               <motion.div key="finished" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center space-y-6">
-                <div className={cn('h-20 w-20 rounded-full mx-auto flex items-center justify-center', won ? 'bg-gold/20' : 'bg-muted')}>
-                  <Trophy className={cn('h-10 w-10', won ? 'text-gold' : 'text-muted-foreground')} />
+                <div className={cn('h-20 w-20 rounded-full mx-auto flex items-center justify-center', won ? 'bg-gold/20' : draw ? 'bg-blue-500/20' : 'bg-muted')}>
+                  <Trophy className={cn('h-10 w-10', won ? 'text-gold' : draw ? 'text-blue-500' : 'text-muted-foreground')} />
                 </div>
                 <div>
-                  <p className="text-3xl font-black">{won ? 'Chiến thắng!' : 'Thua rồi!'}</p>
+                  <p className="text-3xl font-black">
+                    {won ? 'Chiến thắng!' : draw ? 'Kết quả Hòa!' : 'Thua rồi!'}
+                  </p>
                   <p className="text-muted-foreground mt-1">
                     {myFinalScore} điểm vs {opponentFinalScore} điểm
                   </p>
-                  {won && <p className="text-sm text-gold font-bold mt-2">+50 XP thưởng</p>}
+                  {won && <p className="text-sm text-gold font-bold mt-2">+{50 + (JSON.parse(challenge.topic).bet || 0)} XP thưởng</p>}
+                  {draw && <p className="text-sm text-blue-500 font-bold mt-2">+{20 + (JSON.parse(challenge.topic).bet || 0)} XP (Hoàn cược)</p>}
                 </div>
                 <Button onClick={onClose} className="w-full h-12 rounded-2xl font-black">
                   Về danh sách thử thách

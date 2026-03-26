@@ -1,36 +1,44 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Navigation } from '@/components/Navigation';
-import { SenseiSidebar } from '@/components/chat/SenseiChatHub/SenseiSidebar';
 import { SenseiChatFrame } from '@/components/chat/SenseiChatHub/SenseiChatFrame';
 import { SenseiInput } from '@/components/chat/SenseiChatHub/SenseiInput';
-import { useSenseiChat } from '@/components/chat/SenseiChatHub/useSenseiChat';
 import { SenseiMode } from '@/components/chat/SenseiChatHub/types';
-import { 
-  Gamepad2, 
-  Camera, 
+import { useSenseiChat } from '@/components/chat/SenseiChatHub/useSenseiChat';
+import { SpeakingPracticeMode } from '@/components/SpeakingPracticeMode';
+import {
+  Gamepad2,
+  Camera,
   Mic,
   BrainCircuit,
   Settings2,
   Send,
   BookOpen,
-  Loader2
+  Loader2,
+  ChevronLeft,
+  Sparkles,
+  Search,
+  MessageSquare
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogHeader, 
-  DialogTitle, 
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
   DialogTrigger,
   DialogFooter
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { SenseiSidebar } from '@/components/chat/SenseiChatHub/SenseiSidebar';
 
 const MODES = [
   { id: 'tutor' as SenseiMode, name: 'Sensei Tutor', icon: BrainCircuit, color: 'text-blue-500', bg: 'bg-blue-500/10', desc: 'Học tập và giải đáp thắc mắc' },
@@ -57,6 +65,15 @@ export default function SenseiHub() {
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
   const [cookieInput, setCookieInput] = useState('');
   const [isSavingSession, setIsSavingSession] = useState(false);
+
+  const [searchParams] = useSearchParams();
+  
+  useEffect(() => {
+    const mode = searchParams.get('mode') as SenseiMode;
+    if (mode && MODES.some(m => m.id === mode)) {
+      setActiveMode(mode);
+    }
+  }, [searchParams]);
   
   // NotebookLM Query state
   const [isQueryDialogOpen, setIsQueryDialogOpen] = useState(false);
@@ -65,6 +82,22 @@ export default function SenseiHub() {
   const [queryResult, setQueryResult] = useState('');
   const [isQuerying, setIsQuerying] = useState(false);
   const [queryHistory, setQueryHistory] = useState<Array<{ q: string; a: string }>>([]);
+
+  // Content state for Roleplay & Speaking
+  const [scenarios, setScenarios] = useState<any[]>([]);
+  const [speakingLessons, setSpeakingLessons] = useState<any[]>([]);
+  const [selectedScenario, setSelectedScenario] = useState<any | null>(null);
+  const [selectedLesson, setSelectedLesson] = useState<any | null>(null);
+
+  React.useEffect(() => {
+    const fetchContent = async () => {
+      const { data: scenariosData } = await (supabase as any).from('roleplay_scenarios').select('*');
+      const { data: lessonsData } = await (supabase as any).from('speaking_lessons').select('*');
+      if (scenariosData) setScenarios(scenariosData);
+      if (lessonsData) setSpeakingLessons(lessonsData);
+    };
+    fetchContent();
+  }, []);
 
   const handleSaveSession = async () => {
     if (!cookieInput.trim()) {
@@ -128,13 +161,13 @@ export default function SenseiHub() {
   const filteredConversations = conversations.filter(c => c.mode === activeMode);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col relative overflow-hidden">
+    <div className="h-screen bg-background flex flex-col relative overflow-hidden">
       <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-accent/5 rounded-full blur-[120px] pointer-events-none" />
       
       <Navigation />
       
-      <main className="flex-1 flex overflow-hidden relative z-10 container max-w-7xl mx-auto px-0 md:px-4 py-0 md:py-4">
+      <main className="flex-1 flex overflow-hidden relative z-10 container max-w-7xl mx-auto px-0 py-0">
         <div className="flex-1 flex bg-card/40 backdrop-blur-2xl border border-border/20 rounded-none md:rounded-[2rem] shadow-2xl overflow-hidden">
           
           {/* Mode Selector Sidebar */}
@@ -304,7 +337,7 @@ export default function SenseiHub() {
           </aside>
   
           {/* Conversation Sidebar */}
-          <div className="w-72 lg:w-80 hidden md:block border-r border-border/10 bg-card/5">
+          <div className="flex-1 flex overflow-hidden">
             <SenseiSidebar 
               conversations={filteredConversations}
               activeId={activeConversation?.id || null}
@@ -317,26 +350,126 @@ export default function SenseiHub() {
   
           {/* Main Chat Area */}
           <div className="flex-1 flex flex-col relative">
-            <SenseiChatFrame 
-              conversation={activeConversation}
-              messages={messages}
-              isLoading={isLoading}
-              onSaveWord={(word) => console.log('Save word', word)}
-              onSpeak={(text) => {
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = 'ja-JP';
-                window.speechSynthesis.speak(utterance);
-              }}
-            />
-            
-            <div className="p-4 md:p-8 w-full max-w-4xl mx-auto">
-              <SenseiInput 
-                onSend={(content, type, metadata) => sendMessage(content, type, metadata)}
-                isLoading={isLoading}
-                isAnalyzingImage={isAnalyzingImage}
-                setIsAnalyzingImage={setIsAnalyzingImage}
-              />
-            </div>
+            {!activeConversation && activeMode === 'roleplay' && !selectedScenario && (
+              <div className="flex-1 p-8 overflow-y-auto custom-scrollbar">
+                <div className="max-w-4xl mx-auto space-y-8">
+                  <div className="space-y-2">
+                    <h2 className="text-3xl font-black">Chọn tình huống Nhập vai</h2>
+                    <p className="text-muted-foreground">Luyện tập giao tiếp tiếng Nhật trong các bối cảnh thực tế.</p>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    {scenarios.map((s) => (
+                      <Card 
+                        key={s.id} 
+                        className="group overflow-hidden cursor-pointer hover:border-primary/50 transition-all"
+                        onClick={() => {
+                          setSelectedScenario(s);
+                          createNewConversation(`${s.title} (${s.persona})`, 'roleplay', s.system_prompt);
+                        }}
+                      >
+                        <div className="h-32 bg-muted relative overflow-hidden">
+                           {s.image_url ? (
+                             <img src={s.image_url} alt={s.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+                           ) : (
+                             <div className="w-full h-full flex items-center justify-center bg-primary/5">
+                               <Gamepad2 className="h-10 w-10 text-primary/20" />
+                             </div>
+                           )}
+                           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                           <Badge className="absolute bottom-3 left-3 bg-white/20 backdrop-blur-md border-0">{s.difficulty}</Badge>
+                        </div>
+                        <CardContent className="p-4">
+                          <h3 className="font-bold text-lg">{s.title}</h3>
+                          <p className="text-xs text-muted-foreground line-clamp-2">{s.description}</p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!activeConversation && activeMode === 'speaking' && !selectedLesson && (
+              <div className="flex-1 p-8 overflow-y-auto custom-scrollbar">
+                <div className="max-w-4xl mx-auto space-y-8">
+                  <div className="space-y-2">
+                    <h2 className="text-3xl font-black text-emerald-600">Luyện nói Shadowing</h2>
+                    <p className="text-muted-foreground">Cải thiện phát âm và ngữ điệu qua các bài luyện mẫu.</p>
+                  </div>
+                  <div className="grid md:grid-cols-3 gap-6">
+                    {speakingLessons.map((l) => (
+                      <Card 
+                        key={l.id} 
+                        className="p-6 cursor-pointer hover:border-emerald-500/30 transition-all space-y-4 hover:shadow-lg"
+                        onClick={() => {
+                          setSelectedLesson(l);
+                        }}
+                      >
+                        <div className={cn("h-12 w-12 rounded-xl flex items-center justify-center text-white shadow-lg", l.color)}>
+                           <Mic className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <Badge variant="outline" className="mb-2 text-[10px] uppercase font-black">{l.level}</Badge>
+                          <h3 className="font-bold">{l.title}</h3>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeMode === 'speaking' && selectedLesson && (
+              <div className="flex-1 p-8 overflow-y-auto custom-scrollbar">
+                <div className="max-w-3xl mx-auto space-y-8">
+                  <div className="flex items-center justify-between">
+                    <Button variant="ghost" className="gap-2" onClick={() => setSelectedLesson(null)}>
+                      <ChevronLeft className="h-4 w-4" /> Quay lại danh sách
+                    </Button>
+                    <Badge className="bg-emerald-500">{selectedLesson.title}</Badge>
+                  </div>
+                  
+                  <SpeakingPracticeMode 
+                    customItems={selectedLesson.sentences.map((s: any) => ({
+                      id: s.id,
+                      japanese: s.japanese,
+                      reading: s.reading,
+                      meaning: s.vietnamese,
+                      type: 'sentence'
+                    }))}
+                    onComplete={(scores) => {
+                      const avg = Math.round(scores.reduce((sum, s) => sum + s.overall, 0) / scores.length);
+                      toast.success(`Hoàn thành bài tập! Điểm trung bình: ${avg}%`);
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {(activeConversation || (activeMode !== 'roleplay' && activeMode !== 'speaking')) && (
+               <>
+                <SenseiChatFrame 
+                  conversation={activeConversation}
+                  messages={messages}
+                  isLoading={isLoading}
+                  onSaveWord={(word) => toast.success(`Đã lưu "${word}"`)}
+                  onSpeak={(text) => {
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = 'ja-JP';
+                    window.speechSynthesis.speak(utterance);
+                  }}
+                />
+                
+                <div className="p-1 md:p-2 w-full max-w-4xl mx-auto border-t border-sakura/10 bg-white/10 backdrop-blur-md">
+                  <SenseiInput 
+                    onSend={(content, type, metadata) => sendMessage(content, type, metadata)}
+                    isLoading={isLoading}
+                    isAnalyzingImage={isAnalyzingImage}
+                    setIsAnalyzingImage={setIsAnalyzingImage}
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
       </main>

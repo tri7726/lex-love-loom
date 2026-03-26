@@ -28,6 +28,8 @@ import { VideoQuizMode } from '@/components/video/VideoQuizMode';
 import { SummaryMode } from '@/components/video/SummaryMode';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useXP } from '@/hooks/useXP';
+import { useConfetti } from '@/components/ConfettiProvider';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -109,6 +111,8 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
 
   const timeUpdateRef = useRef<number | null>(null);
   const { user } = useAuth();
+  const { awardXP } = useXP();
+  const { fire } = useConfetti();
   const { toast } = useToast();
 
   const currentSegment = segments[currentIndex];
@@ -258,6 +262,8 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
     
     if (score >= 90) {
       setCompletedSegments(prev => new Set([...prev, currentIndex]));
+      awardXP('quiz', 10, { segment_id: currentSegment?.id, type: 'dictation' });
+      if (score === 100) fire('sakura');
     }
 
     // Save progress to database

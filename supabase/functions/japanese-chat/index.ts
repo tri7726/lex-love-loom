@@ -70,7 +70,7 @@ serve(async (req) => {
                 { role: "system", content: systemPrompt || SYSTEM_PROMPT },
                 ...messages,
               ],
-              stream: true,
+              stream: false,
               temperature: 0.7,
               max_tokens: 1024,
             }),
@@ -89,13 +89,9 @@ serve(async (req) => {
 
     const groqRes = await tryGroq(messages, systemPrompt);
     if (groqRes) {
-      return new Response(groqRes.body, {
-        headers: { 
-          ...corsHeaders, 
-          "Content-Type": "text/event-stream",
-          "Cache-Control": "no-cache",
-          "Connection": "keep-alive"
-        },
+      const data = await groqRes.json();
+      return new Response(JSON.stringify(data.choices?.[0]?.message || { content: "Sensei đang suy nghĩ..." }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 

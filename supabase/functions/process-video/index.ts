@@ -283,7 +283,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { youtube_id, title, subtitles } = await req.json();
+    const { youtube_id, title, subtitles, jlpt_level } = await req.json();
     const apiKey = Deno.env.get("GROQ_API_KEY_3");
     
     if (!apiKey) throw new Error("GROQ_API_KEY_3 is not configured");
@@ -296,7 +296,11 @@ serve(async (req) => {
 
     // Create entry
     const { data: videoSource, error: vError } = await supabase.from("video_sources").upsert({
-      youtube_id, title, thumbnail_url: `https://img.youtube.com/vi/${youtube_id}/hqdefault.jpg`, processed: false
+      youtube_id, 
+      title, 
+      thumbnail_url: `https://img.youtube.com/vi/${youtube_id}/hqdefault.jpg`, 
+      processed: false,
+      jlpt_level: jlpt_level || 'N5'
     }, { onConflict: "youtube_id" }).select().single();
 
     if (vError) throw new Error(vError.message);

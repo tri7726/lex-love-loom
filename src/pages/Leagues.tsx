@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Trophy, 
@@ -46,45 +46,90 @@ export const Leagues = () => {
   const [myRank, setMyRank] = useState<number | null>(null);
   const [myXp, setMyXp] = useState<number>(0);
 
-  useEffect(() => {
-    const fetchLeaderboard = async () => {
-      setLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('user_id, display_name, avatar_url, total_xp, current_streak, jlpt_level')
-          .order('total_xp', { ascending: false })
-          .limit(20);
+  const fetchLeaderboard = useCallback(async () => {
+    setLoading(true);
+    try {
+      // 1. Calculate Monday of current week
+      const now = new Date();
+      const day = now.getDay(); // 0 (Sun) to 6 (Sat)
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Adjust to get Monday
+      const lastMonday = new Date(now.setDate(diff));
+      lastMonday.setHours(0, 0, 0, 0);
 
-        if (error) throw error;
+      // 2. Fetch all XP events since Monday
+      // NOTE: In a production app with thousands of users, this should be a DB view or RPC.
+      // For this scale, we'll aggregate in the client for accuracy.
+      const { data: events, error: xpError } = await (supabase as any)
+        .from('xp_events')
+        .select('user_id, amount')
+        .gte('created_at', lastMonday.toISOString());
 
-        const users = (data ?? []) as LeaderboardUser[];
-        setLeaderboard(users);
+      if (xpError) throw xpError;
 
-        if (user) {
-          const rank = users.findIndex((u) => u.user_id === user.id);
-          if (rank !== -1) {
-            setMyRank(rank + 1);
-            setMyXp(users[rank].total_xp);
-          } else {
-            // User not in top 20 — fetch their own XP separately
-            const { data: myData } = await supabase
-              .from('profiles')
-              .select('total_xp')
-              .eq('user_id', user.id)
-              .single();
-            if (myData) setMyXp((myData as { total_xp: number }).total_xp);
-          }
+      // 3. Aggregate XP per user
+      const xpMap: Record<string, number> = {};
+      (events || []).forEach((evt: any) => {
+        xpMap[evt.user_id] = (xpMap[evt.user_id] || 0) + evt.amount;
+      });
+
+      // 4. Fetch profiles for users who earned XP
+      const userIds = Object.keys(xpMap);
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('user_id, display_name, avatar_url, current_streak, jlpt_level')
+        .in('user_id', userIds.length > 0 ? userIds : ['none']); // avoid empty list error
+
+      if (profileError) throw profileError;
+
+      // 5. Combine and sort
+      const combined: LeaderboardUser[] = profiles.map(p => ({
+        ...p,
+        total_xp: xpMap[p.user_id] || 0
+      })).sort((a, b) => b.total_xp - a.total_xp);
+
+      setLeaderboard(combined.slice(0, 20));
+
+      if (user) {
+        const myData = combined.find(u => u.user_id === user.id);
+        const rank = combined.findIndex(u => u.user_id === user.id);
+        
+        if (rank !== -1) {
+          setMyRank(rank + 1);
+          setMyXp(myData?.total_xp || 0);
+        } else {
+          setMyRank(null);
+          setMyXp(0);
         }
-      } catch (err) {
-        console.error('Error fetching leaderboard:', err);
-      } finally {
-        setLoading(false);
       }
-    };
-
-    fetchLeaderboard();
+    } catch (err) {
+      console.error('Error fetching leaderboard:', err);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
+
+  useEffect(() => {
+    fetchLeaderboard();
+    // Subscribe to realtime for profile changes (XP updates)
+    const channel = supabase
+      .channel('leaderboard_realtime')
+      .on(
+        'postgres_changes' as never,
+        {
+          event: '*',
+          schema: 'public',
+          table: 'xp_events',
+        },
+        () => {
+          fetchLeaderboard();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchLeaderboard]);
 
   const top3Xp = leaderboard[2]?.total_xp ?? 0;
   const xpToTop3 = myRank && myRank <= 3 ? 0 : Math.max(0, top3Xp - myXp + 1);

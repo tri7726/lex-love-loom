@@ -14,6 +14,7 @@ import {
   Loader2,
   CheckCircle2,
 } from 'lucide-react';
+import { useXP } from '@/hooks/useXP';
 import { SakuraSkeleton } from '@/components/ui/SakuraSkeleton';
 import { Navigation } from '@/components/Navigation';
 import {
@@ -127,6 +128,7 @@ const calculateMultiplier = (myXP: number, oppXP: number) => {
 
 export const Challenges = () => {
   const { user } = useAuth();
+  const { awardXP } = useXP();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -209,10 +211,81 @@ export const Challenges = () => {
     }
   }, [user]);
 
+  // Initial fetch and friend fetch
   useEffect(() => {
     fetchChallenges();
     fetchFriends();
-  }, [fetchChallenges, fetchFriends]);
+  }, [user, fetchChallenges, fetchFriends]);
+
+  // Automated Cleanup for expired challenges
+  useEffect(() => {
+    const cleanupExpired = async () => {
+      if (!user || loading) return;
+      const now = new Date().toISOString();
+      
+      const { data: expired, error } = await (supabase as any)
+        .from('challenges')
+        .select('*')
+        .eq('status', 'pending')
+        .lt('expires_at', now);
+
+      if (error || !expired || expired.length === 0) return;
+
+      for (const challenge of expired) {
+        // 1. Mark as expired
+        await (supabase as any)
+          .from('challenges')
+          .update({ status: 'expired' })
+          .eq('id', challenge.id);
+
+        // 2. Refund bet to challenger
+        try {
+          const topicObj = JSON.parse(challenge.topic);
+          const bet = topicObj.bet || 0;
+          if (bet > 0 && user.id === challenge.challenger_id) {
+            awardXP('duel_draw', bet, { challenge_id: challenge.id, reason: 'refund_expired' });
+            toast({ title: 'Thử thách hết hạn', description: `Bạn đã được hoàn lại ${bet} XP cược.` });
+          }
+        } catch (e) {}
+      }
+      
+      if (expired.length > 0) fetchChallenges();
+    };
+
+    cleanupExpired();
+  }, [user, loading, fetchChallenges, awardXP, toast]); // Added awardXP and toast to dependencies
+
+  /**
+   * Realtime subscription for challenges
+   */
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('challenges_realtime')
+      .on(
+        'postgres_changes' as never,
+        {
+          event: '*',
+          schema: 'public',
+          table: 'challenges',
+        },
+        (payload: any) => {
+          const { new: newRow, old: oldRow } = payload;
+          const isRelevant = 
+            (newRow && (newRow.challenger_id === user.id || newRow.opponent_id === user.id)) ||
+            (oldRow && (oldRow.challenger_id === user.id || oldRow.opponent_id === user.id));
+          
+          if (isRelevant) {
+            fetchChallenges();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, fetchChallenges, fetchFriends]);
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
@@ -249,6 +322,13 @@ export const Challenges = () => {
           expires_at: expiresAt,
         }) as any);
       if (error) throw error;
+
+      // Deduct XP for bet
+      if (betAmount > 0) {
+        await awardXP('duel_loss', -betAmount, { challenge_id: 'pending_bet', bet: betAmount });
+        toast({ title: 'Đã đặt cược', description: `-${betAmount} XP đã được tạm giữ.` });
+      }
+
       toast({ title: 'Đã gửi thử thách!', description: `Chủ đề: ${topic.trim()}` });
       setDialogOpen(false);
       setSelectedFriend('');

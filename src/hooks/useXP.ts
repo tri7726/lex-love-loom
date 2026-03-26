@@ -3,13 +3,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
-export type XPSource = 'quiz' | 'flashcard' | 'duel_win' | 'duel_loss' | 'reading' | 'speaking' | 'streak_bonus' | 'achievement';
+export type XPSource = 'quiz' | 'flashcard' | 'duel_win' | 'duel_loss' | 'duel_draw' | 'reading' | 'speaking' | 'streak_bonus' | 'achievement';
 
 export const XP_REWARDS: Record<XPSource, number> = {
   quiz: 10,           // per correct answer
   flashcard: 2,       // per card reviewed
   duel_win: 50,
   duel_loss: 10,
+  duel_draw: 20,      // draw refund/bonus
   reading: 15,        // per passage read
   speaking: 20,       // per session
   streak_bonus: 25,   // daily streak bonus

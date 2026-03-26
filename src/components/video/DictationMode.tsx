@@ -10,9 +10,8 @@ import {
   Lightbulb,
   CheckCircle,
   XCircle,
-  Monitor,
-  MonitorOff,
   Keyboard,
+  Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,8 +21,12 @@ import { KanaKeyboard } from '@/components/KanaKeyboard';
 import { KanjiSuggestions } from '@/components/KanjiSuggestions';
 import { useKanaInput, KanaMode } from '@/hooks/useKanaInput';
 import { useKanjiLookup } from '@/hooks/useKanjiLookup';
+import { useXP } from '@/hooks/useXP';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { compareStrings, calculateScore, DiffResult } from '@/lib/stringComparison';
+import { toast } from 'sonner';
 
 interface VocabularyItem {
   word: string;
@@ -86,6 +89,7 @@ interface DictationModeProps {
   playerReady: boolean;
   showFurigana?: boolean;
   showTranslation?: boolean;
+  videoId?: string; // for saving progress
 }
 
 interface KanjiSuggestion {
@@ -105,6 +109,7 @@ export const DictationMode: React.FC<DictationModeProps> = ({
   playerReady,
   showFurigana = false,
   showTranslation = true,
+  videoId,
 }) => {
   const [userInput, setUserInput] = useState('');
   const [hasChecked, setHasChecked] = useState(false);
@@ -112,11 +117,13 @@ export const DictationMode: React.FC<DictationModeProps> = ({
   const [score, setScore] = useState(0);
   const [showHint, setShowHint] = useState(false);
   const [showAnswer, setShowAnswer] = useState(false);
+  const [xpEarned, setXpEarned] = useState(0);
   
-  // Cursor management
   const [cursorPos, setCursorPos] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   
+  const { awardXP } = useXP();
+  const { user } = useAuth();
   const { mode: kanaMode, cycleMode, processInput, getKanjiSuggestions } = useKanaInput();
   const { suggestions: apiSuggestions, isLoading: isLookupLoading, lookupKanji, clearSuggestions } = useKanjiLookup();
 
@@ -147,6 +154,7 @@ export const DictationMode: React.FC<DictationModeProps> = ({
     setShowHint(false);
     setShowAnswer(false);
     setCursorPos(null);
+    setXpEarned(0);
   }, [currentIndex]);
 
   // Restore cursor position after render
@@ -172,12 +180,9 @@ export const DictationMode: React.FC<DictationModeProps> = ({
     setCursorPos(cursor);
   };
 
-  const handleCheck = () => {
+  const handleCheck = async () => {
     if (!currentSegment || !userInput.trim()) return;
     
-    // Auto-normalize half-width/full-width before checking?
-    // The compareStrings utility already handles normalization.
-
     const diff = compareStrings(userInput, currentSegment.japanese_text);
     const segmentScore = calculateScore(userInput, currentSegment.japanese_text);
     
@@ -185,6 +190,31 @@ export const DictationMode: React.FC<DictationModeProps> = ({
     setScore(segmentScore);
     setHasChecked(true);
     onComplete(segmentScore);
+
+    // Save progress + award XP
+    if (user && currentSegment.id) {
+      const xp = segmentScore >= 90 ? 15 : segmentScore >= 70 ? 8 : 3;
+      setXpEarned(xp);
+
+      // Save to user_video_progress
+      await (supabase as any).from('user_video_progress').upsert({
+        user_id: user.id,
+        segment_id: currentSegment.id,
+        user_input: userInput,
+        score: segmentScore,
+        status: segmentScore >= 70 ? 'completed' : 'attempted',
+        last_practiced_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,segment_id' });
+
+      // Award XP
+      await awardXP('reading', xp, { video_id: videoId, segment_id: currentSegment.id, score: segmentScore });
+
+      if (segmentScore >= 90) {
+        toast.success(`Chính xác! +${xp} XP 🎉`);
+      } else if (segmentScore >= 70) {
+        toast(`Khá tốt! +${xp} XP`, { icon: '👍' });
+      }
+    }
   };
 
   const handleRetry = () => {
@@ -466,11 +496,12 @@ export const DictationMode: React.FC<DictationModeProps> = ({
                 ) : (
                   <XCircle className="h-6 w-6 text-destructive" />
                 )}
-                <span className="text-xl font-bold">
-                  {score}%
-                </span>
-                {score >= 90 && (
-                  <Badge className="bg-matcha text-white">Chính xác!</Badge>
+                <span className="text-xl font-bold">{score}%</span>
+                {score >= 90 && <Badge className="bg-matcha text-white">Chính xác!</Badge>}
+                {xpEarned > 0 && (
+                  <Badge className="bg-gold/10 text-gold border-gold/20 gap-1">
+                    <Zap className="h-3 w-3" /> +{xpEarned} XP
+                  </Badge>
                 )}
               </div>
 

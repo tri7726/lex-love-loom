@@ -1,9 +1,11 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area, Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { TrendingUp, Target, Brain, Headphones, BookOpen, Loader2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -11,8 +13,9 @@ import { vi } from 'date-fns/locale';
 interface ExamResult {
   id: string;
   score: number;
-  section_scores: Record<string, number>;
+  section_scores: Record<string, { score: number }>;
   passed: boolean;
+  completed_at: string;
   created_at: string;
   mock_exams: {
     title: string;
@@ -84,6 +87,19 @@ export const JLPTAnalytics = () => {
   const latest = data[data.length - 1];
   const avgScore = Math.round(data.reduce((acc, curr) => acc + curr.score, 0) / data.length);
   const bestScore = Math.max(...data.map(d => d.score));
+
+  // Skills for Radar
+  const radarData = [
+    { subject: 'Từ vựng', A: latest.vocab, fullMark: 60 },
+    { subject: 'Đọc hiểu', A: latest.reading, fullMark: 60 },
+    { subject: 'Nghe hiểu', A: latest.listening, fullMark: 60 },
+  ];
+
+  // AI Prognosis logic
+  const passProbability = Math.min(Math.round((avgScore / 100) * 100), 95);
+  const weakness = 
+    latest.vocab <= latest.reading && latest.vocab <= latest.listening ? 'Từ vựng & Ngữ pháp' :
+    latest.reading <= latest.vocab && latest.reading <= latest.listening ? 'Đọc hiểu' : 'Nghe hiểu';
 
   return (
     <div className="space-y-6">
@@ -187,6 +203,68 @@ export const JLPTAnalytics = () => {
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="rounded-[2.5rem] border-sakura/10 shadow-soft overflow-hidden">
+          <CardHeader>
+            <CardTitle className="text-lg font-black text-slate-800">Cân bằng kỹ năng</CardTitle>
+            <CardDescription className="text-xs uppercase font-bold tracking-widest">Phân bổ điểm số lần thi cuối</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[300px] pb-6 flex items-center justify-center">
+            <ResponsiveContainer width="100%" height="100%">
+              <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
+                <PolarGrid stroke="#e2e8f0" />
+                <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }} />
+                <PolarRadiusAxis angle={30} domain={[0, 60]} tick={false} axisLine={false} />
+                <Radar
+                  name="Điểm đạt được"
+                  dataKey="A"
+                  stroke="#E11D48"
+                  strokeWidth={3}
+                  fill="#E11D48"
+                  fillOpacity={0.4}
+                />
+                <Tooltip contentStyle={{ borderRadius: '1rem', fontWeight: 900 }} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-slate-800 border-none shadow-xl overflow-hidden relative group">
+           <div className="absolute -right-10 -bottom-10 opacity-10 group-hover:scale-110 transition-transform duration-700">
+             <Brain className="w-64 h-64 text-white" />
+           </div>
+           <CardContent className="p-8 space-y-6 relative z-10">
+              <div className="space-y-2">
+                <Badge className="bg-sakura/20 text-sakura border-none hover:bg-sakura/30 font-black px-3 py-1">Dự đoán AI Sensei</Badge>
+                <h4 className="text-2xl font-black text-white">Xác suất đỗ {latest.level}</h4>
+              </div>
+
+              <div className="flex items-end gap-4">
+                 <div className="text-6xl font-black text-sakura">{passProbability}%</div>
+                 <div className="pb-2 text-slate-400 font-bold text-sm uppercase tracking-widest">Sẵn sàng</div>
+              </div>
+
+              <div className="space-y-4">
+                 <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                   <motion.div 
+                     initial={{ width: 0 }}
+                     animate={{ width: `${passProbability}%` }}
+                     className="h-full bg-sakura shadow-[0_0_20px_rgba(225,29,72,0.5)]"
+                   />
+                 </div>
+                 <p className="text-slate-300 text-sm font-medium leading-relaxed">
+                   Dựa trên phong độ gần đây, bạn có khả năng cao sẽ chinh phục được {latest.level}. 
+                   Điểm yếu cần tập trung cải thiện là <span className="text-sakura font-black">{weakness}</span>.
+                 </p>
+              </div>
+
+              <Button className="w-full bg-white text-slate-900 hover:bg-slate-100 font-black rounded-2xl h-12 shadow-lg">
+                Xem lộ trình khắc phục
+              </Button>
+           </CardContent>
         </Card>
       </div>
     </div>

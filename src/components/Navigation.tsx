@@ -33,7 +33,8 @@ import {
   Settings,
   Eye,
   EyeOff,
-  Brain as BrainIcon
+  Brain as BrainIcon,
+  PenTool
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -54,14 +55,15 @@ import { JishoSearch } from './JishoSearch';
 
 const navItems = [
   { path: '/', icon: Home, label: 'Trang chủ' },
-  { path: '/ai-tutor', icon: Brain, label: 'AI Tutor' },
+  { path: '/sensei?mode=tutor', icon: Brain, label: 'Sensei Hub' },
 ];
 
 const studyItems = [
   { path: '/learning-path', icon: MapIcon, label: 'Lộ trình', description: 'Chinh phục JLPT N5-N1' },
   { path: '/vocabulary', icon: BookOpen, label: 'Từ vựng', description: 'Kho từ & Hán tự' },
+  { path: '/kanji-lab', icon: PenTool, label: 'Phòng Lab Kanji', description: 'Luyện viết & Kiểm tra nét' },
   { path: '/grammar', icon: BookMarked, label: 'Ngữ pháp', description: 'Cấu trúc & Mẫu câu' },
-  { path: '/kanji-worksheet', icon: Palette, label: 'Tập viết', description: 'Tạo bảng tập viết Hán tự' },
+  { path: '/kanji-worksheet', icon: Palette, label: 'Tập viết PDF', description: 'Tạo bảng tập viết Hán tự' },
 ];
 
 const assessItems = [
@@ -71,8 +73,8 @@ const assessItems = [
 
 const skillItems = [
   { path: '/reading', icon: Book, label: 'Đọc hiểu', description: 'Luyện đọc báo & truyền thuyết' },
-  { path: '/speaking-practice', icon: Mic, label: 'Luyện nói AI', description: 'Phát âm & Hội thoại' },
-  { path: '/roleplay', icon: MessageSquare, label: 'Hội thoại tình huống', description: 'Giao tiếp thực tế với AI' },
+  { path: '/sensei?mode=speaking', icon: Mic, label: 'Luyện nói AI', description: 'Phát âm & Hội thoại' },
+  { path: '/sensei?mode=roleplay', icon: MessageSquare, label: 'Hội thoại tình huống', description: 'Giao tiếp thực tế với AI' },
   { path: '/video-learning', icon: Video, label: 'Học qua Video', description: 'Phim & Nhạc Nhật' },
   { path: '/news', icon: Globe, label: 'Tin tức', description: 'Báo NHK Easy' },
 ];
@@ -447,7 +449,7 @@ export const Navigation: React.FC<NavigationProps> = ({
           <div className="flex justify-around items-center">
             {[
               { path: '/', icon: Home, label: 'Trang chủ' },
-              { path: '/ai-tutor', icon: Brain, label: 'AI Tutor' },
+              { path: '/sensei', icon: Brain, label: 'Sensei' },
               { path: '/learning-path', icon: BookOpen, label: 'Học tập' },
               { path: '/leagues', icon: Trophy, label: 'XH' },
             ].map((mItem) => {

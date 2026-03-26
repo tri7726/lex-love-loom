@@ -81,8 +81,8 @@ export const SenseiInput: React.FC<SenseiInputProps> = ({
   ];
 
   return (
-    <div className="p-4 md:p-6 border-t border-sakura/10 bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl space-y-4">
-      <div className="flex gap-2 mb-2 overflow-x-auto no-scrollbar pb-1">
+    <div className="p-3 md:p-4 border-t border-sakura/10 bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl space-y-3">
+      <div className="flex gap-2 mb-1 overflow-x-auto no-scrollbar pb-1">
         {chips.map((chip) => {
           const isActive = mode === chip.id;
           return (
@@ -92,12 +92,12 @@ export const SenseiInput: React.FC<SenseiInputProps> = ({
               size="sm"
               onClick={() => setMode(chip.id as SenseiMessageType)}
               className={cn(
-                "rounded-full px-4 h-8 text-[10px] font-black uppercase tracking-widest transition-all gap-1.5 shrink-0 border-2",
+                "rounded-full px-3 h-7 text-[9px] font-black uppercase tracking-widest transition-all gap-1 shrink-0 border-2",
                 chip.color,
                 isActive ? "bg-current text-white scale-105 shadow-md" : "bg-background/50"
               )}
             >
-              <chip.icon className="h-3 w-3" />
+              <chip.icon className="h-2.5 w-2.5" />
               {chip.label}
             </Button>
           );
@@ -113,20 +113,20 @@ export const SenseiInput: React.FC<SenseiInputProps> = ({
           ref={fileInputRef} 
           onChange={handleFileChange}
         />
-        <div className="absolute left-3 bottom-3 flex items-center gap-1 z-10">
+        <div className="absolute left-3 bottom-2.5 flex items-center gap-1 z-10">
           <Button 
             variant="ghost" size="icon" 
             disabled={isLoading || isAnalyzingImage}
-            className="h-9 w-9 rounded-xl text-muted-foreground hover:text-sakura hover:bg-sakura/10 transition-all"
+            className="h-8 w-8 rounded-xl text-muted-foreground hover:text-sakura hover:bg-sakura/10 transition-all"
             onClick={() => fileInputRef.current?.click()}
           >
-            {isAnalyzingImage ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />}
+            {isAnalyzingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
           </Button>
           <Button 
             variant="ghost" size="icon" 
-            className="h-9 w-9 rounded-xl text-muted-foreground hover:text-sakura hover:bg-sakura/10 transition-all"
+            className="h-8 w-8 rounded-xl text-muted-foreground hover:text-sakura hover:bg-sakura/10 transition-all"
           >
-            <Mic className="h-5 w-5" />
+            <Mic className="h-4 w-4" />
           </Button>
         </div>
 
@@ -135,23 +135,23 @@ export const SenseiInput: React.FC<SenseiInputProps> = ({
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={
-            mode === 'analysis' ? "Nhập từ vựng hoặc đoạn văn cần mổ xẻ..." :
-            mode === 'correction' ? "Nhập câu tiếng Nhật cần kiểm tra ngữ pháp..." :
-            "Nhắn gì đó cho Sensei..."
+            mode === 'analysis' ? "Phân tích mẫu câu..." :
+            mode === 'correction' ? "Kiểm tra ngữ pháp..." :
+            "Nhắn cho Sensei..."
           }
           className={cn(
-            "min-h-[100px] w-full pl-24 pr-14 py-4 rounded-3xl border-2 border-sakura/10 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md focus-visible:ring-sakura/30 focus-visible:border-sakura/30 resize-none text-sm transition-all",
+            "min-h-[60px] max-h-[150px] w-full pl-20 pr-12 py-3 rounded-2xl border-2 border-sakura/10 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md focus-visible:ring-sakura/30 focus-visible:border-sakura/30 resize-none text-[13px] transition-all",
             mode === 'analysis' && "border-rose-500/30 ring-rose-500/10",
             mode === 'correction' && "border-blue-500/30 ring-blue-500/10"
           )}
         />
 
-        <div className="absolute right-3 bottom-3 z-10">
+        <div className="absolute right-2.5 bottom-2.5 z-10">
           <Button
             onClick={handleSend}
             disabled={!text.trim() || isLoading}
             className={cn(
-               "h-9 w-9 rounded-xl shadow-lg transition-all",
+               "h-8 w-8 rounded-xl shadow-lg transition-all",
                mode === 'analysis' ? "bg-rose-500 hover:bg-rose-600 shadow-rose-500/20" :
                mode === 'correction' ? "bg-blue-500 hover:bg-blue-600 shadow-blue-500/20" :
                "bg-sakura hover:bg-sakura/90 shadow-sakura/20"

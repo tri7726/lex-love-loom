@@ -21,6 +21,7 @@ export const useSenseiChat = () => {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<SenseiMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [pendingMeta, setPendingMeta] = useState<{ title: string; mode: SenseiMode; systemPrompt?: string } | null>(null);
 
   // Fetch conversations and cleanup old ones
   const fetchConversations = useCallback(async () => {
@@ -66,6 +67,21 @@ export const useSenseiChat = () => {
     setConversations(filtered);
   }, [user]);
 
+  // Combine real conversations with virtual pending one
+  const allConversations = useCallback(() => {
+    if (!pendingMeta) return conversations;
+    const virtualConv: SenseiConversation = {
+      id: 'new',
+      user_id: user?.id || 'guest',
+      title: pendingMeta.title,
+      mode: pendingMeta.mode,
+      is_pinned: false,
+      updated_at: new Date().toISOString(),
+      created_at: new Date().toISOString()
+    };
+    return [virtualConv, ...conversations];
+  }, [conversations, pendingMeta, user]);
+
   useEffect(() => {
     fetchConversations();
   }, [fetchConversations]);
@@ -99,9 +115,13 @@ export const useSenseiChat = () => {
     loadMessages();
   }, [activeConversationId, conversations]);
 
-  const createNewConversation = (title: string = 'Cuộc hội thoại mới', mode: SenseiMode = 'tutor') => {
+  const createNewConversation = (title: string = 'Cuộc hội thoại mới', mode: SenseiMode = 'tutor', systemPrompt?: string) => {
     setActiveConversationId(null);
     setMessages([]);
+    setPendingMeta({ title, mode, systemPrompt });
+    
+    // If there's a system prompt, we might want to show a welcoming message from the AI
+    // but usually we wait for user input.
   };
 
   const sendMessage = async (content: string, type: SenseiMessageType, metadata?: any) => {
@@ -129,24 +149,35 @@ export const useSenseiChat = () => {
       } else if (type === 'correction') {
          aiResponse = await checkGrammar(content);
       } else {
-         const chatHistory = messages.map(m => ({ role: m.role, content: m.content }));
-         chatHistory.push({ role: 'user', content });
-         
-         // Fetch user mistakes for personalization
-         const { data: mistakes } = await (supabase as any)
-           .from('user_mistakes')
-           .select('word')
-           .eq('user_id', user.id)
-           .order('last_mistake_at', { ascending: false })
-           .limit(5);
-         
-         const mistakeContext = mistakes && mistakes.length > 0 
-           ? `\nLưu ý: Người dùng gần đây hay gặp khó khăn với: ${mistakes.map(m => m.word).join(', ')}. Hãy lồng ghép việc ôn tập các phần này nếu phù hợp.`
-           : "";
+          const chatHistory = messages.map(m => ({ role: m.role, content: m.content }));
+          chatHistory.push({ role: 'user', content });
+          
+          // Fetch user mistakes for personalization
+          const { data: mistakes } = await (supabase as any)
+            .from('user_mistakes')
+            .select('word')
+            .eq('user_id', user.id)
+            .order('last_mistake_at', { ascending: false })
+            .limit(5);
+          
+          const mistakeContext = mistakes && mistakes.length > 0 
+            ? `\nLưu ý: Người dùng gần đây hay gặp khó khăn với: ${mistakes.map(m => m.word).join(', ')}. Hãy lồng ghép việc ôn tập các phần này nếu phù hợp.`
+            : "";
 
-         const systemPrompt = `Bạn là Sensei, một trợ lý học tiếng Nhật thông minh, thân thiện và am hiểu sâu sắc về ngôn ngữ, văn hóa Nhật Bản. Hãy trả lời người dùng một cách ngắn gọn, súc tích và hữu ích.${mistakeContext}`;
-         const result = await chat(chatHistory, systemPrompt);
-         aiResponse = typeof result === 'string' ? result : (result?.content || "Sensei đang suy nghĩ...");
+          const activeConv = conversations.find(c => c.id === activeConversationId);
+          const currentMode = pendingMeta?.mode || (activeConv?.mode || 'tutor');
+          const customSystemPrompt = pendingMeta?.systemPrompt || (activeConv as any)?.analysis?.system_prompt;
+
+          let systemPrompt = `Bạn là Sensei, một trợ lý học tiếng Nhật thông minh, thân thiện và am hiểu sâu sắc về ngôn ngữ, văn hóa Nhật Bản. Hãy trả lời người dùng một cách ngắn gọn, súc tích và hữu ích.${mistakeContext}`;
+          
+          if (currentMode === 'roleplay' && customSystemPrompt) {
+            systemPrompt = customSystemPrompt + mistakeContext;
+          } else if (currentMode === 'speaking') {
+            systemPrompt = "Bạn là Sensei giúp người dùng luyện phát âm. Hãy phản hồi ngắn gọn bằng tiếng Nhật kèm dịch nghĩa tiếng Việt. " + mistakeContext;
+          }
+
+          const result = await chat(chatHistory, systemPrompt);
+          aiResponse = typeof result === 'string' ? result : (result?.content || "Sensei đang suy nghĩ...");
       }
 
       const aiMsg: SenseiMessage = {
@@ -169,8 +200,9 @@ export const useSenseiChat = () => {
             user_id: user.id,
             content: content,
             analysis: { 
-              title: content.substring(0, 20), 
-              mode: type === 'analysis' ? 'analysis' : (type === 'correction' ? 'tutor' : 'tutor'), // Map type to mode for new sessions
+              title: pendingMeta?.title || content.substring(0, 20), 
+              mode: pendingMeta?.mode || 'tutor', 
+              system_prompt: pendingMeta?.systemPrompt,
               messages: [userMsg, aiMsg] as any 
             } as Json,
             engine: 'gemini'
@@ -180,6 +212,7 @@ export const useSenseiChat = () => {
 
         if (!error && data) {
           setActiveConversationId(data.id);
+          setPendingMeta(null); // Clear pending meta after saving
           fetchConversations();
         }
       }
@@ -215,9 +248,17 @@ export const useSenseiChat = () => {
   const activeConversation = conversations.find(c => c.id === activeConversationId) || null;
 
   return {
-    conversations,
-    activeConversationId,
-    activeConversation,
+    conversations: allConversations(),
+    activeConversationId: activeConversationId || (pendingMeta ? 'new' : null),
+    activeConversation: activeConversation || (pendingMeta ? {
+      id: 'new',
+      user_id: user?.id || 'guest',
+      title: pendingMeta.title,
+      mode: pendingMeta.mode,
+      is_pinned: false,
+      updated_at: new Date().toISOString(),
+      created_at: new Date().toISOString()
+    } : null),
     setActiveConversationId,
     messages,
     isLoading,

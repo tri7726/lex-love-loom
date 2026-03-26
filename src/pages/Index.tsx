@@ -50,53 +50,7 @@ import { cn } from '@/lib/utils';
 
 import { MINNA_N5_VOCAB } from '@/data/minna-n5';
 
-// Sample daily tasks (could be fetched from a DB later)
-const dailyTasks = [
-  {
-    id: '1',
-    type: 'vocabulary' as const,
-    title: 'Learn 5 new words',
-    description: 'Family vocabulary (N5)',
-    progress: 2,
-    total: 5,
-    xp: 25,
-    completed: false,
-    estimatedTime: 5,
-  },
-  {
-    id: '2',
-    type: 'kanji' as const,
-    title: 'Practice Kanji',
-    description: '人, 母, 父',
-    progress: 0,
-    total: 3,
-    xp: 30,
-    completed: false,
-    estimatedTime: 10,
-  },
-  {
-    id: '3',
-    type: 'quiz' as const,
-    title: 'Daily Quiz',
-    description: '10 questions on greetings',
-    progress: 0,
-    total: 10,
-    xp: 50,
-    completed: false,
-    estimatedTime: 8,
-  },
-  {
-    id: '5',
-    type: 'reading' as const,
-    title: 'Reading Practice',
-    description: 'Read a short N5 passage',
-    progress: 0,
-    total: 1,
-    xp: 40,
-    completed: false,
-    estimatedTime: 10,
-  },
-];
+// Daily Tasks will now be calculated dynamically in the component
 
 // Get Word of the Day dynamic based on date
 const getWordOfTheDay = () => {
@@ -136,6 +90,35 @@ export const Index = () => {
   const { history, isLoading: historyLoading } = useWordHistory();
   const [leaderboard, setLeaderboard] = React.useState<{ rank: number; userId: string; username: string; xp: number; streak: number; avatar?: string; isCurrentUser: boolean }[]>([]);
   const [leaderboardLoading, setLeaderboardLoading] = React.useState(true);
+  const [dueCards, setDueCards] = useState<any[]>([]);
+  const [loadingDue, setLoadingDue] = useState(false);
+  const [writingRecs, setWritingRecs] = useState<any[]>([]);
+  const [loadingRecs, setLoadingRecs] = useState(false);
+
+  const fetchDueCards = useCallback(async () => {
+    if (!user) return;
+    setLoadingDue(true);
+    const { data } = await (supabase as any)
+      .from('flashcards')
+      .select('id, word, reading, meaning')
+      .lte('next_review_date', new Date().toISOString())
+      .limit(5);
+    setDueCards(data || []);
+    setLoadingDue(false);
+  }, [user]);
+
+  const fetchWritingRecommendations = useCallback(async () => {
+    if (!user) return;
+    setLoadingRecs(true);
+    // Find Kanji/Words with low ease factor (struggling)
+    const { data } = await (supabase as any)
+      .from('flashcards')
+      .select('id, word, reading, meaning, ease_factor')
+      .lt('ease_factor', 2.0)
+      .limit(3);
+    setWritingRecs(data || []);
+    setLoadingRecs(false);
+  }, [user]);
 
   const fetchLeaderboard = useCallback(async () => {
     try {
@@ -169,8 +152,10 @@ export const Index = () => {
     if (user) {
       updateStreak();
       fetchLeaderboard();
+      fetchDueCards();
+      fetchWritingRecommendations();
     }
-  }, [user, updateStreak, fetchLeaderboard]);
+  }, [user, updateStreak, fetchLeaderboard, fetchDueCards, fetchWritingRecommendations]);
 
   const userStats = useMemo(() => {
     if (!profile) return {
@@ -202,28 +187,68 @@ export const Index = () => {
     };
   }, [profile, history]);
 
-  const handleStartTask = (taskId: string) => {
-    const task = dailyTasks.find(t => t.id === taskId);
-    if (!task) return;
+  const dynamicTasks = useMemo(() => {
+    const tasks = [];
+    
+    if (dueCards.length > 0) {
+      tasks.push({
+        id: 'srs-review',
+        type: 'vocabulary' as const,
+        title: 'Ôn tập định kỳ',
+        description: `${dueCards.length} từ vựng cần ôn tập ngay`,
+        progress: 0,
+        total: dueCards.length,
+        xp: dueCards.length * 10,
+        completed: false,
+        estimatedTime: Math.ceil(dueCards.length * 0.5),
+      });
+    }
 
-    switch (task.type) {
-      case 'vocabulary':
+    if (writingRecs.length > 0) {
+      tasks.push({
+        id: 'kanji-writing',
+        type: 'kanji' as const,
+        title: 'Luyện viết Kanji',
+        description: `Luyện lại ${writingRecs.map(r => r.word).join(', ')}`,
+        progress: 0,
+        total: writingRecs.length,
+        xp: 30,
+        completed: false,
+        estimatedTime: 10,
+      });
+    }
+
+    // Add default tasks if list is short
+    if (tasks.length < 3) {
+      tasks.push({
+        id: 'ai-chat',
+        type: 'quiz' as const,
+        title: 'Hội thoại với Sensei',
+        description: 'Luyện tập giao tiếp tự do 5 phút',
+        progress: 0,
+        total: 1,
+        xp: 50,
+        completed: false,
+        estimatedTime: 5,
+      });
+    }
+
+    return tasks;
+  }, [dueCards, writingRecs]);
+
+  const handleStartTask = (taskId: string) => {
+    switch (taskId) {
+      case 'srs-review':
         navigate('/vocabulary');
         break;
-      case 'kanji':
-        navigate('/vocabulary');
+      case 'kanji-writing':
+        navigate('/kanji-lab');
         break;
-      case 'quiz':
-        navigate('/quiz');
-        break;
-      case 'quiz':
-        navigate('/quiz');
-        break;
-      case 'reading':
-        navigate('/reading');
+      case 'ai-chat':
+        navigate('/sensei');
         break;
       default:
-        navigate('/vocabulary');
+        navigate('/');
     }
   };
 
@@ -340,6 +365,80 @@ export const Index = () => {
           </Card>
         </motion.section>
 
+        {/* SRS Review Section */}
+        {dueCards.length > 0 && (
+          <motion.section
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="space-y-4"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-black flex items-center gap-2">
+                <Brain className="h-5 w-5 text-sakura" />
+                Cần ôn tập ngay ({dueCards.length})
+              </h2>
+              <Link to="/vocabulary">
+                <Button variant="ghost" size="sm" className="text-sakura font-bold text-xs uppercase tracking-widest gap-1">
+                  Ôn tập tất cả <ChevronRight className="h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              {dueCards.map((card) => (
+                <Card key={card.id} className="border-sakura/20 bg-sakura-light/5 hover:bg-sakura/5 transition-colors cursor-pointer group">
+                  <CardContent className="p-4 text-center space-y-1">
+                    <p className="font-jp text-lg font-bold group-hover:text-sakura transition-colors">{card.word}</p>
+                    <p className="text-[10px] text-muted-foreground line-clamp-1">{card.meaning}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </motion.section>
+        )}
+
+        {/* AI Writing Recommendations */}
+        {writingRecs.length > 0 && (
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-6 rounded-[2.5rem] bg-gradient-to-br from-indigo-JP/5 to-sakura-light/10 border-2 border-indigo-JP/20 shadow-soft"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div className="space-y-1">
+                <h2 className="text-xl font-black flex items-center gap-2 text-indigo-JP">
+                  <Sparkles className="h-5 w-5" />
+                  Gợi ý Luyện viết AI
+                </h2>
+                <p className="text-xs text-muted-foreground font-medium">Bạn đang gặp khó khăn với các chữ này. Luyện viết ngay để nhớ lâu hơn!</p>
+              </div>
+              <Badge className="bg-indigo-JP text-white uppercase tracking-widest text-[9px] px-3">Priority</Badge>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {writingRecs.map((rec) => (
+                <div 
+                  key={rec.id} 
+                  className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-indigo-JP/10 flex items-center justify-between group hover:border-indigo-JP/30 transition-all cursor-pointer"
+                  onClick={() => navigate(`/kanji-lab?word=${rec.word}`)}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-xl bg-indigo-JP/5 flex items-center justify-center font-jp text-3xl font-black text-indigo-JP">
+                      {rec.word[0]}
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-800">{rec.word}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">{rec.reading}</p>
+                    </div>
+                  </div>
+                  <Button size="icon" variant="ghost" className="rounded-full group-hover:bg-indigo-JP group-hover:text-white transition-all">
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </motion.section>
+        )}
+
         {/* Advanced AI Tools Section */}
         <section className="space-y-6">
           <div className="flex items-center justify-between">
@@ -349,7 +448,7 @@ export const Index = () => {
             </h2>
           </div>
           <div className="grid md:grid-cols-2 gap-6">
-            <Link to="/roleplay">
+            <Link to="/sensei?mode=roleplay">
               <Card className="group overflow-hidden border-2 border-transparent hover:border-primary/20 transition-all hover:shadow-elevated bg-card/60">
                 <CardContent className="p-0 flex flex-col sm:flex-row h-full">
                   <div className="sm:w-1/3 relative h-40 sm:h-auto overflow-hidden">
@@ -538,7 +637,7 @@ export const Index = () => {
             className="lg:col-span-2 space-y-6"
           >
             <DailyPractice
-              tasks={dailyTasks}
+              tasks={dynamicTasks}
               onStartTask={handleStartTask}
               totalXpToday={0}
               dailyGoal={100}
@@ -618,14 +717,14 @@ export const Index = () => {
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </Link>
-                <Link to="/ai-tutor">
+                <Link to="/sensei">
                   <Button
                     variant="outline"
                     className="w-full justify-between h-auto py-3"
                   >
                     <span className="flex items-center gap-2">
                       <Brain className="h-4 w-4 text-matcha" />
-                      AI Tutor
+                      Sensei Hub
                     </span>
                     <ChevronRight className="h-4 w-4" />
                   </Button>

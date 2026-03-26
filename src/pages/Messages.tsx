@@ -196,6 +196,33 @@ export const Messages = () => {
     );
   }, [user]);
 
+  // ── Global real-time subscription for conversation list ──────────────────
+  useEffect(() => {
+    if (!user) return;
+
+    const globalChannel = supabase
+      .channel('global_messages')
+      .on(
+        'postgres_changes' as never,
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
+        (payload: { new: Message }) => {
+          const msg = payload.new;
+          if (msg.sender_id === user.id || msg.receiver_id === user.id) {
+            fetchConversations();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(globalChannel);
+    };
+  }, [user, fetchConversations]);
+
   // ── Select conversation ──────────────────────────────────────────────────────
   const handleSelectConv = useCallback(async (conv: Conversation) => {
     setSelectedConv(conv);
@@ -207,10 +234,10 @@ export const Messages = () => {
       supabase.removeChannel(channelRef.current);
     }
 
-    // Subscribe to realtime for this conversation
+    // Subscribe to realtime for this specific conversation (to update messages area)
     if (!user) return;
     const channel = supabase
-      .channel(`messages:${[user.id, conv.partnerId].sort().join('-')}`)
+      .channel(`active_messages:${[user.id, conv.partnerId].sort().join('-')}`)
       .on(
         'postgres_changes' as never,
         {
@@ -231,21 +258,18 @@ export const Messages = () => {
             return [...prev, msg];
           });
 
-          // Auto mark as read if we're the receiver
+          // Auto mark as read if we're the receiver and this conv is active
           if (msg.receiver_id === user.id) {
             (supabase.from('messages' as any) as any)
               .update({ is_read: true })
               .eq('id', msg.id);
           }
-
-          // Update conversation list
-          fetchConversations();
         }
       )
       .subscribe();
 
     channelRef.current = channel;
-  }, [user, fetchMessages, markAsRead, fetchConversations]);
+  }, [user, fetchMessages, markAsRead]);
 
   // Cleanup channel on unmount
   useEffect(() => {

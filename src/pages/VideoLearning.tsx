@@ -89,6 +89,9 @@ export const VideoLearning = () => {
   const [selectedLanguage, setSelectedLanguage] = useState<string>('ja');
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [levelFilter, setLevelFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [newVideoLevel, setNewVideoLevel] = useState<string>('N5');
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { user, loading: authLoading } = useAuth();
@@ -183,13 +186,17 @@ export const VideoLearning = () => {
     }
   };
 
-  // Filter videos by favorites
+  // Filter videos by favorites + level + search
   const filteredVideos = useMemo(() => {
-    if (showFavoritesOnly) {
-      return videos.filter(v => favoriteIds.has(v.id));
+    let result = videos;
+    if (showFavoritesOnly) result = result.filter(v => favoriteIds.has(v.id));
+    if (levelFilter !== 'all') result = result.filter(v => v.jlpt_level === levelFilter);
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(v => v.title.toLowerCase().includes(q));
     }
-    return videos;
-  }, [videos, favoriteIds, showFavoritesOnly]);
+    return result;
+  }, [videos, favoriteIds, showFavoritesOnly, levelFilter, searchQuery]);
 
 
   const parseSubtitles = (text: string): SubtitleEntry[] => {
@@ -377,6 +384,7 @@ export const VideoLearning = () => {
           youtube_id: youtubeId,
           title: newVideoTitle,
           subtitles,
+          jlpt_level: newVideoLevel,
         },
       });
 
@@ -523,6 +531,20 @@ export const VideoLearning = () => {
                 </div>
 
                 <div className="space-y-2">
+                  <Label>Trình độ JLPT</Label>
+                  <Select value={newVideoLevel} onValueChange={setNewVideoLevel}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Chọn trình độ" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {['N5', 'N4', 'N3', 'N2', 'N1'].map(level => (
+                        <SelectItem key={level} value={level}>{level}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="subtitles">Phụ đề (SRT)</Label>
                     {newVideoSubtitles && (
@@ -614,9 +636,35 @@ export const VideoLearning = () => {
           </Dialog>
         </div>
 
-        {/* Favorites Filter */}
+        {/* Filters */}
         {videos.length > 0 && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Search */}
+            <div className="relative flex-1 min-w-[200px]">
+              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Tìm kiếm video..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 h-9 rounded-xl border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+
+            {/* Level filter */}
+            <div className="flex bg-muted rounded-xl p-1 gap-0.5">
+              {['all', 'N5', 'N4', 'N3', 'N2', 'N1'].map(l => (
+                <button key={l}
+                  onClick={() => setLevelFilter(l)}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                    levelFilter === l ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+                  }`}>
+                  {l === 'all' ? 'Tất cả' : l}
+                </button>
+              ))}
+            </div>
+
+            {/* Favorites */}
             <Button
               variant={showFavoritesOnly ? "default" : "outline"}
               size="sm"

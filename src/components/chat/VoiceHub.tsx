@@ -80,11 +80,12 @@ function scorePronunciation(recognized: string, target: string): PronunciationFe
 interface VoiceHubProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: (score: number) => void;
   targetSentence?: string;
   systemPrompt?: string;
 }
 
-export const VoiceHub = ({ isOpen, onClose, targetSentence, systemPrompt }: VoiceHubProps) => {
+export const VoiceHub = ({ isOpen, onClose, onSuccess, targetSentence, systemPrompt }: VoiceHubProps) => {
   const { awardXP } = useXP();
   const { speak, stop: stopTTS, isSpeaking } = useTTS({ lang: 'ja-JP', rate: 0.75 });
 
@@ -145,7 +146,10 @@ export const VoiceHub = ({ isOpen, onClose, targetSentence, systemPrompt }: Voic
       };
       setMessages(prev => [...prev, senseiMsg]);
       speak(senseiJp);
-      if (feedback.score >= 85) awardXP('speaking', 20);
+      if (feedback.score >= 85) {
+        awardXP('speaking', 20);
+        onSuccess?.(feedback.score);
+      }
       else if (feedback.score >= 65) awardXP('speaking', 10);
       processingRef.current = false;
       return;

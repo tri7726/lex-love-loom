@@ -5,7 +5,8 @@ interface DuelState {
   myScore: number;
   opponentScore: number;
   opponentConnected: boolean;
-  currentQuestion: number;
+  myQuestion: number;
+  opponentQuestion: number;
 }
 
 interface AnswerPayload {
@@ -19,7 +20,8 @@ export function useDuelChannel(challengeId: string, userId: string) {
     myScore: 0,
     opponentScore: 0,
     opponentConnected: false,
-    currentQuestion: 0,
+    myQuestion: 0,
+    opponentQuestion: 0,
   });
   const [isConnected, setIsConnected] = useState(false);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -27,7 +29,7 @@ export function useDuelChannel(challengeId: string, userId: string) {
 
   const broadcastAnswer = useCallback(
     (questionIndex: number, score: number) => {
-      setDuelState((prev) => ({ ...prev, myScore: prev.myScore + score, currentQuestion: questionIndex + 1 }));
+      setDuelState((prev) => ({ ...prev, myScore: prev.myScore + score, myQuestion: questionIndex + 1 }));
       channelRef.current?.send({
         type: 'broadcast',
         event: 'player_answer',
@@ -52,7 +54,11 @@ export function useDuelChannel(challengeId: string, userId: string) {
       })
       .on('broadcast', { event: 'player_answer' }, ({ payload }: { payload: AnswerPayload }) => {
         if (payload.playerId === userId) return;
-        setDuelState((prev) => ({ ...prev, opponentScore: prev.opponentScore + payload.score }));
+        setDuelState((prev) => ({ 
+          ...prev, 
+          opponentScore: prev.opponentScore + payload.score,
+          opponentQuestion: payload.questionIndex + 1
+        }));
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {

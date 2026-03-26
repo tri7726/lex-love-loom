@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useSRS } from '@/hooks/useSRS';
 import { cn } from '@/lib/utils';
 import { toast as sonnerToast } from 'sonner';
 import { QuickSelectionLookup } from '@/components/lexicon/QuickSelectionLookup';
@@ -42,6 +43,7 @@ export const JLPTMockExam = () => {
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { syncQuizResult } = useSRS();
 
   const [meta, setMeta] = useState<ExamMeta | null>(null);
   const [questions, setQuestions] = useState<ExamQuestion[]>([]);
@@ -194,6 +196,24 @@ export const JLPTMockExam = () => {
       section_scores: sectionResults,
       passed: overallPassed
     });
+
+    // --- Phase 8: Sync Vocabulary results with SRS ---
+    // We only sync vocabulary questions (section_type: vocabulary_grammar)
+    const vocabQuestions = questions.filter(q => q.section_type === 'vocabulary_grammar');
+    for (const q of vocabQuestions) {
+      const idx = questions.indexOf(q);
+      const isCorrect = answers[idx] === q.correct;
+      
+      // Extract word from question (look for Japanese brackets 「」 or parentheses （）)
+      const match = q.question.match(/[「（(]([^」）)]+)[」）)]/);
+      const word = match ? match[1] : q.question.trim().split(' ').pop() || q.question;
+      
+      if (word) {
+        // Asynchronously sync to avoid blocking UI (non-awaited)
+        syncQuizResult(word, isCorrect).catch(console.error);
+      }
+    }
+
     setSaving(false);
   };
 
