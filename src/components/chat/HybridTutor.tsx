@@ -131,8 +131,14 @@ export const HybridTutor = ({ initialData }: HybridTutorProps) => {
           setResult(data.analysis);
         } else if (data.format === 'grammar' && data.result) {
           setResult(data.result);
-        } else {
+        } else if (data.format && data.analysis) {
+          // Any other format with analysis property
+          setResult(data.analysis);
+        } else if (data.sentences || data.overall_analysis || data.isCorrect !== undefined) {
           setResult(data);
+        } else {
+          console.warn('Unexpected analysis format:', data);
+          toast.error('Không thể hiển thị kết quả phân tích');
         }
       }
     } catch (err) {
