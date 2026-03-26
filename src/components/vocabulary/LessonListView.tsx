@@ -59,8 +59,8 @@ export const LessonListView: React.FC<LessonListViewProps> = ({
               </div>
             </div>
 
-            {/* Lesson Range Selector - For Minna N5 & N4 */}
-            {selectedSeries.id === 'mina' && (selectedLevel.level === 'N5' || selectedLevel.level === 'N4') && (
+            {/* Lesson Range Selector */}
+            {selectedLevel.lessons.length > 3 && (
               <div className="flex-1 max-w-sm space-y-3 bg-muted/30 p-4 rounded-2xl border border-muted-foreground/10">
                 <div className="flex justify-between items-center">
                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Chọn phạm vi học</Label>
@@ -69,9 +69,9 @@ export const LessonListView: React.FC<LessonListViewProps> = ({
                   </Badge>
                 </div>
                 <Slider
-                  defaultValue={selectedLevel.level === 'N4' ? [26, 30] : [1, 5]}
-                  max={selectedLevel.level === 'N4' ? 50 : 25}
-                  min={selectedLevel.level === 'N4' ? 26 : 1}
+                  defaultValue={lessonRange}
+                  max={selectedSeries.id === 'mina' ? (selectedLevel.level === 'N4' ? 50 : 25) : selectedLevel.lessons.length}
+                  min={selectedSeries.id === 'mina' ? (selectedLevel.level === 'N4' ? 26 : 1) : 1}
                   step={1}
                   value={lessonRange}
                   onValueChange={(v) => setLessonRange(v as [number, number])}

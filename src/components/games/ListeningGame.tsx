@@ -34,6 +34,8 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
   const [correctCount, setCorrectCount] = useState(0);
   const [gameComplete, setGameComplete] = useState(false);
   const [hasPlayed, setHasPlayed] = useState(false);
+  const [isBlind, setIsBlind] = useState(false);
+  const [playbackRate, setPlaybackRate] = useState(1);
 
   // Generate questions
   const questions = useMemo(() => {
@@ -71,7 +73,7 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
       speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'ja-JP';
-      utterance.rate = 0.7;
+      utterance.rate = playbackRate * 0.7; // Base rate adjusted by multiplier
       speechSynthesis.speak(utterance);
     }
   };
@@ -188,14 +190,43 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
   return (
     <div className="max-w-2xl mx-auto space-y-8">
       {/* Progress */}
-      <div className="space-y-2 px-2">
-        <div className="flex justify-between items-end mb-1">
-          <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-100 px-3 py-1 rounded-full text-xs font-bold">
-            Câu {currentIndex + 1} / {questions.length}
-          </Badge>
+      <div className="space-y-4 px-2">
+        <div className="flex justify-between items-center transition-all duration-300">
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-100 px-3 py-1 rounded-full text-xs font-bold">
+              Câu {currentIndex + 1} / {questions.length}
+            </Badge>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsBlind(!isBlind)}
+              className={cn(
+                "h-8 text-[10px] uppercase font-bold tracking-wider rounded-lg transition-colors",
+                isBlind ? "bg-orange-100 text-orange-600" : "text-orange-400 hover:text-orange-600"
+              )}
+            >
+              {isBlind ? 'Ẩn chữ (ON)' : 'Ẩn chữ (OFF)'}
+            </Button>
+          </div>
+          
+          <div className="flex items-center gap-1 bg-white/50 backdrop-blur-sm p-1 rounded-xl border border-orange-100">
+            {[0.75, 1, 1.25].map((rate) => (
+              <button
+                key={rate}
+                onClick={() => setPlaybackRate(rate)}
+                className={cn(
+                  "px-2 py-0.5 text-[10px] font-bold rounded-lg transition-all",
+                  playbackRate === rate ? "bg-orange-500 text-white shadow-sm" : "text-orange-400 hover:bg-orange-100"
+                )}
+              >
+                {rate}x
+              </button>
+            ))}
+          </div>
+
           <div className="flex items-center gap-2 bg-green-50 px-3 py-1 rounded-full border border-green-100">
             <CheckCircle2 className="h-4 w-4 text-green-500" />
-            <span className="text-sm font-bold text-green-600">{correctCount} đúng</span>
+            <span className="text-sm font-bold text-green-600">{correctCount}</span>
           </div>
         </div>
         <div className="h-2 w-full bg-muted rounded-full overflow-hidden shadow-inner">
@@ -271,13 +302,18 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
                   onClick={() => handleAnswer(index)}
                   disabled={showResult}
                 >
-                  <p className={cn(
-                    "font-jp text-3xl font-bold transition-colors",
-                    !showResult ? "text-slate-800" : (showCorrect ? "text-[#166534]" : "text-red-700")
+                  <div className={cn(
+                    "transition-all duration-500",
+                    isBlind && !showResult ? "blur-md opacity-20" : "blur-0 opacity-100"
                   )}>
-                    {option.word}
-                  </p>
-                  <p className="text-sm text-muted-foreground line-clamp-2">{option.reading}</p>
+                    <p className={cn(
+                      "font-jp text-3xl font-bold transition-colors",
+                      !showResult ? "text-slate-800" : (showCorrect ? "text-[#166534]" : "text-red-700")
+                    )}>
+                      {option.word}
+                    </p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{option.reading}</p>
+                  </div>
                   
                   {showResult && (
                     <div className="mt-1">

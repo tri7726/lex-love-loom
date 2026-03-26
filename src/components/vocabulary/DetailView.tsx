@@ -16,6 +16,7 @@ import { SpeedGame } from '@/components/games/SpeedGame';
 import { ListeningGame } from '@/components/games/ListeningGame';
 import { WriteGame } from '@/components/games/WriteGame';
 import { PronunciationGame } from '@/components/games/PronunciationGame';
+import { MatchGame } from '@/components/games/MatchGame';
 
 interface DetailViewProps {
   selectedSeries: TextbookSeries;
@@ -69,6 +70,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
         {activeGame === 'speed' && <SpeedGame vocabulary={words as VocabularyItem[]} onComplete={() => setActiveGame(null)} onUpdateMastery={() => {}} onBack={() => setActiveGame(null)} />}
         {activeGame === 'listening' && <ListeningGame vocabulary={words as VocabularyItem[]} onComplete={() => setActiveGame(null)} onUpdateMastery={() => {}} onBack={() => setActiveGame(null)} />}
         {activeGame === 'writing' && <WriteGame vocabulary={words as VocabularyItem[]} onComplete={() => setActiveGame(null)} onUpdateMastery={() => {}} onBack={() => setActiveGame(null)} />}
+        {activeGame === 'match' && <MatchGame vocabulary={words as VocabularyItem[]} onUpdateMastery={() => {}} onBack={() => setActiveGame(null)} />}
         {activeGame === 'pronunciation' && <PronunciationGame words={words as VocabularyItem[]} onFinish={() => setActiveGame(null)} />}
       </motion.div>
     );
@@ -156,10 +158,11 @@ export const DetailView: React.FC<DetailViewProps> = ({
             <motion.div key={word.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.015 }}>
               <Card
                 className={cn(
-                  'group transition-all duration-200 hover:shadow-md cursor-pointer border',
+                  'notranslate group transition-all duration-200 hover:shadow-md cursor-pointer border',
                   flashcardIndex === idx && 'ring-2 ring-primary/30 border-primary/40',
                   idx % 2 === 0 ? 'bg-card' : 'bg-muted/20'
                 )}
+                translate="no"
                 onClick={() => { setFlashcardIndex(idx); setIsFlipped(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
               >
                 <CardContent className="p-4 flex items-center gap-4">

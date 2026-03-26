@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Timer, Trophy, Flame, RotateCcw, ChevronLeft, Sparkles, Star } from 'lucide-react';
+import { Zap, Timer, Trophy, Flame, RotateCcw, ChevronLeft, Sparkles, Star, Heart, HeartOff } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -40,6 +40,7 @@ export const SpeedGame: React.FC<SpeedGameProps> = ({
   const [showFeedback, setShowFeedback] = useState(false);
   const [gameComplete, setGameComplete] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
+  const [lives, setLives] = useState(3);
 
   // Generate questions
   const questions = useMemo(() => {
@@ -84,6 +85,14 @@ export const SpeedGame: React.FC<SpeedGameProps> = ({
       setCorrectCount((prev) => prev + 1);
     } else {
       setCombo(0);
+      setLives((prev) => {
+        const newLives = prev - 1;
+        if (newLives <= 0) {
+          // End game immediately if no lives left
+          setTimeout(() => setGameComplete(true), 600);
+        }
+        return newLives;
+      });
     }
 
     if (currentQuestion) {
@@ -92,17 +101,19 @@ export const SpeedGame: React.FC<SpeedGameProps> = ({
 
     // Move to next question after brief delay
     setTimeout(() => {
-      if (currentIndex + 1 >= questions.length) {
+      if (lives > 0 && currentIndex + 1 < questions.length) {
+        setCurrentIndex((prev) => prev + 1);
+        // Decrease time as we progress: 5s -> 3s min
+        const nextTime = Math.max(2.5, QUESTION_TIME - (currentIndex * 0.2));
+        setTimeLeft(nextTime);
+        setSelectedAnswer(null);
+        setShowFeedback(false);
+      } else if (lives > 0 || currentIndex + 1 >= questions.length) {
         setGameComplete(true);
         onComplete({
           correct: correctCount + (isCorrect ? 1 : 0),
           total: questions.length,
         });
-      } else {
-        setCurrentIndex((prev) => prev + 1);
-        setTimeLeft(QUESTION_TIME);
-        setSelectedAnswer(null);
-        setShowFeedback(false);
       }
     }, 600);
   }, [currentIndex, currentQuestion, combo, timeLeft, showFeedback, questions.length, correctCount, onComplete, onUpdateMastery]);
@@ -134,6 +145,7 @@ export const SpeedGame: React.FC<SpeedGameProps> = ({
     setShowFeedback(false);
     setGameComplete(false);
     setCorrectCount(0);
+    setLives(3);
   };
 
   if (gameComplete) {
@@ -217,6 +229,24 @@ export const SpeedGame: React.FC<SpeedGameProps> = ({
             </div>
             <span className="text-xl font-bold text-rose-800">{score}</span>
           </div>
+
+          <div className="flex items-center gap-1">
+            {[...Array(3)].map((_, i) => (
+              <motion.div
+                key={i}
+                initial={{ scale: 1 }}
+                animate={{ scale: i < lives ? [1, 1.2, 1] : 1 }}
+                transition={{ duration: 0.3 }}
+              >
+                {i < lives ? (
+                  <Heart className="h-5 w-5 text-rose-500 fill-rose-500" />
+                ) : (
+                  <HeartOff className="h-5 w-5 text-slate-300" />
+                )}
+              </motion.div>
+            ))}
+          </div>
+
           <AnimatePresence>
             {combo > 1 && (
               <motion.div
@@ -226,7 +256,7 @@ export const SpeedGame: React.FC<SpeedGameProps> = ({
                 className="flex items-center gap-2 bg-orange-50 px-3 py-1 rounded-full border border-orange-100 shadow-sm"
               >
                 <Flame className="h-4 w-4 text-orange-500" />
-                <span className="font-bold text-orange-600">{combo}x Combo</span>
+                <span className="font-bold text-orange-600">{combo}x</span>
               </motion.div>
             )}
           </AnimatePresence>

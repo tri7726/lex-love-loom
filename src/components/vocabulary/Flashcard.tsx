@@ -104,10 +104,12 @@ export const Flashcard: React.FC<FlashcardProps> = ({
                         <Star className={cn('h-6 w-6', isWordSaved(currentWord.word) && 'fill-amber-400 text-amber-400')} />
                       </Button>
                     )}
-                    <p className="text-6xl md:text-7xl font-jp text-rose-800 mb-4 drop-shadow-sm">{currentWord.word}</p>
-                    {currentWord.reading && (
-                      <p className="text-xl text-rose-400 font-jp">{currentWord.reading}</p>
-                    )}
+                    <div className="notranslate" translate="no">
+                      <p className="text-6xl md:text-7xl font-jp text-rose-800 mb-4 drop-shadow-sm">{currentWord.word}</p>
+                      {currentWord.reading && (
+                        <p className="text-xl text-rose-400 font-jp">{currentWord.reading}</p>
+                      )}
+                    </div>
                     <div className="mt-4 flex items-center justify-center gap-2">
                       <span className="text-xs text-rose-400 border border-rose-200 rounded-full px-3 py-1">
                         nhấp để lật
@@ -127,7 +129,7 @@ export const Flashcard: React.FC<FlashcardProps> = ({
                     {currentWord.hanviet && (
                       <p className="text-base text-amber-400/80 uppercase tracking-widest font-medium">{currentWord.hanviet}</p>
                     )}
-                    <p className="text-lg text-rose-400 font-jp mt-2">{currentWord.word} {currentWord.reading && `(${currentWord.reading})`}</p>
+                    <p className="notranslate text-lg text-rose-400 font-jp mt-2" translate="no">{currentWord.word} {currentWord.reading && `(${currentWord.reading})`}</p>
                   </motion.div>
                 )}
               </AnimatePresence>

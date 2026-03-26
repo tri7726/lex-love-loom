@@ -94,6 +94,10 @@ export function useVocabulary() {
     setSelectedLevel(level);
     if (series.id === 'mina') {
       setLessonRange(level.level === 'N5' ? [1, 5] : [26, 30]);
+    } else {
+      // For Tango and other series, lessons start from 1
+      const maxRange = Math.min(5, level.lessons.length);
+      setLessonRange([1, maxRange]);
     }
     setView('lessons');
   };

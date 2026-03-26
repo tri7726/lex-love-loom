@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Volume2, CheckCircle2, XCircle, ArrowRight, HelpCircle, BookOpen, Languages, ChevronLeft, Sparkles, Trophy, RotateCcw } from 'lucide-react';
+import { Volume2, CheckCircle2, XCircle, ArrowRight, HelpCircle, BookOpen, Languages, ChevronLeft, Sparkles, Trophy, RotateCcw, Keyboard, Delete } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,9 +31,50 @@ export const WriteGame: React.FC<WriteGameProps> = ({
   const [showResult, setShowResult] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
+  const [hintCount, setHintCount] = useState(0);
   const [showHint, setShowHint] = useState(false);
   const [gameComplete, setGameComplete] = useState(false);
+  const [showKeyboard, setShowKeyboard] = useState(false);
+  const [keyboardType, setKeyboardType] = useState<'hira' | 'kata'>('hira');
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const HIRAGANA_GRID = [
+    ['あ', 'い', 'う', 'え', 'お'],
+    ['か', 'き', 'く', 'け', 'こ'],
+    ['さ', 'し', 'す', 'せ', 'そ'],
+    ['た', 'ち', 'つ', 'て', 'と'],
+    ['な', 'に', 'ぬ', 'ね', 'の'],
+    ['は', 'ひ', 'ふ', 'へ', 'ほ'],
+    ['ま', 'み', 'む', 'め', 'も'],
+    ['や', '（', 'ゆ', '）', 'よ'],
+    ['ら', 'り', 'る', 'れ', 'ろ'],
+    ['わ', '（', 'を', '）', 'ん'],
+    ['が', 'ぎ', 'ぐ', 'げ', 'ご'],
+    ['ざ', 'じ', 'ず', 'ぜ', 'ぞ'],
+    ['だ', 'ぢ', 'づ', 'で', 'ど'],
+    ['ば', 'び', 'ぶ', 'べ', 'ぼ'],
+    ['ぱ', 'ぴ', 'ぷ', 'ぺ', 'ぽ'],
+    ['ゃ', 'ゅ', 'ょ', 'っ', 'ー'],
+  ];
+
+  const KATAKANA_GRID = [
+    ['ア', 'イ', 'ウ', 'エ', 'オ'],
+    ['カ', 'キ', 'ク', 'ケ', 'コ'],
+    ['サ', 'シ', 'ス', 'セ', 'ソ'],
+    ['タ', 'チ', 'ツ', 'テ', 'ト'],
+    ['ナ', 'ニ', 'ヌ', 'ネ', 'ノ'],
+    ['ハ', 'ヒ', 'フ', 'ヘ', 'ホ'],
+    ['マ', 'ミ', 'ム', 'メ', 'モ'],
+    ['ヤ', '（', 'ユ', '）', 'ヨ'],
+    ['ラ', 'リ', 'ル', 'レ', 'ロ'],
+    ['ワ', '（', 'ヲ', '）', 'ン'],
+    ['ガ', 'ギ', 'グ', 'ゲ', 'ゴ'],
+    ['ザ', 'ジ', 'ズ', 'ゼ', 'ゾ'],
+    ['ダ', 'ヂ', 'ヅ', 'デ', 'ド'],
+    ['バ', 'ビ', 'ブ', 'ベ', 'ボ'],
+    ['パ', 'ピ', 'プ', 'ぺ', 'ポ'],
+    ['ャ', 'ュ', 'ョ', 'ッ', 'ー'],
+  ];
 
   // Only use words that have reading (needed for answer checking)
   const validVocabulary = useMemo(() =>
@@ -64,7 +105,14 @@ export const WriteGame: React.FC<WriteGameProps> = ({
   };
 
   const normalizeText = (text: string): string => {
-    return text.trim().toLowerCase().replace(/\s/g, '');
+    // Basic normalization: trim, lowercase, remove spaces
+    let normalized = text.trim().toLowerCase().replace(/\s/g, '');
+    
+    // Hiragana to Katakana conversion for more flexible checking
+    // (Helps if user types hiragana for a katakana word)
+    return normalized.replace(/[\u3041-\u3096]/g, (ch) => 
+      String.fromCharCode(ch.charCodeAt(0) + 0x60)
+    );
   };
 
   const checkAnswer = () => {
@@ -96,6 +144,7 @@ export const WriteGame: React.FC<WriteGameProps> = ({
       setShowResult(false);
       setIsCorrect(false);
       setShowHint(false);
+      setHintCount(0);
     }
   };
 
@@ -106,12 +155,30 @@ export const WriteGame: React.FC<WriteGameProps> = ({
     setIsCorrect(false);
     setCorrectCount(0);
     setShowHint(false);
+    setHintCount(0);
     setGameComplete(false);
   };
 
   const getHint = () => {
     const reading = currentQuestion?.reading || '';
-    return reading.slice(0, Math.ceil(reading.length / 2)) + '...';
+    const visibleLength = Math.min(hintCount, reading.length);
+    return reading.slice(0, visibleLength) + '_'.repeat(reading.length - visibleLength);
+  };
+
+  const handleHintClick = () => {
+    setShowHint(true);
+    setHintCount((prev) => prev + 1);
+  };
+
+  const handleKeyClick = (char: string) => {
+    if (char === '（' || char === '）') return;
+    setUserInput(prev => prev + char);
+    inputRef.current?.focus();
+  };
+
+  const handleVirtualBackspace = () => {
+    setUserInput(prev => prev.slice(0, -1));
+    inputRef.current?.focus();
   };
 
   // ─── Mode Selection ───
@@ -119,12 +186,12 @@ export const WriteGame: React.FC<WriteGameProps> = ({
     return (
       <div className="space-y-10 py-6 max-w-3xl mx-auto">
         <div className="text-center space-y-4">
-          <div className="inline-block p-4 bg-rose-50 rounded-[2rem] border border-rose-100 shadow-sm relative">
-            <Languages className="h-10 w-10 text-rose-500" />
+          <div className="inline-block p-4 bg-sky-50 rounded-[2rem] border border-sky-100 shadow-sm relative">
+            <Languages className="h-10 w-10 text-sky-500" />
             <Sparkles className="absolute -top-1 -right-1 h-5 w-5 text-amber-300 animate-pulse" />
           </div>
           <div className="space-y-2">
-            <h2 className="text-3xl font-display font-bold text-rose-900 tracking-tight">Chế độ Viết</h2>
+            <h2 className="text-3xl font-display font-bold text-sky-900 tracking-tight">Chế độ Viết</h2>
             <p className="text-muted-foreground max-w-sm mx-auto">Nâng tầm kỹ năng viết Hiragana và ghi nhớ mặt chữ Kanji</p>
           </div>
         </div>
@@ -137,9 +204,9 @@ export const WriteGame: React.FC<WriteGameProps> = ({
               title: 'Kanji → Reading',
               desc: 'Nhìn Kanji, gõ cách đọc Hiragana tương ứng',
               example: '学校 → がっこう',
-              gradient: 'from-rose-50 via-pink-50 to-white',
-              border: 'border-rose-100 hover:border-rose-300',
-              iconColor: 'bg-rose-100 text-rose-600',
+              gradient: 'from-sky-50 via-indigo-50 to-white',
+              border: 'border-sky-100 hover:border-sky-300',
+              iconColor: 'bg-sky-100 text-sky-600',
             },
             {
               mode: 'meaning-to-reading' as WriteMode,
@@ -168,7 +235,7 @@ export const WriteGame: React.FC<WriteGameProps> = ({
                     <h3 className="font-bold text-xl text-slate-800">{title}</h3>
                     <p className="text-sm text-slate-500 leading-relaxed">{desc}</p>
                   </div>
-                  <div className="bg-white/80 backdrop-blur-sm rounded-2xl px-4 py-3 text-sm font-jp border border-white shadow-soft inline-block mx-auto text-rose-600 font-medium italic">
+                  <div className="bg-white/80 backdrop-blur-sm rounded-2xl px-4 py-3 text-sm font-jp border border-white shadow-soft inline-block mx-auto text-sky-600 font-medium italic">
                     {example}
                   </div>
                 </CardContent>
@@ -201,8 +268,8 @@ export const WriteGame: React.FC<WriteGameProps> = ({
         animate={{ opacity: 1, scale: 1 }}
         className="max-w-md mx-auto"
       >
-        <Card className="border-0 shadow-2xl overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-indigo-50 via-white to-rose-50">
-          <div className="h-2 bg-gradient-to-r from-rose-400 via-pink-400 to-indigo-500" />
+        <Card className="border-0 shadow-2xl overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-indigo-50 via-white to-sky-50">
+          <div className="h-2 bg-gradient-to-r from-sky-400 via-indigo-400 to-indigo-500" />
           <CardHeader className="pb-2">
             <CardTitle className="text-3xl font-display font-bold text-center text-slate-800 flex items-center justify-center gap-2">
               <Trophy className="h-8 w-8 text-amber-500" />
@@ -224,10 +291,10 @@ export const WriteGame: React.FC<WriteGameProps> = ({
 
             <div className="bg-white/60 backdrop-blur-sm p-6 rounded-2xl border border-rose-100 text-center">
               <p className="text-lg text-slate-800 leading-relaxed">
-                Bạn viết đúng <span className="font-bold text-rose-600">{correctCount}</span> / {questions.length} từ
+                Bạn viết đúng <span className="font-bold text-sky-600">{correctCount}</span> / {questions.length} từ
               </p>
               <div className="mt-3">
-                <Badge variant="outline" className="bg-rose-50 text-rose-600 border-rose-100">
+                <Badge variant="outline" className="bg-sky-50 text-sky-600 border-sky-100">
                   Chế độ: {writeMode === 'word-to-reading' ? 'Kanji → Reading' : 'Nghĩa → Reading'}
                 </Badge>
               </div>
@@ -236,7 +303,7 @@ export const WriteGame: React.FC<WriteGameProps> = ({
             <div className="flex flex-col gap-3 pt-2">
               <button 
                 onClick={restartGame} 
-                className="w-full gap-2 bg-gradient-to-r from-rose-500 to-indigo-500 hover:from-rose-600 hover:to-indigo-600 text-white rounded-[1.5rem] py-6 text-lg font-bold shadow-lg shadow-rose-200 transition-all active:scale-95"
+                className="w-full gap-2 bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-600 hover:to-indigo-600 text-white rounded-[1.5rem] py-6 text-lg font-bold shadow-lg shadow-sky-200 transition-all active:scale-95"
               >
                 <RotateCcw className="h-5 w-5 inline-block mr-2" />
                 Luyện tập tiếp
@@ -277,7 +344,7 @@ export const WriteGame: React.FC<WriteGameProps> = ({
       <div className="space-y-2 px-2">
         <div className="flex justify-between items-end mb-1">
           <div className="flex gap-2 items-center">
-            <Badge className="bg-rose-50 text-rose-600 border-rose-100 px-3 py-1 rounded-full text-xs font-bold hover:bg-rose-100 transition-colors">
+            <Badge className="bg-sky-50 text-sky-600 border-sky-100 px-3 py-1 rounded-full text-xs font-bold hover:bg-sky-100 transition-colors">
               {writeMode === 'word-to-reading' ? 'Kanji → Reading' : 'Nghĩa → Reading'}
             </Badge>
             <span className="text-sm font-medium text-slate-400">Câu {currentIndex + 1} / {questions.length}</span>
@@ -289,7 +356,7 @@ export const WriteGame: React.FC<WriteGameProps> = ({
         </div>
         <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner">
           <motion.div 
-            className="h-full bg-gradient-to-r from-rose-400 to-indigo-500"
+            className="h-full bg-gradient-to-r from-sky-400 to-indigo-500"
             animate={{ width: `${progress}%` }}
             transition={{ duration: 0.3 }}
           />
@@ -315,10 +382,13 @@ export const WriteGame: React.FC<WriteGameProps> = ({
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="bg-amber-50 rounded-2xl p-4 border border-amber-100 inline-block mt-4 flex items-center gap-3 mx-auto"
+                  className="bg-amber-50 rounded-2xl p-4 border border-amber-100 inline-block mt-4 flex flex-col items-center gap-1 mx-auto"
                 >
-                  <Sparkles className="h-5 w-5 text-amber-500" />
-                  <p className="text-xl text-amber-700 font-jp font-bold tracking-widest">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-amber-500" />
+                    <span className="text-xs font-bold text-amber-600 uppercase tracking-tighter">Gợi ý cách đọc</span>
+                  </div>
+                  <p className="text-3xl font-jp font-black tracking-[0.2em] text-amber-700">
                     {getHint()}
                   </p>
                 </motion.div>
@@ -327,6 +397,28 @@ export const WriteGame: React.FC<WriteGameProps> = ({
           </div>
         </CardContent>
       </Card>
+
+      {/* Real-time Feedback visualization */}
+      <div className="flex justify-center h-12">
+        <div className="flex gap-1">
+          {currentQuestion.reading.split('').map((char, i) => {
+            const typedChar = userInput[i];
+            const isMatch = typedChar === char;
+            const hasTyped = typedChar !== undefined;
+            return (
+              <div 
+                key={i} 
+                className={cn(
+                  "w-10 h-10 flex items-center justify-center rounded-lg border-2 font-jp text-xl transition-all duration-200",
+                  !hasTyped ? "border-slate-100 bg-white/50 text-slate-200" : (isMatch ? "border-green-400 bg-green-50 text-green-600 font-bold" : "border-red-300 bg-red-50 text-red-500")
+                )}
+              >
+                {hasTyped ? typedChar : '?'}
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Interactive Input Form */}
       <form onSubmit={handleSubmit} className="space-y-6 px-4">
@@ -338,11 +430,25 @@ export const WriteGame: React.FC<WriteGameProps> = ({
             placeholder="Gõ Hiragana tại đây..."
             className={cn(
               "text-3xl font-jp py-12 text-center rounded-[2rem] border-2 transition-all shadow-lg",
-              !showResult ? "border-slate-200 focus:border-rose-400 focus:ring-4 focus:ring-rose-50 bg-white" : (isCorrect ? "bg-green-50 border-green-500 text-green-800" : "bg-red-50 border-red-500 text-red-800")
+              !showResult ? "border-slate-200 focus:border-sky-400 focus:ring-4 focus:ring-sky-50 bg-white" : (isCorrect ? "bg-green-50 border-green-500 text-green-800" : "bg-red-50 border-red-500 text-red-800")
             )}
             disabled={showResult}
             autoComplete="off"
           />
+          <div className="absolute left-6 top-1/2 -translate-y-1/2 flex gap-2">
+             <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowKeyboard(!showKeyboard)}
+                className={cn(
+                  "h-12 w-12 rounded-2xl transition-all",
+                  showKeyboard ? "bg-sky-100 text-sky-600" : "text-slate-400 hover:text-sky-500"
+                )}
+             >
+                <Keyboard className="h-6 w-6" />
+             </Button>
+          </div>
           <AnimatePresence>
             {showResult && (
               <motion.div 
@@ -360,17 +466,79 @@ export const WriteGame: React.FC<WriteGameProps> = ({
           </AnimatePresence>
         </div>
 
+        <AnimatePresence>
+          {showKeyboard && !showResult && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="bg-slate-50 p-6 rounded-[2.5rem] border border-slate-100 shadow-inner space-y-4">
+                <div className="flex justify-center gap-2 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setKeyboardType('hira')}
+                    className={cn(
+                      "px-4 py-1 rounded-full text-xs font-bold transition-all",
+                      keyboardType === 'hira' ? "bg-sky-500 text-white" : "bg-white text-slate-400 border"
+                    )}
+                  >
+                    あ/Hiragana
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setKeyboardType('kata')}
+                    className={cn(
+                      "px-4 py-1 rounded-full text-xs font-bold transition-all",
+                      keyboardType === 'kata' ? "bg-sky-500 text-white" : "bg-white text-slate-400 border"
+                    )}
+                  >
+                    ア/Katakana
+                  </button>
+                </div>
+                
+                <div className="flex flex-wrap gap-1.5 justify-center">
+                  {(keyboardType === 'hira' ? HIRAGANA_GRID : KATAKANA_GRID).flat().map((char, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => handleKeyClick(char)}
+                      disabled={char === '（' || char === '）'}
+                      className={cn(
+                        "w-10 h-10 rounded-xl flex items-center justify-center font-jp text-lg transition-all shadow-sm",
+                        char === '（' || char === '）' 
+                          ? "opacity-0 cursor-default" 
+                          : "bg-white border border-slate-200 hover:border-sky-300 hover:bg-sky-50 active:scale-90"
+                      )}
+                    >
+                      {char}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={handleVirtualBackspace}
+                    className="w-20 h-10 bg-slate-200 rounded-xl flex items-center justify-center hover:bg-slate-300 transition-all active:scale-95"
+                  >
+                    <Delete className="h-5 w-5 text-slate-600" />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {!showResult ? (
           <div className="flex gap-4 justify-center">
             <Button
               type="button"
               variant="outline"
-              onClick={() => setShowHint(true)}
-              disabled={showHint}
+              onClick={handleHintClick}
+              disabled={hintCount >= currentQuestion.reading.length}
               className="px-8 py-7 rounded-2xl border-amber-200 text-amber-600 hover:bg-amber-50 gap-3 font-bold transition-all"
             >
               <HelpCircle className="h-5 w-5" />
-              Gợi ý
+              Gợi ý {hintCount > 0 && `(${hintCount})`}
             </Button>
             <button 
               type="submit" 
@@ -391,7 +559,7 @@ export const WriteGame: React.FC<WriteGameProps> = ({
               <Card className="bg-slate-900 text-white border-0 shadow-xl rounded-[2.5rem]">
                 <CardContent className="py-8 text-center space-y-3">
                   <p className="text-slate-400 font-medium uppercase tracking-widest text-[10px]">Đáp án chính xác</p>
-                  <p className="text-4xl font-jp font-black text-rose-300 tracking-wider transition-all">{currentQuestion.reading}</p>
+                  <p className="text-4xl font-jp font-black text-emerald-400 tracking-wider transition-all">{currentQuestion.reading}</p>
                   <div className="pt-2 flex items-center justify-center gap-2 text-sm text-slate-300 italic">
                     <BookOpen className="h-4 w-4" />
                     {currentQuestion.word} — {currentQuestion.meaning}
@@ -411,7 +579,7 @@ export const WriteGame: React.FC<WriteGameProps> = ({
               </Button>
               <button 
                 onClick={handleNext} 
-                className="flex-1 max-w-[280px] bg-gradient-to-r from-rose-500 to-indigo-500 text-white rounded-[1.5rem] py-5 font-bold shadow-2xl hover:scale-105 transition-all active:scale-95 flex items-center justify-center gap-2"
+                className="flex-1 max-w-[280px] bg-gradient-to-r from-sky-500 to-indigo-500 text-white rounded-[1.5rem] py-5 font-bold shadow-2xl hover:scale-105 transition-all active:scale-95 flex items-center justify-center gap-2"
               >
                 {currentIndex + 1 >= questions.length ? 'Xem kết quả' : 'Câu tiếp theo'}
                 <ArrowRight className="h-5 w-5" />
@@ -422,7 +590,7 @@ export const WriteGame: React.FC<WriteGameProps> = ({
       </form>
       
       <div className="flex justify-center pt-4">
-        <Button variant="ghost" onClick={onBack} className="text-muted-foreground hover:text-rose-500 transition-colors">
+        <Button variant="ghost" onClick={onBack} className="text-muted-foreground hover:text-sky-500 transition-colors">
           Dừng luyện tập
         </Button>
       </div>

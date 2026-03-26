@@ -21,5 +21,5 @@ export interface TextbookSeries {
   levels: JLPTLevel[];
 }
 
-export type GameMode = 'classic' | 'speed' | 'listening' | 'writing' | 'pronunciation';
+export type GameMode = 'classic' | 'speed' | 'listening' | 'writing' | 'pronunciation' | 'match';
 export type ViewState = 'series' | 'lessons' | 'detail' | 'custom-detail';

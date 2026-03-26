@@ -928,7 +928,8 @@ export const Reading = () => {
                             <motion.div
                               key={idx}
                               whileHover={{ scale: 1.02 }}
-                              className="p-4 rounded-2xl bg-sakura-light/20 border border-sakura-light/20 cursor-pointer hover:bg-white dark:hover:bg-slate-900 hover:shadow-md transition-all group shadow-sm overflow-hidden"
+                              className="notranslate p-4 rounded-2xl bg-sakura-light/20 border border-sakura-light/20 cursor-pointer hover:bg-white dark:hover:bg-slate-900 hover:shadow-md transition-all group shadow-sm overflow-hidden"
+                              translate="no"
                               onClick={() => lookupWord(vocab.word)}
                             >
                               <div className="flex items-baseline gap-2 mb-1">

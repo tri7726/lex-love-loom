@@ -20,8 +20,8 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "icons/*.png"],
       manifest: {
-        name: "日本語マスター",
-        short_name: "JP Master",
+        name: "Sakura Nihongo",
+        short_name: "Sakura",
         description: "Ứng dụng học tiếng Nhật toàn diện",
         start_url: "/",
         display: "standalone",

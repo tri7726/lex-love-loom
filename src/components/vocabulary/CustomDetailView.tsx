@@ -13,6 +13,7 @@ import { SpeedGame } from '@/components/games/SpeedGame';
 import { ListeningGame } from '@/components/games/ListeningGame';
 import { WriteGame } from '@/components/games/WriteGame';
 import { PronunciationGame } from '@/components/games/PronunciationGame';
+import { MatchGame } from '@/components/games/MatchGame';
 
 interface CustomDetailViewProps {
   selectedCustomFolder: CustomFolder;
@@ -80,6 +81,7 @@ export const CustomDetailView: React.FC<CustomDetailViewProps> = ({
         {activeGame === 'speed' && <SpeedGame vocabulary={gameVocab} onComplete={onGameComplete} onBack={goBack} onUpdateMastery={onUpdateMastery} />}
         {activeGame === 'listening' && <ListeningGame vocabulary={gameVocab} onComplete={onGameComplete} onBack={goBack} onUpdateMastery={onUpdateMastery} />}
         {activeGame === 'writing' && <WriteGame vocabulary={gameVocab} onComplete={onGameComplete} onBack={goBack} onUpdateMastery={onUpdateMastery} />}
+        {activeGame === 'match' && <MatchGame vocabulary={gameVocab} onUpdateMastery={onUpdateMastery} onBack={goBack} />}
         {activeGame === 'pronunciation' && <PronunciationGame words={gameVocab} onFinish={goBack} />}
       </motion.div>
     );
@@ -201,7 +203,8 @@ export const CustomDetailView: React.FC<CustomDetailViewProps> = ({
           <div className="space-y-2">
             {words.map((word, idx) => (
               <motion.div key={word.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.015 }}>
-                <Card className={cn('group transition-all duration-200 hover:shadow-md cursor-pointer border', flashcardIndex === idx && 'ring-2 ring-rose-300/50 border-rose-300', idx % 2 === 0 ? 'bg-card' : 'bg-muted/20')}
+                <Card className={cn('notranslate group transition-all duration-200 hover:shadow-md cursor-pointer border', flashcardIndex === idx && 'ring-2 ring-rose-300/50 border-rose-300', idx % 2 === 0 ? 'bg-card' : 'bg-muted/20')}
+                  translate="no"
                   onClick={() => { setFlashcardIndex(idx); setIsFlipped(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
                   <CardContent className="p-4 flex items-center gap-4">
                     <div className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0">{idx + 1}</div>
