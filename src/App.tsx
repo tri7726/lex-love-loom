@@ -47,6 +47,7 @@ const StoryModeFrame = React.lazy(() => import("./components/chat/SenseiChatHub/
 const SenseiHub = React.lazy(() => import("./pages/SenseiHub"));
 const PvPBattle = React.lazy(() => import("./pages/PvPBattle").then(m => ({ default: m.PvPBattle })));
 const ExamManager = React.lazy(() => import("./pages/admin/ExamManager").then(m => ({ default: m.ExamManager })));
+const AdminDashboard = React.lazy(() => import("./pages/AdminDashboard"));
 
 const queryClient = new QueryClient();
 
@@ -106,6 +107,7 @@ function App() {
                       <Route path="/quiz/story/:episodeId" element={<StoryModeFrame />} />
                       <Route path="/pvp/:challengeId" element={<PvPBattle />} />
                       <Route path="/admin/exam-manager" element={<ExamManager />} />
+                      <Route path="/admin/dashboard" element={<AdminDashboard />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </Suspense>

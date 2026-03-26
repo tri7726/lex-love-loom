@@ -66,6 +66,8 @@ export const Squads = () => {
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newTags, setNewTags] = useState('');
+  const [search, setSearch] = useState('');
+  const [tab, setTab] = useState<'all' | 'mine'>('all');
 
   const fetchSquads = useCallback(async () => {
     setLoading(true);
@@ -115,7 +117,7 @@ export const Squads = () => {
         tags: s.tags || [],
       }));
 
-      setSquads(formattedSquads);
+      setSquads(mapped);
 
       // Fetch Squad Missions XP (Aggregation since Monday)
       if (user && mySquadIds.size > 0) {

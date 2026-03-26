@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      achievements: {
+        Row: {
+          condition_type: string
+          condition_value: number
+          description: string
+          icon: string
+          id: string
+          title: string
+          xp_reward: number
+        }
+        Insert: {
+          condition_type: string
+          condition_value?: number
+          description: string
+          icon?: string
+          id?: string
+          title: string
+          xp_reward?: number
+        }
+        Update: {
+          condition_type?: string
+          condition_value?: number
+          description?: string
+          icon?: string
+          id?: string
+          title?: string
+          xp_reward?: number
+        }
+        Relationships: []
+      }
       ai_conversations: {
         Row: {
           created_at: string | null
@@ -106,6 +136,48 @@ export type Database = {
           id?: string
           language?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      challenges: {
+        Row: {
+          challenger_id: string
+          challenger_score: number | null
+          completed_at: string | null
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          opponent_id: string
+          opponent_score: number | null
+          status: string | null
+          topic: string
+          winner_id: string | null
+        }
+        Insert: {
+          challenger_id: string
+          challenger_score?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          opponent_id: string
+          opponent_score?: number | null
+          status?: string | null
+          topic: string
+          winner_id?: string | null
+        }
+        Update: {
+          challenger_id?: string
+          challenger_score?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          opponent_id?: string
+          opponent_score?: number | null
+          status?: string | null
+          topic?: string
+          winner_id?: string | null
         }
         Relationships: []
       }
@@ -277,6 +349,27 @@ export type Database = {
           user_id?: string
           word?: string
           word_type?: string | null
+        }
+        Relationships: []
+      }
+      friendships: {
+        Row: {
+          created_at: string | null
+          friend_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          friend_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          friend_id?: string
+          id?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -567,6 +660,142 @@ export type Database = {
         }
         Relationships: []
       }
+      mock_exam_questions: {
+        Row: {
+          audio_url: string | null
+          correct: number
+          created_at: string
+          exam_id: string | null
+          explanation: string | null
+          id: string
+          image_url: string | null
+          options: Json
+          order_index: number | null
+          passage: string | null
+          point_weight: number | null
+          question: string
+          section: string
+          section_type: string | null
+        }
+        Insert: {
+          audio_url?: string | null
+          correct: number
+          created_at?: string
+          exam_id?: string | null
+          explanation?: string | null
+          id?: string
+          image_url?: string | null
+          options: Json
+          order_index?: number | null
+          passage?: string | null
+          point_weight?: number | null
+          question: string
+          section: string
+          section_type?: string | null
+        }
+        Update: {
+          audio_url?: string | null
+          correct?: number
+          created_at?: string
+          exam_id?: string | null
+          explanation?: string | null
+          id?: string
+          image_url?: string | null
+          options?: Json
+          order_index?: number | null
+          passage?: string | null
+          point_weight?: number | null
+          question?: string
+          section?: string
+          section_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mock_exam_questions_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "mock_exams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mock_exam_results: {
+        Row: {
+          completed_at: string
+          exam_id: string | null
+          id: string
+          level: string | null
+          max_score: number | null
+          score: number
+          time_taken: number | null
+          user_id: string | null
+        }
+        Insert: {
+          completed_at?: string
+          exam_id?: string | null
+          id?: string
+          level?: string | null
+          max_score?: number | null
+          score: number
+          time_taken?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          completed_at?: string
+          exam_id?: string | null
+          id?: string
+          level?: string | null
+          max_score?: number | null
+          score?: number
+          time_taken?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mock_exam_results_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "mock_exams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mock_exams: {
+        Row: {
+          created_at: string
+          duration: number
+          id: string
+          is_published: boolean | null
+          level: string
+          passing_total: number | null
+          section_benchmarks: Json | null
+          title: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration: number
+          id?: string
+          is_published?: boolean | null
+          level: string
+          passing_total?: number | null
+          section_benchmarks?: Json | null
+          title: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration?: number
+          id?: string
+          is_published?: boolean | null
+          level?: string
+          passing_total?: number | null
+          section_benchmarks?: Json | null
+          title?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       notebooklm_sessions: {
         Row: {
           cookies: string
@@ -603,7 +832,13 @@ export type Database = {
           furigana_mode: string | null
           id: string
           jlpt_level: string | null
+          last_activity_date: string | null
           longest_streak: number | null
+          push_auth: string | null
+          push_enabled: boolean | null
+          push_endpoint: string | null
+          push_p256dh: string | null
+          push_reminder_time: string | null
           role: string | null
           total_xp: number | null
           updated_at: string
@@ -617,7 +852,13 @@ export type Database = {
           furigana_mode?: string | null
           id?: string
           jlpt_level?: string | null
+          last_activity_date?: string | null
           longest_streak?: number | null
+          push_auth?: string | null
+          push_enabled?: boolean | null
+          push_endpoint?: string | null
+          push_p256dh?: string | null
+          push_reminder_time?: string | null
           role?: string | null
           total_xp?: number | null
           updated_at?: string
@@ -631,7 +872,13 @@ export type Database = {
           furigana_mode?: string | null
           id?: string
           jlpt_level?: string | null
+          last_activity_date?: string | null
           longest_streak?: number | null
+          push_auth?: string | null
+          push_enabled?: boolean | null
+          push_endpoint?: string | null
+          push_p256dh?: string | null
+          push_reminder_time?: string | null
           role?: string | null
           total_xp?: number | null
           updated_at?: string
@@ -765,6 +1012,42 @@ export type Database = {
         }
         Relationships: []
       }
+      roleplay_scenarios: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          difficulty: string | null
+          first_message: string
+          id: string
+          image_url: string | null
+          persona: string
+          system_prompt: string
+          title: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          difficulty?: string | null
+          first_message: string
+          id?: string
+          image_url?: string | null
+          persona: string
+          system_prompt: string
+          title: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          difficulty?: string | null
+          first_message?: string
+          id?: string
+          image_url?: string | null
+          persona?: string
+          system_prompt?: string
+          title?: string
+        }
+        Relationships: []
+      }
       saved_vocabulary: {
         Row: {
           created_at: string
@@ -808,6 +1091,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      speaking_lessons: {
+        Row: {
+          category: string | null
+          color: string | null
+          created_at: string | null
+          icon: string | null
+          id: string
+          level: string | null
+          sentences: Json
+          title: string
+        }
+        Insert: {
+          category?: string | null
+          color?: string | null
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          level?: string | null
+          sentences: Json
+          title: string
+        }
+        Update: {
+          category?: string | null
+          color?: string | null
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          level?: string | null
+          sentences?: Json
+          title?: string
+        }
+        Relationships: []
+      }
+      speaking_practice_results: {
+        Row: {
+          created_at: string
+          id: string
+          japanese_text: string
+          score: number
+          transcription: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          japanese_text: string
+          score: number
+          transcription?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          japanese_text?: string
+          score?: number
+          transcription?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       textbook_vocabulary: {
         Row: {
@@ -951,6 +1294,24 @@ export type Database = {
           mistake_count?: number | null
           user_id?: string
           word?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
         }
         Relationships: []
       }
@@ -1382,6 +1743,33 @@ export type Database = {
         }
         Relationships: []
       }
+      xp_events: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          source: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          source: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          source?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       video_sources_public: {
@@ -1431,6 +1819,13 @@ export type Database = {
         Returns: number
       }
       get_kanji_details: { Args: { kanji_char: string }; Returns: Json }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       update_kanji_progress: {
         Args: {
           p_kanji_id: string
@@ -1442,7 +1837,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1569,6 +1964,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const
