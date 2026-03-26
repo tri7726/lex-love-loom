@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { MINNA_N5_VOCAB } from '@/data/minna-n5';
+import { VocabWord } from '@/types/vocabulary';
 import { cn } from '@/lib/utils';
 import { useXP } from '@/hooks/useXP';
 
