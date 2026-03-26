@@ -385,7 +385,11 @@ export const Index = () => {
             </div>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               {dueCards.map((card) => (
-                <Card key={card.id} className="border-sakura/20 bg-sakura-light/5 hover:bg-sakura/5 transition-colors cursor-pointer group">
+                <Card 
+                  key={card.id} 
+                  className="border-sakura/20 bg-sakura-light/5 hover:bg-sakura/5 transition-colors cursor-pointer group"
+                  onClick={() => navigate('/vocabulary')}
+                >
                   <CardContent className="p-4 text-center space-y-1">
                     <p className="font-jp text-lg font-bold group-hover:text-sakura transition-colors">{card.word}</p>
                     <p className="text-[10px] text-muted-foreground line-clamp-1">{card.meaning}</p>
@@ -401,28 +405,28 @@ export const Index = () => {
           <motion.section
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="p-6 rounded-[2.5rem] bg-gradient-to-br from-indigo-JP/5 to-sakura-light/10 border-2 border-indigo-JP/20 shadow-soft"
+            className="p-6 rounded-[2.5rem] bg-gradient-to-br from-indigo-jp/5 to-sakura-light/10 border-2 border-indigo-jp/20 shadow-soft"
           >
             <div className="flex items-center justify-between mb-6">
               <div className="space-y-1">
-                <h2 className="text-xl font-black flex items-center gap-2 text-indigo-JP">
+                <h2 className="text-xl font-black flex items-center gap-2 text-indigo-jp">
                   <Sparkles className="h-5 w-5" />
                   Gợi ý Luyện viết AI
                 </h2>
                 <p className="text-xs text-muted-foreground font-medium">Bạn đang gặp khó khăn với các chữ này. Luyện viết ngay để nhớ lâu hơn!</p>
               </div>
-              <Badge className="bg-indigo-JP text-white uppercase tracking-widest text-[9px] px-3">Priority</Badge>
+              <Badge className="bg-indigo-jp text-white uppercase tracking-widest text-[9px] px-3">Priority</Badge>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {writingRecs.map((rec) => (
                 <div 
                   key={rec.id} 
-                  className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-indigo-JP/10 flex items-center justify-between group hover:border-indigo-JP/30 transition-all cursor-pointer"
+                  className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-indigo-jp/10 flex items-center justify-between group hover:border-indigo-jp/30 transition-all cursor-pointer"
                   onClick={() => navigate(`/kanji-lab?word=${rec.word}`)}
                 >
                   <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-xl bg-indigo-JP/5 flex items-center justify-center font-jp text-3xl font-black text-indigo-JP">
+                    <div className="h-12 w-12 rounded-xl bg-indigo-jp/5 flex items-center justify-center font-jp text-3xl font-black text-indigo-jp">
                       {rec.word[0]}
                     </div>
                     <div>
@@ -430,7 +434,7 @@ export const Index = () => {
                       <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">{rec.reading}</p>
                     </div>
                   </div>
-                  <Button size="icon" variant="ghost" className="rounded-full group-hover:bg-indigo-JP group-hover:text-white transition-all">
+                  <Button size="icon" variant="ghost" className="rounded-full group-hover:bg-indigo-jp group-hover:text-white transition-all">
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </div>
@@ -440,7 +444,12 @@ export const Index = () => {
         )}
 
         {/* Advanced AI Tools Section */}
-        <section className="space-y-6">
+        <motion.section 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="space-y-6 !mt-12"
+        >
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold flex items-center gap-2">
               <Sparkles className="h-6 w-6 text-primary" />
@@ -506,7 +515,7 @@ export const Index = () => {
               </Card>
             </Link>
           </div>
-        </section>
+        </motion.section>
 
         {/* Social Activity Section */}
         <section className="space-y-6 pt-4">

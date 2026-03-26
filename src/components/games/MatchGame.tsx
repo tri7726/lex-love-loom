@@ -439,7 +439,7 @@ export const MatchGame: React.FC<MatchGameProps> = ({
           {cards.map((card) => {
             const isSelected = selectedCards.find((c) => c.id === card.id);
             const isWrong = wrongMatch.includes(card.id);
-            const isMemory = difficulty === 'hard';
+            const isMemory = difficulty === 'hard' || isMemoryModeToggle;
             const isRevealed = isSelected || isWrong || card.matched;
 
             return (
@@ -510,7 +510,7 @@ export const MatchGame: React.FC<MatchGameProps> = ({
 
       <div className="flex justify-center pt-8">
         <p className="text-[9px] text-slate-300 font-black uppercase tracking-[0.4em]">
-          {difficulty === 'hard' ? 'Memorize and clear the board' : 'Match the items to clear the board'}
+          {difficulty === 'hard' || isMemoryModeToggle ? 'Memorize and clear the board' : 'Match the items to clear the board'}
         </p>
       </div>
     </div>

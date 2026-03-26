@@ -67,9 +67,11 @@ export const Auth = () => {
       if (error) {
         let message = error.message;
         if (error.message.includes('Invalid login credentials')) {
-          message = 'Email hoặc mật khẩu không đúng';
+          message = 'Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.';
         } else if (error.message.includes('Email not confirmed')) {
-          message = 'Vui lòng xác nhận email trước khi đăng nhập';
+          message = 'Vui lòng xác nhận email trước khi đăng nhập. Hãy kiểm tra hộp thư đến của bạn.';
+        } else if (error.message.includes('Too many requests')) {
+          message = 'Quá nhiều yêu cầu. Vui lòng thử lại sau vài phút.';
         }
         throw new Error(message);
       }
@@ -109,6 +111,10 @@ export const Auth = () => {
         let message = error.message;
         if (error.message.includes('User already registered')) {
           message = 'Email này đã được đăng ký. Vui lòng đăng nhập.';
+        } else if (error.message.includes('Password is too short')) {
+          message = 'Mật khẩu quá ngắn. Phải có ít nhất 6 ký tự.';
+        } else if (error.message.includes('Signup disabled')) {
+          message = 'Việc đăng ký hiện đang bị tạm khóa. Vui lòng liên hệ quản trị viên.';
         }
         throw new Error(message);
       }
