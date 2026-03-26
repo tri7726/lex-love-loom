@@ -11,7 +11,6 @@ import {
   Type,
   Book
 } from 'lucide-react';
-import { Navigation } from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -88,8 +87,6 @@ export const EditProfile = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <Navigation />
-      
       <main className="container py-10 max-w-2xl mx-auto space-y-8">
         <Link to={profile ? `/profile/${profile.user_id}` : '/friends'}>
           <Button variant="ghost" className="gap-2 mb-4">

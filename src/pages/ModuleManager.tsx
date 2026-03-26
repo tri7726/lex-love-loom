@@ -7,7 +7,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Navigation } from '@/components/Navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -186,7 +185,6 @@ export const ModuleManager = () => {
   if (!user) {
     return (
       <div className="min-h-screen bg-background pb-20 md:pb-0">
-        <Navigation />
         <main className="container py-6">
           <Card>
             <CardContent className="py-8 text-center">
@@ -200,7 +198,6 @@ export const ModuleManager = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <Navigation />
       <main className="container py-6">
         <div className="max-w-5xl mx-auto space-y-6">
           {/* Header */}

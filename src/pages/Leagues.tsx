@@ -143,8 +143,6 @@ export const Leagues = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <Navigation />
-      
       <main className="container py-10 space-y-8">
         <section className="text-center max-w-2xl mx-auto space-y-4">
           <Badge className="bg-primary/20 text-primary border-primary/30 font-display px-4 py-1">

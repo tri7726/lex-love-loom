@@ -53,14 +53,12 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
     const gameWords = shuffled.slice(0, Math.min(10, vocabulary.length));
 
     return gameWords.map((word): Question => {
-      // Determine question type for this word
       let qType = subMode;
       if (subMode === 'mixed') {
         const types: ClassicSubMode[] = ['kanji-meaning', 'kanji-reading', 'reading-meaning'];
         qType = types[Math.floor(Math.random() * types.length)];
       }
 
-      // Get 3 random wrong answers based on question type
       const wrongAnswers = vocabulary
         .filter((v) => v.id !== word.id)
         .sort(() => Math.random() - 0.5)
@@ -71,7 +69,6 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
           return isReversed ? v.word : v.meaning;
         });
 
-      // Create options array and shuffle
       let correctOption = '';
       if (qType === 'kanji-reading') correctOption = isReversed ? word.word : word.reading;
       else if (qType === 'reading-meaning') correctOption = isReversed ? word.reading : word.meaning;
@@ -87,21 +84,19 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
   const currentQuestion = questions[currentIndex];
   const progress = ((currentIndex + 1) / questions.length) * 100;
 
-  // Timer & Flash Effect
   useEffect(() => {
     if (!difficulty || difficulty === 'peaceful' || gameComplete || showResult) return;
 
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 0.1) {
-          handleAnswer(-1); // Timeout is treated as wrong
+          handleAnswer(-1);
           return 0;
         }
         return prev - 0.1;
       });
     }, 100);
 
-    // Flash effect for Demon/Hell
     if (difficulty === 'demon' || difficulty === 'hell') {
       const flashTimer = setTimeout(() => setIsFlashActive(true), 1500);
       return () => {
@@ -109,7 +104,6 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
         clearTimeout(flashTimer);
       };
     }
-
     return () => clearInterval(timer);
   }, [currentIndex, difficulty, gameComplete, showResult]);
 
@@ -120,11 +114,9 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
     }
   }, [currentIndex, difficulty]);
 
-  // Auto-advance for high difficulties
   useEffect(() => {
     if (showResult && (difficulty === 'demon' || difficulty === 'hell' || difficulty === 'infinite')) {
       const isCorrect = selectedAnswer === currentQuestion?.correctIndex;
-      // If correct, auto-advance after a short reading delay
       if (isCorrect) {
         const delay = difficulty === 'hell' ? 1000 : 2000;
         const autoNext = setTimeout(() => {
@@ -147,7 +139,6 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
 
   const handleAnswer = (index: number) => {
     if (showResult) return;
-
     setSelectedAnswer(index);
     setShowResult(true);
 
@@ -162,7 +153,6 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
     } else {
       setStreak(0);
       setShowStreak(false);
-      // Sudden Death for Hell Mode
       if (difficulty === 'hell') {
         setIsShaking(true);
         setTimeout(() => setIsShaking(false), 500);
@@ -177,7 +167,6 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
   const handleNext = () => {
     if (currentIndex + 1 >= questions.length) {
       if (difficulty === 'infinite') {
-        // Infinite mode reshuffles and continues
         setGameKey(prev => prev + 1);
         setCurrentIndex(0);
         setSelectedAnswer(null);
@@ -225,16 +214,16 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
     return (
       <div className="max-w-4xl mx-auto space-y-10 py-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="text-center space-y-3">
-          <div className="inline-block p-4 bg-sky-50 rounded-3xl border border-sky-100 shadow-sm">
-            <Target className="h-10 w-10 text-sky-500" />
+          <div className="inline-block p-4 bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-50">
+            <Target className="h-10 w-10 text-sakura" />
           </div>
-          <h2 className="text-4xl font-black text-slate-800 tracking-tight">Cổ Điển - Demon Ops</h2>
+          <h2 className="text-4xl font-display font-black text-slate-800 tracking-tight">Cổ Điển - Demon Ops</h2>
           <p className="text-slate-400 font-medium">Chọn chế độ và cấp độ thử thách</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           <div className="space-y-4">
-            <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+            <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2 px-2">
               <BookOpen className="h-4 w-4" /> 1. Chế độ học
             </h3>
             <div className="grid gap-3">
@@ -248,21 +237,21 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
                   key={m.id}
                   onClick={() => setSubMode(m.id as ClassicSubMode)}
                   className={cn(
-                    "w-full p-4 rounded-2xl border-2 text-left transition-all",
+                    "w-full p-5 rounded-[2rem] border transition-all text-left",
                     subMode === m.id 
-                      ? "border-sky-500 bg-sky-50 shadow-lg shadow-sky-100 ring-2 ring-sky-100" 
-                      : "border-slate-100 bg-white hover:border-sky-200"
+                      ? "border-sakura/20 bg-white shadow-[0_15px_30px_-5px_rgba(255,183,197,0.2)] ring-1 ring-sakura/10" 
+                      : "border-slate-100 bg-white/60 hover:border-sakura/10 hover:bg-white"
                   )}
                 >
-                  <p className="font-bold text-slate-800">{m.label}</p>
-                  <p className="text-[10px] text-slate-400">{m.desc}</p>
+                  <p className={cn("font-bold transition-colors", subMode === m.id ? "text-sakura" : "text-slate-800")}>{m.label}</p>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wider font-black mt-0.5">{m.desc}</p>
                 </button>
               ))}
             </div>
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+            <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2 px-2">
               <Sparkles className="h-4 w-4" /> 2. Cấp độ lời nguyền
             </h3>
             <div className="grid grid-cols-2 gap-3">
@@ -278,15 +267,15 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
                   key={d.id}
                   onClick={() => setDifficulty(d.id as ClassicDifficulty)}
                   className={cn(
-                    "p-4 rounded-2xl border-2 text-center transition-all flex flex-col items-center gap-1",
+                    "p-5 rounded-[2rem] border transition-all flex flex-col items-center gap-1 text-center",
                     difficulty === d.id 
-                      ? "border-rose-500 bg-rose-50 shadow-lg shadow-rose-100 ring-2 ring-rose-100" 
-                      : "border-slate-100 bg-white hover:border-rose-200"
+                      ? "border-sakura/20 bg-white shadow-[0_15px_30px_-5px_rgba(255,183,197,0.2)] ring-1 ring-sakura/10" 
+                      : "border-slate-100 bg-white/60 hover:border-sakura/10"
                   )}
                 >
                   <span className="text-2xl mb-1">{d.icon}</span>
-                  <p className="text-xs font-black text-slate-800">{d.label}</p>
-                  <p className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter">{d.desc}</p>
+                  <p className={cn("text-xs font-black transition-colors", difficulty === d.id ? "text-sakura" : "text-slate-800")}>{d.label}</p>
+                  <p className="text-[9px] text-slate-400 uppercase font-black tracking-tighter">{d.desc}</p>
                 </button>
               ))}
             </div>
@@ -294,7 +283,7 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
         </div>
 
         <div className="flex justify-center pt-8">
-           <Button variant="ghost" onClick={onBack} className="rounded-2xl gap-2 text-slate-400">
+           <Button variant="ghost" onClick={onBack} className="rounded-full gap-2 text-slate-400 hover:text-sakura transition-colors">
              <ChevronLeft className="h-4 w-4" /> Quay lại thư viện
            </Button>
         </div>
@@ -312,51 +301,42 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
         animate={{ opacity: 1, scale: 1 }}
         className="max-w-md mx-auto"
       >
-        <Card className="border-0 shadow-2xl overflow-hidden rounded-3xl bg-gradient-to-br from-sky-50 via-white to-blue-50">
-          <div className="h-2 bg-gradient-to-r from-sky-400 via-blue-400 to-indigo-500" />
+        <Card className="border-0 shadow-2xl overflow-hidden rounded-[3rem] bg-white">
+          <div className="h-2 bg-gradient-to-r from-sakura to-pink-300" />
           <CardHeader className="pb-2">
-            <CardTitle className="text-3xl font-display font-bold text-center text-sky-900 flex items-center justify-center gap-2">
+            <CardTitle className="text-3xl font-display font-bold text-center text-slate-800 flex items-center justify-center gap-2">
               <Trophy className="h-8 w-8 text-amber-500" />
               Kết quả
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-8 p-8">
+          <CardContent className="space-y-8 p-10">
             <div className="text-center relative">
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                className="text-7xl font-display font-black bg-gradient-to-br from-sky-600 to-indigo-500 bg-clip-text text-transparent inline-block"
+                className="text-7xl font-display font-black text-sakura bg-clip-text inline-block"
               >
                 {percentage}%
               </motion.div>
-              <p className="text-sky-400 font-medium tracking-widest uppercase text-sm mt-2">Chính xác</p>
-              <Sparkles className="absolute -top-4 -right-4 h-8 w-8 text-amber-300 animate-pulse" />
+              <p className="text-slate-400 font-black tracking-widest uppercase text-[10px] mt-2">Chính xác</p>
+              <Sparkles className="absolute -top-4 -right-4 h-8 w-8 text-amber-200 animate-pulse" />
             </div>
 
-            <div className="bg-white/60 backdrop-blur-sm p-6 rounded-2xl border border-sky-100 text-center">
-              <p className="text-lg text-sky-800">
-                Bạn trả lời đúng <span className="font-bold text-sky-600">{finalScore}</span> / {questions.length} câu
+            <div className="bg-slate-50 p-6 rounded-[2rem] text-center border border-slate-100">
+              <p className="text-lg text-slate-700 font-medium">
+                Bạn trả lời đúng <span className="font-bold text-sakura">{finalScore}</span> / {questions.length} câu
               </p>
               {maxStreak >= 3 && (
                 <p className="text-sm text-amber-600 font-bold mt-1">
                   🔥 Chuỗi dài nhất: {maxStreak}
                 </p>
               )}
-              <div className="mt-2 text-sm">
-                {percentage >= 80 ? (
-                  <p className="text-green-600 font-bold">🌟 Xuất sắc!</p>
-                ) : percentage >= 60 ? (
-                  <p className="text-amber-600 font-bold">👍 Tốt lắm!</p>
-                ) : (
-                  <p className="text-orange-600 font-bold">💪 Cố gắng thêm nhé!</p>
-                )}
-              </div>
             </div>
 
             <div className="flex flex-col gap-3">
               <button 
                 onClick={restartGame} 
-                className="w-full gap-2 bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-600 hover:to-indigo-600 text-white rounded-2xl py-6 text-lg font-bold shadow-lg shadow-sky-200 transition-all active:scale-95"
+                className="w-full gap-2 bg-slate-900 text-white rounded-[1.5rem] py-6 text-lg font-bold shadow-xl hover:bg-black transition-all active:scale-95"
               >
                 <RotateCcw className="h-5 w-5 inline-block mr-2" />
                 Chơi lại
@@ -364,7 +344,7 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
               <Button 
                 variant="ghost" 
                 onClick={onBack}
-                className="w-full text-sky-500 hover:bg-sky-50 rounded-2xl py-6"
+                className="w-full text-slate-400 hover:text-sakura rounded-2xl py-6"
               >
                 Quay lại danh sách
               </Button>
@@ -381,13 +361,12 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
     <motion.div 
       animate={isShaking ? { x: [-10, 10, -10, 10, 0] } : {}}
       transition={{ duration: 0.4 }}
-      className="max-w-2xl mx-auto space-y-6"
+      className="max-w-2xl mx-auto space-y-8"
     >
-      {/* Progress */}
-      <div className="space-y-2 px-2">
+      <div className="space-y-3 px-2">
         <div className="flex justify-between items-end mb-1">
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="bg-sky-50 text-sky-600 border-sky-100 px-3 py-1 rounded-full text-xs font-bold">
+          <div className="flex items-center gap-3">
+            <Badge variant="outline" className="bg-white text-sakura border-sakura/10 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">
               Câu {currentIndex + 1} {difficulty !== 'infinite' && `/ ${questions.length}`}
             </Badge>
             <Button
@@ -397,80 +376,79 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
                 setIsReversed(!isReversed);
                 restartGame();
               }}
-              className="h-8 text-[10px] uppercase tracking-wider font-bold text-sky-400 hover:text-sky-600"
+              className="h-8 text-[9px] uppercase tracking-widest font-black text-slate-300 hover:text-sakura"
             >
               {isReversed ? 'Nghĩa → Nhật' : 'Nhật → Nghĩa'}
             </Button>
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-5">
             {difficulty !== 'peaceful' && (
               <div className={cn(
-                "flex items-center gap-2 px-3 py-1 rounded-lg border transition-all",
-                timeLeft < 1.5 ? "bg-red-50 border-red-200 text-red-500" : "bg-sky-50 border-sky-100 text-sky-600"
+                "flex items-center gap-2 px-4 py-1.5 rounded-full border transition-all shadow-sm bg-white",
+                timeLeft < 1.5 ? "border-red-200 text-red-500" : "border-slate-50 text-slate-400"
               )}>
                 <Timer className={cn("h-3.5 w-3.5", timeLeft < 1.5 && "animate-pulse")} />
                 <span className="text-sm font-mono font-bold">{timeLeft.toFixed(1)}s</span>
               </div>
             )}
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <AnimatePresence>
                 {showStreak && (
                   <motion.div
                     initial={{ scale: 0, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0, opacity: 0 }}
-                    className="flex items-center gap-1 bg-amber-100 text-amber-600 px-2 py-1 rounded-lg text-xs font-black shadow-sm"
+                    className="flex items-center gap-1.5 bg-amber-50 text-amber-600 px-3 py-1.5 rounded-full text-xs font-black shadow-sm border border-amber-100"
                   >
                     <Sparkles className="h-3 w-3" />
-                    STREAK {streak}
+                    {streak}
                   </motion.div>
                 )}
               </AnimatePresence>
-              <div className="flex items-center gap-1.5 bg-green-50 px-3 py-1 rounded-full border border-green-100">
-                <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                <span className="text-sm font-bold text-green-600">{correctCount}</span>
+              <div className="flex items-center gap-2 bg-white px-4 py-1.5 rounded-full border border-slate-50 shadow-sm">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                <span className="text-sm font-black text-slate-600">{correctCount}</span>
               </div>
             </div>
           </div>
         </div>
-        <div className="h-2 w-full bg-muted rounded-full overflow-hidden shadow-inner">
+        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
           <motion.div 
-            className="h-full bg-gradient-to-r from-sky-400 to-indigo-500"
+            className="h-full bg-gradient-to-r from-sakura to-pink-300"
             animate={{ width: `${progress}%` }}
             transition={{ duration: 0.3 }}
           />
         </div>
       </div>
 
-      {/* Question Card */}
       <motion.div
         key={currentIndex}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <Card className="border-0 shadow-xl rounded-[2.5rem] bg-white overflow-hidden border border-sky-100/50">
-          <CardContent className="py-12 text-center space-y-4">
-            <div className={cn("space-y-4 transition-all duration-300", isFlashActive && !showResult && "blur-xl opacity-0 scale-90")}>
+        <Card className="border-0 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.03)] rounded-[3.5rem] bg-white overflow-hidden border border-slate-50/50">
+          <CardContent className="py-20 text-center space-y-6">
+            <div className={cn("space-y-6 transition-all duration-300", isFlashActive && !showResult && "blur-2xl opacity-0 scale-90")}>
               {isReversed ? (
-                <p className="text-4xl font-display font-medium text-sky-900 px-6">{currentQuestion.word.meaning}</p>
+                <p className="text-4xl font-display font-medium text-slate-800 px-8 leading-relaxed">{currentQuestion.word.meaning}</p>
               ) : (
                 <>
-                  <p className="text-5xl font-jp font-bold text-sky-900">{currentQuestion.word.word}</p>
-                  {currentQuestion.word.reading && (
-                    <p className="text-xl text-sky-400 font-jp font-medium">
+                  <p className="text-6xl font-jp font-black text-slate-800 tracking-tight">{currentQuestion.word.word}</p>
+                  {(showResult || subMode === 'reading-meaning') && currentQuestion.word.reading && (
+                    <p className="text-2xl text-sakura font-jp font-medium tracking-wide">
                       {currentQuestion.word.reading}
                     </p>
                   )}
                 </>
               )}
-              <div className="pt-2">
+              <div className="pt-4">
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
                   onClick={() => speak(currentQuestion.word.word)}
-                  className="gap-2 text-sky-500 hover:text-sky-600 hover:bg-sky-50 rounded-xl px-4"
+                  className="gap-2 border-sakura/20 text-sakura hover:bg-sakura/5 rounded-2xl px-6 h-11 font-bold shadow-sm"
                 >
                   <Volume2 className="h-4 w-4" />
                   Nghe phát âm
@@ -481,8 +459,7 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
         </Card>
       </motion.div>
 
-      {/* Options */}
-      <div className="grid gap-3 pt-2">
+      <div className="grid gap-4 pt-2">
         <AnimatePresence mode="wait">
           {currentQuestion.options.map((option, index) => {
             const isSelected = selectedAnswer === index;
@@ -499,28 +476,31 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
               >
                 <button
                   className={cn(
-                    "w-full py-5 px-6 rounded-2xl border-2 text-left transition-all duration-200 flex items-center group",
-                    !showResult && "bg-white border-muted hover:border-sky-400 hover:bg-sky-50/50 hover:shadow-md",
-                    showCorrect && "bg-[#ebf8f1] border-[#22c55e] text-[#166534] shadow-md",
-                    showWrong && "bg-red-50 border-red-500 text-red-700 shadow-md",
-                    isSelected && !showResult && "border-sky-500 bg-sky-50 ring-2 ring-sky-100",
-                    showResult && !isCorrect && !isSelected && "opacity-50 grayscale-[0.2]"
+                    "w-full py-6 px-8 rounded-3xl border transition-all duration-300 flex items-center group relative overflow-hidden",
+                    !showResult && "bg-white/80 border-slate-100 hover:border-sakura/20 hover:bg-white hover:shadow-xl",
+                    showCorrect && "bg-[#fdfcfd] border-emerald-200 text-emerald-700 shadow-md ring-1 ring-emerald-50",
+                    showWrong && "bg-red-50/50 border-red-200 text-red-700 shadow-md ring-1 ring-red-50",
+                    isSelected && !showResult && "border-sakura bg-white shadow-xl ring-2 ring-sakura/5",
+                    showResult && !isCorrect && !isSelected && "opacity-30 blur-[1px]"
                   )}
                   onClick={() => handleAnswer(index)}
                   disabled={showResult}
                 >
                   <div className={cn(
-                    "w-8 h-8 rounded-lg flex items-center justify-center mr-4 font-bold transition-colors shadow-sm",
-                    !showResult && "bg-muted text-muted-foreground group-hover:bg-sky-100 group-hover:text-sky-600",
-                    showCorrect && "bg-[#22c55e] text-white",
+                    "w-10 h-10 rounded-2xl flex items-center justify-center mr-6 font-black transition-all shadow-sm text-xs",
+                    !showResult && "bg-slate-50 text-slate-300 group-hover:bg-sakura/10 group-hover:text-sakura",
+                    showCorrect && "bg-emerald-500 text-white",
                     showWrong && "bg-red-500 text-white",
-                    isSelected && !showResult && "bg-sky-500 text-white"
+                    isSelected && !showResult && "bg-sakura text-white"
                   )}>
                     {String.fromCharCode(65 + index)}
                   </div>
-                  <span className="text-lg font-medium flex-1">{option}</span>
-                  {showCorrect && <CheckCircle2 className="h-6 w-6 text-green-600 animate-in zoom-in" />}
-                  {showWrong && <XCircle className="h-6 w-6 text-red-600 animate-in zoom-in" />}
+                  <span className={cn(
+                    "text-xl flex-1 text-left font-medium tracking-tight",
+                    showCorrect && "font-black"
+                  )}>{option}</span>
+                  {showCorrect && <CheckCircle2 className="h-6 w-6 text-emerald-500 animate-in zoom-in" />}
+                  {showWrong && <XCircle className="h-6 w-6 text-red-500 animate-in zoom-in" />}
                 </button>
               </motion.div>
             );
@@ -528,29 +508,28 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
         </AnimatePresence>
       </div>
 
-      {/* Next Button */}
       {showResult && (
         <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex justify-center pt-4"
+          className="flex justify-center pt-6"
         >
           <button 
             onClick={handleNext} 
-            className="flex items-center gap-2 bg-sky-900 text-white px-8 py-4 rounded-2xl font-bold shadow-lg hover:bg-sky-950 transition-all active:scale-95"
+            className="flex items-center gap-3 bg-slate-900 text-white px-12 py-5 rounded-[2rem] font-black text-lg shadow-2xl hover:bg-black transition-all active:scale-95 group"
           >
             {currentIndex + 1 >= questions.length ? 'Xem kết quả' : 'Câu tiếp theo'}
-            <ArrowRight className="h-5 w-5" />
+            <ArrowRight className="h-6 w-6 group-hover:translate-x-1 transition-transform" />
           </button>
         </motion.div>
       )}
 
       {!showResult && (
-        <div className="flex justify-center pt-4">
+        <div className="flex justify-center pt-6">
           <Button 
             variant="ghost" 
             onClick={onBack}
-            className="text-muted-foreground gap-2 hover:text-sky-600"
+            className="text-slate-300 gap-2 hover:text-sakura rounded-full font-bold px-8"
           >
             <ChevronLeft className="h-4 w-4" />
             Dừng ôn tập

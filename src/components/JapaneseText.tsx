@@ -96,14 +96,14 @@ export const JapaneseText: React.FC<JapaneseTextProps> = ({
       className={cn(
         "font-jp transition-all duration-300", 
         sizeClasses[size], 
-        !activeShowFurigana && furigana && "cursor-help opacity-90 hover:opacity-100",
+        !activeShowFurigana && furigana && "cursor-help opacity-100 hover:text-sakura",
         className
       )}
       onClick={handleRubyClick}
     >
       {text}
       {activeShowFurigana && furigana && (
-        <rt className="animate-in fade-in slide-in-from-bottom-1 duration-300">{furigana}</rt>
+        <rt className="animate-in fade-in slide-in-from-bottom-1 duration-300 text-[0.45em] opacity-60 font-medium tracking-tighter mb-0.5">{furigana}</rt>
       )}
     </ruby>
   );
@@ -119,33 +119,35 @@ export const JapaneseText: React.FC<JapaneseTextProps> = ({
           {content}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-4 rounded-[1.5rem] border-2 border-sakura/10 shadow-xl backdrop-blur-md bg-white/90" align="center">
-        <div className="space-y-3">
+      <PopoverContent className="w-72 p-6 rounded-[2.5rem] border-0 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.05)] bg-white/95 backdrop-blur-xl" align="center">
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-2xl font-jp font-black text-slate-800">{text}</span>
+            <span className="text-3xl font-jp font-black text-slate-800 tracking-tighter">{text}</span>
             <Button
               variant="ghost"
               size="icon"
               onClick={speak}
-              className="h-9 w-9 bg-sakura/5 text-sakura hover:bg-sakura hover:text-white rounded-xl transition-all"
+              className="h-10 w-10 bg-slate-50 text-slate-400 hover:bg-sakura/10 hover:text-sakura rounded-xl transition-all"
             >
-              <Volume2 className="h-4 w-4" />
+              <Volume2 className="h-5 w-5" />
             </Button>
           </div>
           {furigana && (
-            <div className="flex items-center gap-2">
-               <Badge variant="outline" className="text-[10px] font-black uppercase text-sakura/50 border-sakura/20">Reading</Badge>
-               <p className="text-sm text-slate-500 font-jp font-bold">{furigana}</p>
+            <div className="flex items-center gap-3">
+               <Badge variant="outline" className="text-[9px] font-black uppercase text-slate-300 border-slate-100 px-2 py-0">Reading</Badge>
+               <p className="text-base text-sakura font-jp font-bold">{furigana}</p>
             </div>
           )}
           {meaning && (
-            <div className="pt-2 border-t border-sakura/10">
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Meaning</p>
-              <p className="text-sm font-bold text-slate-700 leading-relaxed">{meaning}</p>
+            <div className="pt-4 border-t border-slate-50">
+              <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1.5">Nghĩa tiếng Việt</p>
+              <p className="text-base font-display font-medium text-slate-700 leading-relaxed">{meaning}</p>
             </div>
           )}
           {level && (
-            <Badge className="bg-sakura/10 text-sakura border-none text-[9px] font-black">{level}</Badge>
+            <div className="flex justify-end pt-1">
+               <Badge className="bg-sakura/5 text-sakura border-sakura/10 shadow-none text-[9px] font-black px-3 py-0.5 rounded-full">{level}</Badge>
+            </div>
           )}
         </div>
       </PopoverContent>

@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Navigation } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -447,8 +446,6 @@ export const KanjiWorksheet = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
-      
       <main className="max-w-5xl mx-auto px-4 py-8 sm:py-12 space-y-8">
         
         {/* --- Hero Section --- */}

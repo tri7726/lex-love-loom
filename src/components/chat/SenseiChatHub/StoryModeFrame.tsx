@@ -232,11 +232,11 @@ export const StoryModeFrame = () => {
               {episode.title}
             </h2>
             <div className="flex items-center gap-3">
-              <div className="w-48 h-1.5 bg-[#f5eef0] rounded-full overflow-hidden">
+              <div className="w-48 h-1 bg-[#f5eef0] rounded-full overflow-hidden">
                 <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: `${progress}%` }}
-                  className="h-full bg-gradient-to-r from-[#fa4b84] to-[#ffccd5] shadow-[0_0_10px_rgba(250,75,132,0.5)]"
+                   initial={{ width: 0 }}
+                   animate={{ width: `${progress}%` }}
+                   className="h-full bg-sakura shadow-sm"
                 />
               </div>
               <span className="text-[10px] text-[#8c7a82] font-black tracking-widest uppercase">STAGE {currentStageIndex + 1}/{episode.stages.length}</span>
@@ -284,7 +284,7 @@ export const StoryModeFrame = () => {
           <motion.div 
             initial={{ y: -50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="bg-black/40 backdrop-blur-xl border-2 border-red-500/50 p-6 rounded-[24px] shadow-[0_20px_50px_rgba(239,68,68,0.3)]"
+            className="bg-white/90 backdrop-blur-xl border border-slate-50 p-6 rounded-[2.5rem] shadow-xl"
           >
             <div className="flex justify-between items-end mb-3">
               <div className="flex items-center gap-3">
@@ -349,7 +349,7 @@ export const StoryModeFrame = () => {
               animate={{ scale: 1, opacity: 1 }}
               className="relative mx-auto flex justify-center mb-4"
             >
-              <Badge className="bg-[#fa4b84] text-white border-none px-8 py-2 rounded-full font-black tracking-[0.4em] uppercase shadow-[0_10px_30px_rgba(250,75,132,0.4)] animate-pulse">
+              <Badge className="bg-slate-900 text-white border-none px-8 py-2 rounded-full font-black tracking-[0.4em] uppercase shadow-xl">
                 Thử Thách: Cực Hạn
               </Badge>
             </motion.div>
@@ -458,7 +458,7 @@ export const StoryModeFrame = () => {
                   {!currentStage.question && (
                     <Button 
                       onClick={() => handleNext()}
-                      className="group relative h-20 w-20 md:h-24 md:w-24 rounded-full bg-[#fa4b84] text-white p-0 overflow-hidden shadow-[0_15px_35px_rgba(250,75,132,0.4)] hover:bg-[#ff1a66] hover:scale-110 active:scale-90 transition-all duration-500"
+                      className="group relative h-20 w-20 md:h-24 md:w-24 rounded-full bg-slate-900 text-white p-0 overflow-hidden shadow-2xl hover:bg-black hover:scale-110 active:scale-95 transition-all duration-500"
                     >
                       <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover:translate-x-0 transition-transform duration-500" />
                       <ChevronRight className="h-12 w-12 relative z-10" />

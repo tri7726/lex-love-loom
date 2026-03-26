@@ -23,6 +23,25 @@ export const useSenseiChat = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [pendingMeta, setPendingMeta] = useState<{ title: string; mode: SenseiMode; systemPrompt?: string } | null>(null);
 
+  const STORAGE_KEY = `sensei_active_conv_${user?.id || 'guest'}`;
+
+  // Initialize activeConversationId from localStorage
+  useEffect(() => {
+    const savedId = localStorage.getItem(STORAGE_KEY);
+    if (savedId && !activeConversationId && savedId !== 'new') {
+      setActiveConversationId(savedId);
+    }
+  }, [user, STORAGE_KEY]);
+
+  // Sync activeConversationId to localStorage
+  useEffect(() => {
+    if (activeConversationId) {
+      localStorage.setItem(STORAGE_KEY, activeConversationId);
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  }, [activeConversationId, STORAGE_KEY]);
+
   // Fetch conversations and cleanup old ones
   const fetchConversations = useCallback(async () => {
     if (!user) return;
@@ -46,9 +65,10 @@ export const useSenseiChat = () => {
     const mapped: SenseiConversation[] = (data || []).map(item => ({
       id: item.id,
       user_id: item.user_id,
-      title: (item.analysis as any)?.title || item.content.substring(0, 30),
+      title: (item.analysis as any)?.title || (item.content ? item.content.substring(0, 30) : "Hội thoại mới"),
       mode: (item.analysis as any)?.mode || 'tutor',
       is_pinned: (item.analysis as any)?.is_pinned || false,
+      analysis: item.analysis as Json,
       updated_at: item.created_at, // Use created_at as updated_at for now
       created_at: item.created_at
     }));
@@ -99,17 +119,23 @@ export const useSenseiChat = () => {
       if (!conv) return;
 
       // Mocking message flow from the single historical record for now
-      // REAL VERSION would fetch from 'ai_messages'
-      setMessages([
-        { 
-          id: '1', 
-          conversation_id: activeConversationId, 
-          role: 'user', 
-          content: conv.title, 
-          type: 'text', 
-          created_at: conv.created_at 
-        }
-      ]);
+      // REAL VERSION: Extract messages from the 'analysis' JSON column if they exist
+      const analysisObj = conv.analysis as any;
+      if (analysisObj && Array.isArray(analysisObj.messages)) {
+        setMessages(analysisObj.messages);
+      } else {
+        // Fallback for older records or records without message history
+        setMessages([
+          { 
+            id: generateId(), 
+            conversation_id: activeConversationId, 
+            role: 'user', 
+            content: conv.title, 
+            type: 'text', 
+            created_at: conv.created_at 
+          }
+        ]);
+      }
     };
 
     loadMessages();
@@ -240,6 +266,23 @@ export const useSenseiChat = () => {
         if (!error && data) {
           setActiveConversationId(data.id);
           setPendingMeta(null); // Clear pending meta after saving
+          fetchConversations();
+        }
+      } else {
+        // If it's an existing conversation, update the message history in DB
+        const currentConv = conversations.find(c => c.id === activeConversationId);
+        if (currentConv) {
+          const updatedAnalysis = {
+            ...(currentConv as any).analysis || {},
+            messages: [...messages, userMsg, aiMsg]
+          };
+          
+          await supabase
+            .from('analysis_history')
+            .update({ analysis: updatedAnalysis as Json })
+            .eq('id', activeConversationId);
+          
+          // Refresh local conversations to keep everything in sync
           fetchConversations();
         }
       }

@@ -15,7 +15,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Navigation } from '@/components/Navigation';
 import { WordWritingLab } from '@/components/kanji/WordWritingLab';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -53,8 +52,6 @@ export const KanjiLab = () => {
 
   return (
     <div className="min-h-screen bg-background pb-12">
-      <Navigation />
-      
       <main className="container py-8 space-y-8">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">

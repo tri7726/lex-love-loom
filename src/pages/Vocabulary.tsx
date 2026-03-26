@@ -20,7 +20,6 @@ export const Vocabulary = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <Navigation />
       <main className="container py-6 max-w-4xl">
         {state.showKanji ? (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">

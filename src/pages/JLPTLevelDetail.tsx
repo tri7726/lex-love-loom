@@ -19,7 +19,6 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Navigation } from '@/components/Navigation';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { 
@@ -134,8 +133,6 @@ export const JLPTLevelDetail = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <Navigation />
-      
       <main className="container py-8 space-y-8">
         {/* Header & Progress */}
         <div className="space-y-4">

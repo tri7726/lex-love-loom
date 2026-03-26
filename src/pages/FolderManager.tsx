@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Navigation } from '@/components/Navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -303,7 +302,6 @@ export const FolderManager = () => {
   if (!user) {
     return (
       <div className="min-h-screen bg-background pb-20 md:pb-0">
-        <Navigation />
         <main className="container py-6">
           <Card>
             <CardContent className="py-8 text-center">
@@ -317,7 +315,6 @@ export const FolderManager = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <Navigation />
       <main className="container py-6">
         <div className="max-w-4xl mx-auto space-y-6">
           <div className="flex items-center justify-between">

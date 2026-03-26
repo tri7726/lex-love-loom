@@ -14,7 +14,6 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { SakuraSkeleton } from '@/components/ui/SakuraSkeleton';
-import { Navigation } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -311,8 +310,6 @@ export const Messages = () => {
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
-      <Navigation />
-
       <main className="flex-1 container py-6 flex gap-6 min-h-0">
         {/* Chat List */}
         <aside

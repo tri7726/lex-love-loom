@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import { Trophy, Clock, ChevronRight, BarChart, CheckCircle2, AlertCircle, FileText, ArrowLeft, Loader2, Plus } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Navigation } from '@/components/Navigation';
 import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -93,7 +92,6 @@ export const MockTestCenter = () => {
 
   return (
     <div className="min-h-screen bg-background pb-10">
-      <Navigation />
       <main className="container py-4 space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">

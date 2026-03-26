@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import { ProfileProvider } from "@/hooks/useProfile";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { FuriganaProvider } from "@/contexts/FuriganaContext";
 import { AIProvider } from "@/contexts/AIContext";
@@ -16,6 +17,7 @@ import { KanjiLab } from './pages/KanjiLab';
 import { Leagues } from './pages/Leagues';
 import { Auth } from "./pages/Auth";
 import { NotFound } from "./pages/NotFound";
+import { AppLayout } from "./components/layout/AppLayout";
 
 // All other pages lazy-loaded
 const Vocabulary = React.lazy(() => import("./pages/Vocabulary").then(m => ({ default: m.Vocabulary })));
@@ -41,12 +43,11 @@ const UserProfile = React.lazy(() => import("./pages/UserProfile").then(m => ({ 
 const EditProfile = React.lazy(() => import("./pages/EditProfile").then(m => ({ default: m.EditProfile })));
 const Messages = React.lazy(() => import("./pages/Messages").then(m => ({ default: m.Messages })));
 const AdminImport = React.lazy(() => import("./pages/AdminImport").then(m => ({ default: m.AdminImport })));
-const AdminExamManager = React.lazy(() => import("./pages/AdminExamManager").then(m => ({ default: m.AdminExamManager })));
 const StoryMode = React.lazy(() => import("./pages/StoryMode").then(m => ({ default: m.StoryMode })));
 const StoryModeFrame = React.lazy(() => import("./components/chat/SenseiChatHub/StoryModeFrame").then(m => ({ default: m.StoryModeFrame })));
 const SenseiHub = React.lazy(() => import("./pages/SenseiHub"));
 const PvPBattle = React.lazy(() => import("./pages/PvPBattle").then(m => ({ default: m.PvPBattle })));
-const ExamManager = React.lazy(() => import("./pages/admin/ExamManager").then(m => ({ default: m.ExamManager })));
+const AdminExamManager = React.lazy(() => import("./pages/AdminExamManager").then(m => ({ default: m.AdminExamManager })));
 const AdminDashboard = React.lazy(() => import("./pages/AdminDashboard"));
 
 const queryClient = new QueryClient();
@@ -65,58 +66,62 @@ function App() {
     <React.Fragment>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <ThemeProvider>
-            <FuriganaProvider>
-              <AIProvider>
-                <ConfettiProvider>
-                  <TooltipProvider>
-                  <Toaster />
-                  <Sonner />
-                <BrowserRouter>
-                  <Suspense fallback={<PageLoader />}>
-                    <Routes>
-                      <Route path="/" element={<Index />} />
-                      <Route path="/auth" element={<Auth />} />
-                      <Route path="/vocabulary" element={<Vocabulary />} />
-                      <Route path="/reading" element={<Reading />} />
-                      <Route path="/achievements" element={<Achievements />} />
-                      <Route path="/guide" element={<UserGuide />} />
-                      <Route path="/video-learning" element={<VideoLearning />} />
-                      <Route path="/module-manager" element={<ModuleManager />} />
-                      <Route path="/folder-manager" element={<FolderManager />} />
-                      <Route path="/kanji/:character" element={<KanjiDetail />} />
-                      <Route path="/sensei" element={<SenseiHub />} />
-                      <Route path="/learning-path" element={<JLPTPortal />} />
-                      <Route path="/learning-path/:level" element={<JLPTLevelDetail />} />
-                      <Route path="/grammar" element={<GrammarWiki />} />
-                      <Route path="/mock-tests" element={<MockTestCenter />} />
-                      <Route path="/learning-path/:level/unit/:unitId" element={<UnitContent />} />
-                      <Route path="/mock-exam/:examId" element={<JLPTMockExam />} />
-                      <Route path="/kanji-worksheet" element={<KanjiWorksheet />} />
-                      <Route path="/news" element={<News />} />
-                      <Route path="/squads" element={<Squads />} />
-                      <Route path="/challenges" element={<Challenges />} />
-                      <Route path="/friends" element={<Friends />} />
-                      <Route path="/profile/:userId" element={<UserProfile />} />
-                      <Route path="/edit-profile" element={<EditProfile />} />
-                      <Route path="/messages" element={<Messages />} />
-                      <Route path="/leagues" element={<Leagues />} />
-                      <Route path="/kanji-lab" element={<KanjiLab />} />
-                      <Route path="/admin/import" element={<AdminImport />} />
-                      <Route path="/quiz/story" element={<StoryMode />} />
-                      <Route path="/quiz/story/:episodeId" element={<StoryModeFrame />} />
-                      <Route path="/pvp/:challengeId" element={<PvPBattle />} />
-                      <Route path="/admin/exam-manager" element={<ExamManager />} />
-                      <Route path="/admin/dashboard" element={<AdminDashboard />} />
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                  </Suspense>
-                </BrowserRouter>
-                  </TooltipProvider>
-                </ConfettiProvider>
-              </AIProvider>
-            </FuriganaProvider>
-          </ThemeProvider>
+          <ProfileProvider>
+            <ThemeProvider>
+              <FuriganaProvider>
+                <AIProvider>
+                  <ConfettiProvider>
+                    <TooltipProvider>
+                      <Toaster />
+                      <Sonner />
+                      <BrowserRouter>
+                        <Suspense fallback={<PageLoader />}>
+                          <Routes>
+                            <Route path="/auth" element={<Auth />} />
+                            <Route element={<AppLayout />}>
+                              <Route path="/" element={<Index />} />
+                              <Route path="/vocabulary" element={<Vocabulary />} />
+                              <Route path="/reading" element={<Reading />} />
+                              <Route path="/achievements" element={<Achievements />} />
+                              <Route path="/guide" element={<UserGuide />} />
+                              <Route path="/video-learning" element={<VideoLearning />} />
+                              <Route path="/module-manager" element={<ModuleManager />} />
+                              <Route path="/folder-manager" element={<FolderManager />} />
+                              <Route path="/kanji/:character" element={<KanjiDetail />} />
+                              <Route path="/sensei" element={<SenseiHub />} />
+                              <Route path="/learning-path" element={<JLPTPortal />} />
+                              <Route path="/learning-path/:level" element={<JLPTLevelDetail />} />
+                              <Route path="/grammar" element={<GrammarWiki />} />
+                              <Route path="/mock-tests" element={<MockTestCenter />} />
+                              <Route path="/learning-path/:level/unit/:unitId" element={<UnitContent />} />
+                              <Route path="/mock-exam/:examId" element={<JLPTMockExam />} />
+                              <Route path="/kanji-worksheet" element={<KanjiWorksheet />} />
+                              <Route path="/news" element={<News />} />
+                              <Route path="/squads" element={<Squads />} />
+                              <Route path="/challenges" element={<Challenges />} />
+                              <Route path="/friends" element={<Friends />} />
+                              <Route path="/profile/:userId" element={<UserProfile />} />
+                              <Route path="/edit-profile" element={<EditProfile />} />
+                              <Route path="/messages" element={<Messages />} />
+                              <Route path="/leagues" element={<Leagues />} />
+                              <Route path="/kanji-lab" element={<KanjiLab />} />
+                              <Route path="/admin/import" element={<AdminImport />} />
+                              <Route path="/quiz/story" element={<StoryMode />} />
+                              <Route path="/pvp/:challengeId" element={<PvPBattle />} />
+                              <Route path="/admin/exam-manager" element={<AdminExamManager />} />
+                              <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                            </Route>
+                            <Route path="/quiz/story/:episodeId" element={<StoryModeFrame />} />
+                            <Route path="*" element={<NotFound />} />
+                          </Routes>
+                        </Suspense>
+                      </BrowserRouter>
+                    </TooltipProvider>
+                  </ConfettiProvider>
+                </AIProvider>
+              </FuriganaProvider>
+            </ThemeProvider>
+          </ProfileProvider>
         </AuthProvider>
       </QueryClientProvider>
     </React.Fragment>

@@ -118,8 +118,6 @@ export const News = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <Navigation />
-      
       <main className="container py-10 space-y-8">
         <section className="space-y-6">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">

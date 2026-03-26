@@ -20,6 +20,7 @@ export interface SenseiConversation {
   mode: SenseiMode;
   source?: string;
   is_pinned: boolean;
+  analysis?: Json;
   updated_at: string;
   created_at: string;
 }

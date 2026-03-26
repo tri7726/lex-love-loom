@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useToast } from './use-toast';
@@ -14,22 +14,36 @@ export interface Profile {
   jlpt_level: string | null;
   created_at: string;
   updated_at: string;
+  last_activity_date: string | null;
   role: string | null;
-  // Convenience aliases used across components
+  // Convenience aliases
   full_name: string | null;
   level: string | null;
   xp: number;
   streak: number;
 }
 
-export const useProfile = () => {
+interface ProfileContextType {
+  profile: Profile | null;
+  loading: boolean;
+  addXp: (amount: number) => Promise<void>;
+  updateStreak: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
+}
+
+const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
+
+export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     try {
       setLoading(true);
@@ -47,14 +61,15 @@ export const useProfile = () => {
 
       if (profileResult.error) {
         if (profileResult.error.code === 'PGRST116') {
-          console.log('Profile not found, might be still creating...');
+          console.log('Profile not found');
         } else {
           throw profileResult.error;
         }
       } else {
-        const raw = profileResult.data as Record<string, unknown>;
+        const raw = profileResult.data as Record<string, any>;
         const roles = (rolesResult.data || []).map((r: { role: string }) => r.role);
         const topRole = roles.includes('admin') ? 'admin' : roles.includes('moderator') ? 'moderator' : 'user';
+        
         setProfile({
           ...raw,
           full_name: raw.display_name,
@@ -64,7 +79,7 @@ export const useProfile = () => {
           role: topRole,
         } as Profile);
       }
-    } catch (error: unknown) {
+    } catch (error) {
       console.error('Error fetching profile:', error);
     } finally {
       setLoading(false);
@@ -75,7 +90,6 @@ export const useProfile = () => {
     if (user) {
       fetchProfile();
       
-      // Subscribe to profile changes
       const channel = supabase
         .channel(`profile:${user.id}`)
         .on(
@@ -86,17 +100,17 @@ export const useProfile = () => {
             table: 'profiles', 
             filter: `user_id=eq.${user.id}` 
           },
-          (payload: { new: Record<string, unknown> }) => {
+          (payload: { new: any }) => {
             if (payload.new) {
               const raw = payload.new;
-              setProfile({
+              setProfile(prev => ({
+                ...prev,
                 ...raw,
                 full_name: raw.display_name,
                 level: raw.jlpt_level,
                 xp: raw.total_xp || 0,
                 streak: raw.current_streak || 0,
-                role: raw.role || 'user',
-              } as Profile);
+              } as Profile));
             }
           }
         )
@@ -111,55 +125,80 @@ export const useProfile = () => {
     }
   }, [user, fetchProfile]);
 
-  const addXp = async (amount: number) => {
+  const addXp = useCallback(async (amount: number) => {
     if (!user || !profile) return;
-
     try {
       const newXp = (profile.total_xp || 0) + amount;
       const { error } = await supabase
         .from('profiles')
         .update({ total_xp: newXp })
         .eq('user_id', user.id);
-
       if (error) throw error;
-      
       toast({
         title: `+${amount} XP!`,
         description: `Bạn đã nhận thêm ${amount} kinh nghiệm.`,
       });
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Error adding XP:', error);
-      toast({
-        title: 'Lỗi cập nhật XP',
-        description: error instanceof Error ? error.message : 'Unknown error',
-        variant: 'destructive',
-      });
     }
-  };
+  }, [user, profile, toast]);
 
-  const updateStreak = async () => {
+  const updateStreak = useCallback(async () => {
     if (!user || !profile) return;
-
-    // Simple streak update - just increment current_streak
     try {
+      const today = new Date().toISOString().split('T')[0];
+      const lastDate = (profile as any).last_activity_date;
+      if (lastDate === today) return;
+
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+      const isConsecutive = lastDate === yesterdayStr;
+      const newStreak = isConsecutive ? (profile.current_streak ?? 0) + 1 : 1;
+      const newLongest = Math.max(newStreak, profile.longest_streak ?? 0);
+
       const { error } = await supabase
         .from('profiles')
-        .update({ 
-          current_streak: (profile.current_streak || 0) + 1,
+        .update({
+          current_streak: newStreak,
+          longest_streak: newLongest,
+          last_activity_date: today,
           updated_at: new Date().toISOString()
         })
         .eq('user_id', user.id);
-      if (error) console.error('Error updating streak:', error);
+
+      if (error) throw error;
+      
+      const streakBonus = 25;
+      const newXp = (profile.total_xp || 0) + streakBonus;
+      await supabase
+        .from('profiles')
+        .update({ total_xp: newXp })
+        .eq('user_id', user.id);
+        
+      if (newStreak > 1) {
+        toast({
+          title: `🔥 Streak ${newStreak} ngày!`,
+          description: `Bạn đã nhận thêm ${streakBonus} XP.`,
+        });
+      }
     } catch (e) {
       console.error('Streak update error:', e);
     }
-  };
+  }, [user, profile, toast]);
 
-  return {
-    profile,
-    loading,
-    addXp,
-    updateStreak,
-    refreshProfile: fetchProfile,
-  };
+  return (
+    <ProfileContext.Provider value={{ profile, loading, addXp, updateStreak, refreshProfile: fetchProfile }}>
+      {children}
+    </ProfileContext.Provider>
+  );
+};
+
+export const useProfile = () => {
+  const context = useContext(ProfileContext);
+  if (context === undefined) {
+    throw new Error('useProfile must be used within a ProfileProvider');
+  }
+  return context;
 };

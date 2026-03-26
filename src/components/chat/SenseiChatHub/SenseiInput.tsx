@@ -10,12 +10,15 @@ import { toast } from 'sonner';
 interface SenseiInputProps {
   onSend: (content: string, type: SenseiMessageType, metadata?: any) => void;
   isLoading: boolean;
-  isAnalyzingImage: boolean;
-  setIsAnalyzingImage: (val: boolean) => void;
+  isAnalyzingImage?: boolean;
+  setIsAnalyzingImage?: (val: boolean) => void;
 }
 
 export const SenseiInput: React.FC<SenseiInputProps> = ({ 
-  onSend, isLoading, isAnalyzingImage, setIsAnalyzingImage 
+  onSend, 
+  isLoading, 
+  isAnalyzingImage = false, 
+  setIsAnalyzingImage = () => {} 
 }) => {
   const [text, setText] = useState('');
   const [mode, setMode] = useState<SenseiMessageType>('text');
@@ -43,7 +46,6 @@ export const SenseiInput: React.FC<SenseiInputProps> = ({
         if (error) throw error;
         
         if (data.format === 'vision') {
-          // Send the recognized object as a message with the full result as metadata
           onSend(
             `Sensei, hãy phân tích vật thể này: ${data.result.object_name}`, 
             'image', 
@@ -64,7 +66,7 @@ export const SenseiInput: React.FC<SenseiInputProps> = ({
     if (!text.trim() || isLoading) return;
     onSend(text, mode);
     setText('');
-    setMode('text'); // Reset to default after send
+    setMode('text');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -75,14 +77,14 @@ export const SenseiInput: React.FC<SenseiInputProps> = ({
   };
 
   const chips = [
-    { id: 'text', label: 'Chat', icon: Sparkles, color: 'hover:bg-sakura/10 text-sakura border-sakura/20' },
-    { id: 'analysis', label: 'Phân tích', icon: Sparkles, color: 'hover:bg-rose-500/10 text-rose-500 border-rose-500/20' },
-    { id: 'correction', label: 'Sửa lỗi', icon: Languages, color: 'hover:bg-blue-500/10 text-blue-500 border-blue-500/20' },
+    { id: 'text', label: 'Chat', icon: Sparkles },
+    { id: 'analysis', label: 'Phân tích', icon: Sparkles },
+    { id: 'correction', label: 'Sửa lỗi', icon: Languages },
   ];
 
   return (
-    <div className="p-3 md:p-4 border-t border-sakura/10 bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl space-y-3">
-      <div className="flex gap-2 mb-1 overflow-x-auto no-scrollbar pb-1">
+    <div className="p-8 border-t border-sakura/5 bg-white/40 backdrop-blur-2xl space-y-6 rounded-b-[3.5rem]">
+      <div className="flex gap-4 mb-2 overflow-x-auto no-scrollbar pb-1">
         {chips.map((chip) => {
           const isActive = mode === chip.id;
           return (
@@ -92,19 +94,20 @@ export const SenseiInput: React.FC<SenseiInputProps> = ({
               size="sm"
               onClick={() => setMode(chip.id as SenseiMessageType)}
               className={cn(
-                "rounded-full px-3 h-7 text-[9px] font-black uppercase tracking-widest transition-all gap-1 shrink-0 border-2",
-                chip.color,
-                isActive ? "bg-current text-white scale-105 shadow-md" : "bg-background/50"
+                "rounded-2xl px-6 h-10 text-[10px] font-black uppercase tracking-[0.3em] transition-all gap-2 shrink-0 border-0",
+                isActive 
+                  ? "bg-white text-sakura shadow-sm ring-1 ring-sakura/10" 
+                  : "bg-sakura/5 text-sakura/30 hover:bg-sakura/10 hover:text-sakura"
               )}
             >
-              <chip.icon className="h-2.5 w-2.5" />
+              <chip.icon className="h-3.5 w-3.5" />
               {chip.label}
             </Button>
           );
         })}
       </div>
 
-      <div className="relative group">
+      <div className="relative group max-w-5xl mx-auto">
         <input 
           type="file" 
           accept="image/*" 
@@ -113,20 +116,20 @@ export const SenseiInput: React.FC<SenseiInputProps> = ({
           ref={fileInputRef} 
           onChange={handleFileChange}
         />
-        <div className="absolute left-3 bottom-2.5 flex items-center gap-1 z-10">
+        <div className="absolute left-6 bottom-4 flex items-center gap-2 z-10">
           <Button 
             variant="ghost" size="icon" 
             disabled={isLoading || isAnalyzingImage}
-            className="h-8 w-8 rounded-xl text-muted-foreground hover:text-sakura hover:bg-sakura/10 transition-all"
+            className="h-12 w-12 rounded-2xl text-slate-300 hover:text-sakura hover:bg-sakura/5 transition-all"
             onClick={() => fileInputRef.current?.click()}
           >
-            {isAnalyzingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+            {isAnalyzingImage ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" />}
           </Button>
           <Button 
             variant="ghost" size="icon" 
-            className="h-8 w-8 rounded-xl text-muted-foreground hover:text-sakura hover:bg-sakura/10 transition-all"
+            className="h-12 w-12 rounded-2xl text-slate-300 hover:text-sakura hover:bg-sakura/5 transition-all"
           >
-            <Mic className="h-4 w-4" />
+            <Mic className="h-6 w-6" />
           </Button>
         </div>
 
@@ -137,33 +140,33 @@ export const SenseiInput: React.FC<SenseiInputProps> = ({
           placeholder={
             mode === 'analysis' ? "Phân tích mẫu câu..." :
             mode === 'correction' ? "Kiểm tra ngữ pháp..." :
-            "Nhắn cho Sensei..."
+            "Thổ lộ cùng Sensei..."
           }
           className={cn(
-            "min-h-[60px] max-h-[150px] w-full pl-20 pr-12 py-3 rounded-2xl border-2 border-sakura/10 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md focus-visible:ring-sakura/30 focus-visible:border-sakura/30 resize-none text-[13px] transition-all",
-            mode === 'analysis' && "border-rose-500/30 ring-rose-500/10",
-            mode === 'correction' && "border-blue-500/30 ring-blue-500/10"
+            "min-h-[100px] max-h-[250px] w-full pl-36 pr-16 py-6 rounded-[2.5rem] border-0 bg-white shadow-[0_15px_40px_-10px_rgba(0,0,0,0.03)] focus-visible:ring-sakura/5 resize-none font-serif text-lg transition-all placeholder:italic placeholder:text-slate-200",
+            mode === 'analysis' && "ring-1 ring-rose-50",
+            mode === 'correction' && "ring-1 ring-blue-50"
           )}
         />
 
-        <div className="absolute right-2.5 bottom-2.5 z-10">
+        <div className="absolute right-4 bottom-4 z-10">
           <Button
             onClick={handleSend}
             disabled={!text.trim() || isLoading}
             className={cn(
-               "h-8 w-8 rounded-xl shadow-lg transition-all",
-               mode === 'analysis' ? "bg-rose-500 hover:bg-rose-600 shadow-rose-500/20" :
-               mode === 'correction' ? "bg-blue-500 hover:bg-blue-600 shadow-blue-500/20" :
-               "bg-sakura hover:bg-sakura/90 shadow-sakura/20"
+               "h-12 w-12 rounded-2xl shadow-xl transition-all hover:scale-105 active:scale-95 duration-300",
+               mode === 'analysis' ? "bg-rose-500 hover:bg-rose-600" :
+               mode === 'correction' ? "bg-blue-500 hover:bg-blue-600" :
+               "bg-slate-900 hover:bg-black shadow-slate-200"
             )}
           >
-            <Send className="h-4 w-4 text-white" />
+            <Send className="h-6 w-6 text-white" />
           </Button>
         </div>
       </div>
       
-      <p className="text-center text-[9px] text-muted-foreground font-medium uppercase tracking-[0.2em] opacity-60">
-        Giữ <kbd className="px-1 py-0.5 rounded bg-muted">Shift</kbd> + <kbd className="px-1 py-0.5 rounded bg-muted">Enter</kbd> để xuống dòng
+      <p className="text-center text-[9px] text-slate-200 font-black uppercase tracking-[0.5em] pb-2">
+        Đàm đạo tinh hoa
       </p>
     </div>
   );

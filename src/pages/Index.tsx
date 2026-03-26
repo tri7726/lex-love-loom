@@ -101,6 +101,7 @@ export const Index = () => {
     const { data } = await (supabase as any)
       .from('flashcards')
       .select('id, word, reading, meaning')
+      .eq('user_id', user.id)
       .lte('next_review_date', new Date().toISOString())
       .limit(5);
     setDueCards(data || []);
@@ -114,6 +115,7 @@ export const Index = () => {
     const { data } = await (supabase as any)
       .from('flashcards')
       .select('id, word, reading, meaning, ease_factor')
+      .eq('user_id', user.id)
       .lt('ease_factor', 2.0)
       .limit(3);
     setWritingRecs(data || []);
@@ -149,13 +151,13 @@ export const Index = () => {
   }, [user]);
 
   useEffect(() => {
-    if (user) {
+    if (user?.id) {
       updateStreak();
       fetchLeaderboard();
       fetchDueCards();
       fetchWritingRecommendations();
     }
-  }, [user, updateStreak, fetchLeaderboard, fetchDueCards, fetchWritingRecommendations]);
+  }, [user?.id]); // Only run on login or user change
 
   const userStats = useMemo(() => {
     if (!profile) return {
@@ -262,8 +264,6 @@ export const Index = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <Navigation streak={userStats.streak} xp={userStats.totalXp} />
-
       <main className="container py-6 space-y-6">
         {/* Streak Reminder */}
         <StreakReminderBanner />

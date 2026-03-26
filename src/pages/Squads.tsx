@@ -13,7 +13,6 @@ import {
   LogOut
 } from 'lucide-react';
 import { SakuraSkeleton } from '@/components/ui/SakuraSkeleton';
-import { Navigation } from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -308,8 +307,6 @@ export const Squads = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <Navigation />
-
       <main className="container py-10 space-y-10">
         {/* Header */}
         <section className="flex flex-col md:flex-row md:items-end justify-between gap-6">

@@ -1,7 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Upload, Link2, Trash2, Save, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertCircle, FileJson, RefreshCw } from 'lucide-react';
-import { Navigation } from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -557,7 +556,6 @@ export const AdminExamManager = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <Navigation />
       <main className="container py-8 max-w-4xl space-y-8">
         <div>
           <h1 className="text-3xl font-display font-bold">Quản lý đề thi</h1>

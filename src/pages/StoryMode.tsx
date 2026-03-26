@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Navigation } from '@/components/Navigation';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -62,8 +61,6 @@ export const StoryMode = () => {
 
   return (
     <div className="min-h-screen bg-[#fdfbf9] text-[#2d1b24] pb-20 md:pb-0 overflow-x-hidden relative">
-      <Navigation />
-      
       {/* Soft Ambient Background Decor */}
       <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] right-[-10%] w-[800px] h-[800px] bg-[#fff0f3] blur-[150px] rounded-full animate-pulse" />

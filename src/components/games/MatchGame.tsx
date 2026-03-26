@@ -122,7 +122,6 @@ export const MatchGame: React.FC<MatchGameProps> = ({
       });
     });
 
-    console.log("MatchGame: Initializing with words:", gameWords);
     setCards(newCards.sort(() => Math.random() - 0.5));
     setSelectedCards([]);
     setMatchedPairs(new Set());
@@ -216,36 +215,39 @@ export const MatchGame: React.FC<MatchGameProps> = ({
 
   if (!mode) {
     return (
-      <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div className="text-center space-y-2">
-          <h2 className="text-3xl font-black text-slate-800 dark:text-white">Chọn chế độ ghép</h2>
+      <div className="max-w-4xl mx-auto space-y-12 py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="text-center space-y-3">
+          <div className="inline-block p-4 bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-50">
+             <Brain className="h-10 w-10 text-sakura" />
+          </div>
+          <h2 className="text-4xl font-display font-black text-slate-800 tracking-tight">Ghép Đôi Trí Tuệ</h2>
           <p className="text-slate-400 font-medium">Luyện tập trí nhớ với các thử thách kết nối</p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {[
-            { id: 'kanji-reading', title: 'Kanji - Furigana', icon: Sparkles, color: 'bg-amber-500', desc: 'Ghép mặt chữ Hán với cách đọc tương ứng' },
-            { id: 'kanji-meaning', title: 'Kanji - Nghĩa', icon: Star, color: 'bg-rose-500', desc: 'Ghép mặt chữ Hán với ý nghĩa tiếng Việt' },
-            { id: 'reading-meaning', title: 'Furigana - Nghĩa', icon: Trophy, color: 'bg-emerald-500', desc: 'Ghép cách đọc với ý nghĩa tương ứng' },
+            { id: 'kanji-reading', title: 'Kanji - Furigana', icon: Sparkles, color: 'text-sakura', desc: 'Ghép mặt chữ Hán với cách đọc tương ứng' },
+            { id: 'kanji-meaning', title: 'Kanji - Nghĩa', icon: Star, color: 'text-sakura', desc: 'Ghép mặt chữ Hán với ý nghĩa tiếng Việt' },
+            { id: 'reading-meaning', title: 'Furigana - Nghĩa', icon: Trophy, color: 'text-sakura', desc: 'Ghép cách đọc với ý nghĩa tương ứng' },
           ].map((m) => (
             <button
               key={m.id}
               onClick={() => setMode(m.id as MatchGameMode)}
-              className="group relative p-6 rounded-[2.5rem] bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 hover:border-sakura transition-all hover:shadow-2xl hover:-translate-y-2 text-left space-y-4"
+              className="group relative p-8 rounded-[3rem] bg-white border border-slate-100 hover:border-sakura/20 transition-all hover:shadow-[0_20px_50px_-15px_rgba(0,0,0,0.03)] text-left space-y-6"
             >
-              <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg", m.color)}>
-                <m.icon className="h-6 w-6" />
+              <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-sakura/10 group-hover:text-sakura transition-all">
+                <m.icon className="h-7 w-7" />
               </div>
               <div>
-                <h3 className="font-black text-slate-800 dark:text-white group-hover:text-sakura transition-colors">{m.title}</h3>
-                <p className="text-xs text-slate-400 leading-relaxed mt-1">{m.desc}</p>
+                <h3 className="text-xl font-display font-bold text-slate-800 group-hover:text-sakura transition-colors">{m.title}</h3>
+                <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black mt-2 leading-relaxed opacity-60">{m.desc}</p>
               </div>
             </button>
           ))}
         </div>
 
-        <div className="flex justify-center pt-8">
-           <Button variant="ghost" onClick={onBack} className="rounded-2xl gap-2 text-slate-400">
+        <div className="flex justify-center">
+           <Button variant="ghost" onClick={onBack} className="rounded-full gap-2 text-slate-300 hover:text-sakura transition-colors">
              <ChevronLeft className="h-4 w-4" /> Quay lại thư viện
            </Button>
         </div>
@@ -255,24 +257,24 @@ export const MatchGame: React.FC<MatchGameProps> = ({
 
   if (!difficulty) {
     return (
-      <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => setMode(null)} className="rounded-full h-10 w-10">
-            <ChevronLeft className="h-6 w-6" />
+      <div className="max-w-2xl mx-auto space-y-12 py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="flex items-center gap-6">
+          <Button variant="ghost" size="icon" onClick={() => setMode(null)} className="rounded-2xl h-12 w-12 bg-white border border-slate-50">
+            <ChevronLeft className="h-6 w-6 text-slate-400" />
           </Button>
-          <h2 className="text-2xl font-black text-slate-800 dark:text-white">Chọn mức độ thử thách</h2>
+          <h2 className="text-3xl font-display font-black text-slate-800">Cấp độ thử thách</h2>
         </div>
 
-        <div className="bg-white/50 dark:bg-slate-900/50 backdrop-blur-md p-6 rounded-[2rem] border border-white dark:border-slate-800 shadow-lg flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-50 shadow-[0_15px_40px_-15px_rgba(0,0,0,0.03)] flex items-center justify-between">
+          <div className="flex items-center gap-6">
             <div className={cn(
-              "p-3 rounded-2xl transition-colors",
-              isMemoryModeToggle ? "bg-rose-100 text-rose-600" : "bg-slate-100 text-slate-400"
+              "p-4 rounded-[1.5rem] transition-all",
+              isMemoryModeToggle ? "bg-sakura/10 text-sakura" : "bg-slate-50 text-slate-300"
             )}>
-              <Brain className="h-6 w-6" />
+              <Brain className="h-8 w-8" />
             </div>
             <div>
-              <Label htmlFor="memory-mode" className="text-lg font-black text-slate-800 dark:text-white cursor-pointer">Chế độ ẩn (Memory)</Label>
+              <Label htmlFor="memory-mode" className="text-xl font-bold text-slate-800 cursor-pointer">Chế độ Memory</Label>
               <p className="text-xs text-slate-400 font-medium">Úp toàn bộ các thẻ khi bắt đầu chơi</p>
             </div>
           </div>
@@ -286,21 +288,21 @@ export const MatchGame: React.FC<MatchGameProps> = ({
         
         <div className="grid grid-cols-1 gap-4">
           {[
-            { id: 'easy', title: 'Khởi động', icon: Zap, color: 'text-emerald-500', bg: 'bg-emerald-50', desc: `10 cặp • ${isMemoryModeToggle ? 'Úp mặt thẻ' : 'Hiển thị mặt chữ'} • Phù hợp người mới` },
-            { id: 'normal', title: 'Thử thách', icon: Star, color: 'text-amber-500', bg: 'bg-amber-50', desc: `14 cặp • ${isMemoryModeToggle ? 'Úp mặt thẻ' : 'Hiển thị mặt chữ'} • Luyện phản xạ` },
-            { id: 'hard', title: 'Bậc thầy', icon: Trophy, color: 'text-rose-500', bg: 'bg-rose-50', desc: '20 cặp • Úp mặt thẻ • Thử thách trí nhớ siêu hạng' },
+            { id: 'easy', title: 'Khởi động', icon: Zap, color: 'text-sakura', bg: 'bg-sakura/5', desc: `10 cặp • ${isMemoryModeToggle ? 'Úp mặt thẻ' : 'Hiển thị mặt chữ'} • Phù hợp người mới` },
+            { id: 'normal', title: 'Thử thách', icon: Star, color: 'text-sakura', bg: 'bg-sakura/5', desc: `14 cặp • ${isMemoryModeToggle ? 'Úp mặt thẻ' : 'Hiển thị mặt chữ'} • Luyện phản xạ` },
+            { id: 'hard', title: 'Bậc thầy', icon: Trophy, color: 'text-sakura', bg: 'bg-sakura/5', desc: '20 cặp • Úp mặt thẻ • Thử thách trí nhớ siêu hạng' },
           ].map((d) => (
             <button
               key={d.id}
               onClick={() => setDifficulty(d.id as ChallengeLevel)}
-              className="group flex items-center p-6 rounded-3xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 hover:border-sakura transition-all hover:shadow-xl hover:-translate-x-2 text-left gap-6"
+              className="group flex items-center p-8 rounded-[3rem] bg-white border border-slate-50 hover:border-sakura/20 transition-all hover:shadow-xl text-left gap-8"
             >
-              <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center shadow-inner", d.bg)}>
-                <d.icon className={cn("h-8 w-8", d.color)} />
+              <div className={cn("w-20 h-20 rounded-[1.5rem] flex items-center justify-center shadow-inner", d.bg)}>
+                <d.icon className={cn("h-10 w-10", d.color)} />
               </div>
               <div>
-                <h3 className="text-xl font-black text-slate-800 dark:text-white group-hover:text-sakura transition-colors">{d.title}</h3>
-                <p className="text-sm text-slate-400 font-medium">{d.desc}</p>
+                <h3 className="text-2xl font-display font-bold text-slate-800 group-hover:text-sakura transition-colors">{d.title}</h3>
+                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">{d.desc}</p>
               </div>
             </button>
           ))}
@@ -319,18 +321,18 @@ export const MatchGame: React.FC<MatchGameProps> = ({
         animate={{ opacity: 1, scale: 1 }}
         className="max-w-md mx-auto"
       >
-        <Card className="rounded-[3rem] border-rose-100 dark:border-slate-800 shadow-2xl overflow-hidden bg-white/70 dark:bg-slate-950/70 backdrop-blur-3xl border-2">
-          <div className="h-2 w-full bg-sakura" />
+        <Card className="rounded-[4rem] border-0 shadow-2xl overflow-hidden bg-white">
+          <div className="h-2 w-full bg-gradient-to-r from-sakura to-pink-200" />
           <CardHeader className="pb-2">
-            <CardTitle className="text-3xl font-black text-center text-slate-800 dark:text-white flex items-center justify-center gap-3">
-              <Trophy className="h-8 w-8 text-amber-500 animate-bounce" />
+            <CardTitle className="text-3xl font-display font-bold text-center text-slate-800 flex items-center justify-center gap-3">
+              <Trophy className="h-8 w-8 text-amber-500" />
               Hoàn thành!
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-8 p-10">
+          <CardContent className="space-y-8 p-12">
             <div className="text-center">
-               <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Tổng điểm</p>
-               <h2 className="text-6xl font-black text-sakura drop-shadow-sm">{score.toLocaleString()}</h2>
+               <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">Tổng điểm</p>
+               <h2 className="text-7xl font-display font-black text-sakura">{score.toLocaleString()}</h2>
             </div>
 
             <div className="flex justify-center gap-4">
@@ -341,7 +343,7 @@ export const MatchGame: React.FC<MatchGameProps> = ({
                   animate={{ scale: 1, rotate: 0 }}
                   transition={{ delay: i * 0.2, type: 'spring' }}
                 >
-                  <Star className={cn("h-12 w-12", i < stars ? "text-amber-400 fill-amber-400" : "text-slate-100 dark:text-slate-800")} />
+                  <Star className={cn("h-12 w-12", i < stars ? "text-amber-400 fill-amber-400" : "text-slate-100")} />
                 </motion.div>
               ))}
             </div>
@@ -353,17 +355,17 @@ export const MatchGame: React.FC<MatchGameProps> = ({
                 { label: 'Lượt thử', val: attempts },
                 { label: 'Combo nhất', val: `${bestCombo}x` }
               ].map((stat, i) => (
-                <div key={i} className="bg-white/50 dark:bg-slate-900/50 p-4 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 text-center">
-                  <p className="text-xl font-black text-sakura">{stat.val}</p>
-                  <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest">{stat.label}</p>
+                <div key={i} className="bg-slate-50 p-4 rounded-[2rem] border border-slate-50 text-center">
+                  <p className="text-2xl font-bold text-slate-800 tracking-tighter">{stat.val}</p>
+                  <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest mt-1">{stat.label}</p>
                 </div>
               ))}
             </div>
 
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 pt-4">
               <Button 
                 onClick={initializeGame} 
-                className="w-full h-16 rounded-2xl bg-sakura text-white font-black text-lg shadow-xl shadow-rose-100 dark:shadow-none hover:bg-rose-600 transition-all active:scale-95"
+                className="w-full h-16 rounded-[1.5rem] bg-slate-900 text-white font-black text-lg shadow-xl hover:bg-black transition-all active:scale-95"
               >
                 <RotateCcw className="h-5 w-5 mr-3" />
                 Chơi lại
@@ -371,7 +373,7 @@ export const MatchGame: React.FC<MatchGameProps> = ({
               <Button 
                 variant="ghost" 
                 onClick={() => { setDifficulty(null); setMode(null); }}
-                className="w-full h-14 rounded-2xl text-slate-400 hover:text-slate-600 font-bold"
+                className="w-full h-14 rounded-2xl text-slate-300 hover:text-sakura font-bold"
               >
                 Đổi chế độ
               </Button>
@@ -383,51 +385,50 @@ export const MatchGame: React.FC<MatchGameProps> = ({
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-700">
-      <div className="flex justify-between items-center bg-white/50 dark:bg-slate-900/50 backdrop-blur-md p-3 rounded-3xl border border-white dark:border-slate-800 shadow-xl">
-        <div className="flex items-center gap-4">
-           <Button variant="ghost" size="icon" onClick={() => setDifficulty(null)} className="rounded-full h-10 w-10 hover:bg-rose-50 hover:text-sakura">
+    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-700 py-4">
+      <div className="flex justify-between items-center bg-white p-3 rounded-[2.5rem] border border-slate-50 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.03)]">
+        <div className="flex items-center gap-6">
+           <Button variant="ghost" size="icon" onClick={() => setDifficulty(null)} className="rounded-2xl h-11 w-11 bg-slate-50/50 hover:bg-sakura/5 hover:text-sakura transition-all">
               <ChevronLeft className="h-6 w-6" />
            </Button>
            <div className="space-y-0.5">
               <div className="flex items-center gap-2">
-                <h3 className="font-black text-slate-800 dark:text-white uppercase text-[10px] tracking-[0.2em]">{mode?.replace('-', ' ↔ ')}</h3>
-                <Badge variant="outline" className="text-[9px] h-4 px-1.5 font-black uppercase text-sakura border-sakura/30">{difficulty}</Badge>
+                <h3 className="font-black text-slate-300 uppercase text-[9px] tracking-widest">{mode?.replace('-', ' ↔ ')}</h3>
+                <Badge variant="outline" className="text-[8px] h-4 px-2 font-black uppercase text-sakura border-sakura/20 bg-sakura/5">{difficulty}</Badge>
               </div>
-              <div className="flex items-center gap-3">
-                 <div className="flex items-center gap-1.5 text-slate-400">
-                    <Timer className="h-3.5 w-3.5" />
-                    <span className="font-mono font-bold text-xs">{formatTime(timeElapsed)}</span>
+              <div className="flex items-center gap-4">
+                 <div className="flex items-center gap-2 text-slate-400">
+                    <Timer className="h-4 w-4" />
+                    <span className="font-mono font-bold text-sm tracking-tighter">{formatTime(timeElapsed)}</span>
                  </div>
-                 <div className="w-1 h-1 rounded-full bg-slate-300" />
-                 <div className="flex items-center gap-1.5 text-sakura">
-                    <Zap className="h-3.5 w-3.5 fill-sakura" />
-                    <span className="font-black text-xs">{score.toLocaleString()}</span>
+                 <div className="flex items-center gap-2 text-sakura">
+                    <Zap className="h-4 w-4 fill-sakura/20" />
+                    <span className="font-black text-sm tracking-tighter">{score.toLocaleString()}</span>
                  </div>
               </div>
            </div>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4 px-4">
           {combo > 1 && (
             <motion.div 
               initial={{ scale: 0 }} 
               animate={{ scale: 1 }}
-              className="bg-amber-100 text-amber-600 px-3 py-1 rounded-full text-xs font-black italic animate-bounce"
+              className="bg-amber-50 text-amber-600 px-4 py-1.5 rounded-full text-[10px] font-black italic animate-bounce shadow-sm border border-amber-100"
             >
               {combo}x COMBO!
             </motion.div>
           )}
-          <Badge className="bg-sakura text-white border-none px-4 py-1.5 rounded-full font-black text-[10px]">
-            {matchedPairs.size} / {gameWords.length} CẶP
+          <Badge className="bg-slate-900 text-white border-none px-6 py-2 rounded-full font-black text-[10px] tracking-widest shadow-lg">
+            {matchedPairs.size} / {gameWords.length}
           </Badge>
         </div>
       </div>
 
       <div className="px-2">
-        <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
+        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
           <motion.div 
-            className="h-full bg-sakura"
+            className="h-full bg-gradient-to-r from-sakura to-pink-300"
             animate={{ width: `${progress}%` }}
             transition={{ duration: 0.5 }}
           />
@@ -450,19 +451,19 @@ export const MatchGame: React.FC<MatchGameProps> = ({
                 animate={{ 
                   opacity: card.matched ? 0 : 1, 
                   scale: card.matched ? 0.8 : 1,
-                  y: card.matched ? -40 : 0
+                  y: card.matched ? -20 : 0
                 }}
                 exit={{ opacity: 0, scale: 0.5 }}
                 transition={{ duration: 0.3 }}
               >
                 <button
                   className={cn(
-                    "w-full min-h-[100px] rounded-3xl border-2 transition-all duration-500 flex items-center justify-center p-4 relative overflow-hidden group/card",
+                    "w-full min-h-[120px] rounded-[2.5rem] border transition-all duration-500 flex items-center justify-center p-6 relative overflow-hidden group/card shadow-sm",
                     isMemory && !isRevealed 
-                      ? "bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 border-slate-200 dark:border-slate-700 shadow-inner" 
-                      : "bg-white dark:bg-slate-900 shadow-lg hover:shadow-xl hover:-translate-y-1.5 border-slate-50 dark:border-slate-800",
-                    isSelected && "border-sakura bg-rose-50/50 dark:bg-rose-900/10 ring-4 ring-rose-50 shadow-2xl z-20",
-                    isWrong && "border-red-500 bg-red-50 animate-shake",
+                      ? "bg-slate-50 border-slate-100" 
+                      : "bg-white border-slate-50 hover:shadow-xl hover:-translate-y-2",
+                    isSelected && "border-sakura bg-white ring-2 ring-sakura/10 shadow-2xl z-20",
+                    isWrong && "border-red-400 bg-red-50/50 animate-shake",
                     card.matched && "pointer-events-none opacity-0"
                   )}
                   onClick={() => handleCardClick(card)}
@@ -472,7 +473,7 @@ export const MatchGame: React.FC<MatchGameProps> = ({
                     className="notranslate"
                     translate="no"
                     animate={{ 
-                      scale: isMemory && !isRevealed ? 0 : 1,
+                      scale: isMemory && !isRevealed ? 0.5 : 1,
                       opacity: isMemory && !isRevealed ? 0 : 1,
                       rotateY: isMemory && !isRevealed ? 180 : 0
                     }}
@@ -480,8 +481,8 @@ export const MatchGame: React.FC<MatchGameProps> = ({
                   >
                     <p className={cn(
                       "text-center transition-all duration-300 leading-tight",
-                      isSelected ? "text-sakura scale-110 font-black" : "text-slate-700 dark:text-slate-200 font-bold",
-                      card.content.length > 10 ? "text-xs" : card.content.length > 5 ? "text-base" : "text-2xl font-jp"
+                      isSelected ? "text-sakura font-black" : "text-slate-800 font-bold",
+                      card.content.length > 10 ? "text-xs" : card.content.length > 5 ? "text-base" : "text-3xl font-jp tracking-tight"
                     )}>
                       {card.content}
                     </p>
@@ -489,16 +490,14 @@ export const MatchGame: React.FC<MatchGameProps> = ({
                   
                   {isMemory && !isRevealed && (
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-10 h-10 rounded-2xl bg-white/20 dark:bg-black/20 backdrop-blur-sm border border-white/30 flex items-center justify-center">
-                        <Star className="h-5 w-5 text-slate-400/50 fill-slate-400/20" />
-                      </div>
+                       <Star className="h-6 w-6 text-slate-100 fill-slate-50 opacity-50" />
                     </div>
                   )}
 
                   {!isMemory && (
                     <div className={cn(
-                      "absolute top-3 right-3 w-1.5 h-1.5 rounded-full",
-                      card.type === 'left' ? "bg-rose-200" : "bg-emerald-200"
+                      "absolute top-4 right-4 w-1.5 h-1.5 rounded-full opacity-40",
+                      card.type === 'left' ? "bg-sakura" : "bg-emerald-400"
                     )} />
                   )}
                 </button>
@@ -509,8 +508,8 @@ export const MatchGame: React.FC<MatchGameProps> = ({
       </div>
 
       <div className="flex justify-center pt-8">
-        <p className="text-[9px] text-slate-300 font-black uppercase tracking-[0.4em]">
-          {difficulty === 'hard' || isMemoryModeToggle ? 'Memorize and clear the board' : 'Match the items to clear the board'}
+        <p className="text-[9px] text-slate-200 font-black uppercase tracking-[0.4em]">
+          {difficulty === 'hard' || isMemoryModeToggle ? 'Find all matching pairs' : 'Connect the parts to win'}
         </p>
       </div>
     </div>

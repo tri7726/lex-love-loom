@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Navigation } from '@/components/Navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -243,7 +242,6 @@ export const PvPBattle = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20">
-      <Navigation />
       <main className="container max-w-2xl py-12 space-y-8">
         <div className="flex items-center justify-between">
            <Badge variant="outline" className="text-sakura border-sakura/20 bg-sakura/5 font-black uppercase tracking-widest text-[10px] px-3 py-1">PvP Battle</Badge>

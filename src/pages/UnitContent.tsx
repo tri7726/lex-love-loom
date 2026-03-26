@@ -21,7 +21,6 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Navigation } from '@/components/Navigation';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from '@/components/ui/progress';
@@ -123,7 +122,6 @@ export const UnitContent = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        <Navigation />
         <div className="flex-1 flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
@@ -133,8 +131,6 @@ export const UnitContent = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <Navigation />
-      
       <main className="container py-6 space-y-6">
         {/* Breadcrumbs & Header */}
         <div className="space-y-4">

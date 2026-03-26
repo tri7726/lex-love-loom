@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Navigation } from '@/components/Navigation';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -119,8 +118,6 @@ export const JLPTPortal = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <Navigation />
-
       <main className="container py-10 space-y-10">
         {/* Hero Section */}
         <section className="text-center space-y-4 max-w-3xl mx-auto">

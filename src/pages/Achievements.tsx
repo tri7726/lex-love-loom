@@ -40,8 +40,6 @@ export const Achievements = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <Navigation />
-
       <main className="container py-6 space-y-6 max-w-4xl">
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center space-y-2">

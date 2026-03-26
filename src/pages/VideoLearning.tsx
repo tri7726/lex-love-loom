@@ -37,7 +37,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Navigation } from '@/components/Navigation';
 import { DictationPlayer } from '@/components/DictationPlayer';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
@@ -435,8 +434,6 @@ export const VideoLearning = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <Navigation />
-
       <main className="container py-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">

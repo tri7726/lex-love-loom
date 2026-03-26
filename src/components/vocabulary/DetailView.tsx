@@ -159,9 +159,8 @@ export const DetailView: React.FC<DetailViewProps> = ({
             <motion.div key={word.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.015 }}>
               <Card
                 className={cn(
-                  'notranslate group transition-all duration-200 hover:shadow-md cursor-pointer border',
-                  flashcardIndex === idx && 'ring-2 ring-primary/30 border-primary/40',
-                  idx % 2 === 0 ? 'bg-card' : 'bg-muted/20'
+                  'notranslate group transition-all duration-300 hover:bg-slate-50/50 cursor-pointer border-slate-100 shadow-none hover:shadow-sm',
+                  flashcardIndex === idx ? 'bg-sakura/5 border-sakura/20' : 'bg-white'
                 )}
                 translate="no"
                 onClick={() => { setFlashcardIndex(idx); setIsFlipped(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}

@@ -13,7 +13,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
 } from '@/components/ui/select';
-import { Navigation } from '@/components/Navigation';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -182,8 +181,6 @@ export const ExamManager = () => {
 
   return (
     <div className="min-h-screen bg-[#faf8f5] dark:bg-slate-950 pb-20">
-      <Navigation />
-      
       <main className="max-w-6xl mx-auto px-4 py-12 space-y-8">
         <div className="flex items-center justify-between">
           <div className="space-y-1">

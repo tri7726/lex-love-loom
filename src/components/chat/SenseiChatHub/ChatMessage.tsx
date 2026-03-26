@@ -85,50 +85,56 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSaveWord, o
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+      initial={{ opacity: 0, y: 15, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ type: "spring", damping: 25, stiffness: 400 }}
       className={cn(
-        "flex w-full gap-3 mb-6",
+        "flex w-full gap-4 mb-8",
         isAssistant ? "justify-start" : "justify-end"
       )}
     >
       {isAssistant && (
-        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-sakura to-pink-500 flex items-center justify-center text-white shrink-0 shadow-md">
-          <Sparkles className="h-4 w-4" />
+        <div className="h-12 w-12 rounded-[1.2rem] bg-white flex items-center justify-center text-sakura shrink-0 shadow-[0_8px_24px_-4px_rgba(255,183,197,0.3)] border border-sakura/10 translate-y-1">
+          <Sparkles className="h-6 w-6" />
         </div>
       )}
       
       <div className={cn(
-        "max-w-[85%] md:max-w-[70%] rounded-2xl p-4 relative group",
+        "max-w-[85%] md:max-w-[75%] rounded-[2.5rem] px-8 py-5 relative group transition-all duration-500",
         isAssistant 
-          ? "bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-sakura/10 text-foreground shadow-sm rounded-tl-none" 
-          : "bg-sakura text-white shadow-lg shadow-sakura/20 rounded-tr-none"
+          ? "bg-white border border-slate-50 text-slate-800 shadow-sm rounded-tl-none" 
+          : "bg-sakura/5 text-slate-700 border border-sakura/10 shadow-sm rounded-tr-none"
       )}>
-        {renderContent()}
+        <div className={cn(
+          "leading-relaxed",
+          isAssistant ? "font-serif text-lg" : "font-sans font-medium text-sm"
+        )}>
+          {renderContent()}
+        </div>
         
         {isAssistant && (message.metadata as any)?.source && (
-          <div className="absolute -top-3 right-4">
-            <Badge variant="secondary" className="bg-sakura/10 text-sakura border-sakura/20 text-[7px] px-1.5 py-0 rounded font-black uppercase tracking-widest">
-              Source: {(message.metadata as any).source}
+          <div className="absolute -top-3.5 right-8">
+            <Badge variant="secondary" className="bg-white text-sakura border-sakura/10 text-[9px] px-3 py-1 rounded-full font-black uppercase tracking-[0.2em] shadow-md ring-1 ring-sakura/5">
+              {(message.metadata as any).source}
             </Badge>
           </div>
         )}
         
         {isAssistant && (
-          <div className="absolute -bottom-10 left-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-sakura/10" onClick={() => onSpeak?.(message.content)}>
-              <Volume2 className="h-3.5 w-3.5 text-sakura" />
+          <div className="absolute -bottom-14 left-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-3 group-hover:translate-y-0">
+            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full bg-white shadow-lg border border-sakura/10 hover:bg-sakura/5 hover:scale-110 active:scale-90 transition-all" onClick={() => onSpeak?.(message.content)}>
+              <Volume2 className="h-4 w-4 text-sakura" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-sakura/10">
-              <Save className="h-3.5 w-3.5 text-sakura" />
+            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full bg-white shadow-lg border border-sakura/10 hover:bg-sakura/5 hover:scale-110 active:scale-90 transition-all">
+              <Save className="h-4 w-4 text-sakura" />
             </Button>
           </div>
         )}
       </div>
 
       {!isAssistant && (
-        <div className="h-8 w-8 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-500 shrink-0 border border-slate-300 dark:border-slate-700">
-           B
+        <div className="h-12 w-12 rounded-[1.2rem] bg-white flex items-center justify-center text-sakura/30 font-serif font-black text-xl shrink-0 border border-slate-50 shadow-sm translate-y-1">
+           {message.role === 'user' ? 'U' : 'S'}
         </div>
       )}
     </motion.div>

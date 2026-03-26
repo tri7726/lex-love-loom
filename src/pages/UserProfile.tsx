@@ -17,7 +17,6 @@ import {
   ShieldCheck,
   Flag
 } from 'lucide-react';
-import { Navigation } from '@/components/Navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -51,8 +50,6 @@ export const UserProfile = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <Navigation />
-      
       <main className="container py-10 space-y-8">
         <Link to="/friends">
           <Button variant="ghost" className="gap-2 mb-4">

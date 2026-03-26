@@ -17,9 +17,8 @@ import {
   Copy
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Navigation } from '@/components/Navigation';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link } from 'react-router-dom';
@@ -64,8 +63,6 @@ export const GrammarWiki = () => {
   return (
     <div className="min-h-screen bg-background pb-20 relative">
       <SakuraParticles />
-      <Navigation />
-      
       <main className="container py-8 space-y-8 relative z-10">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">

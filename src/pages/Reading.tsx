@@ -660,8 +660,6 @@ export const Reading = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <Navigation />
-
       <main className="container py-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">

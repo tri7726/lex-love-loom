@@ -16,7 +16,6 @@ import {
 } from 'lucide-react';
 import { useXP } from '@/hooks/useXP';
 import { SakuraSkeleton } from '@/components/ui/SakuraSkeleton';
-import { Navigation } from '@/components/Navigation';
 import {
   Card,
   CardContent,
@@ -345,8 +344,6 @@ export const Challenges = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <Navigation />
-
       <main className="container py-10 space-y-10">
         <section className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="space-y-3">

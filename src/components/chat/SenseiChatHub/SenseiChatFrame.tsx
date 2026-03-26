@@ -25,37 +25,30 @@ export const SenseiChatFrame: React.FC<SenseiChatFrameProps> = ({
 
   if (!conversation) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-6">
-        <div className="h-20 w-20 rounded-[2.5rem] bg-sakura/5 flex items-center justify-center border-2 border-sakura/10 animate-bounce">
-           <Sparkles className="h-10 w-10 text-sakura" />
+      <div className="flex-1 flex flex-col items-center justify-center p-12 text-center space-y-8 bg-gradient-to-b from-white to-cream/20">
+        <div className="relative">
+          <div className="h-32 w-32 rounded-[3.5rem] bg-white flex items-center justify-center border border-slate-50 shadow-sm animate-float">
+             <Sparkles className="h-14 w-14 text-sakura opacity-20" />
+          </div>
+          <div className="absolute -top-2 -right-2 h-8 w-8 bg-white rounded-full shadow-md flex items-center justify-center border border-sakura/5 animate-pulse">
+            <span className="text-sm">🌸</span>
+          </div>
         </div>
-        <div className="space-y-2">
-           <h3 className="text-xl font-black uppercase tracking-widest text-slate-800 dark:text-slate-100">Sensei Chat Hub</h3>
-           <p className="text-sm text-muted-foreground max-w-xs mx-auto font-medium italic">
-             "Chọn một hội thoại hoặc tạo mới để bắt đầu mổ xẻ tiếng Nhật cùng Sensei!"
+        <div className="space-y-4 max-w-sm">
+           <h3 className="text-3xl font-serif font-black text-slate-800 tracking-tight">Khởi nguồn trí tuệ</h3>
+           <p className="text-xs text-slate-400 font-bold uppercase tracking-[0.3em] leading-relaxed">
+             Chọn một chương mục hội thoại để bắt đầu hành trình khai phóng ngôn ngữ cùng Sensei
            </p>
         </div>
+        <div className="h-px w-16 bg-gradient-to-r from-transparent via-sakura/20 to-transparent" />
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-white/30 dark:bg-slate-950/30">
-      {/* Sticky Header */}
-      <header className="px-6 py-4 border-b border-sakura/10 flex items-center justify-between bg-white/40 dark:bg-slate-900/40 backdrop-blur-md z-20">
-        <div className="flex items-center gap-3">
-           <div className="h-8 w-8 rounded-lg bg-sakura/10 flex items-center justify-center text-sakura">
-              <Sparkles className="h-4 w-4" />
-           </div>
-           <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-sakura leading-none mb-1">Đang trò chuyện</p>
-              <h2 className="text-sm font-bold truncate text-slate-800 dark:text-slate-100">{conversation.title || 'Hội thoại không tên'}</h2>
-           </div>
-        </div>
-      </header>
-
+    <div className="flex-1 flex flex-col min-h-0">
       {/* Message Area */}
-      <ScrollArea ref={scrollRef} className="flex-1 p-4 md:p-6 overflow-y-auto">
+      <ScrollArea ref={scrollRef} className="flex-1 p-6 md:p-10 overflow-y-auto">
         <div className="max-w-4xl mx-auto py-4">
           {messages?.map((m) => (
             <ChatMessage 

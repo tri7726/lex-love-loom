@@ -34,7 +34,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Navigation } from '@/components/Navigation';
 import { useWordHistory } from '@/hooks/useWordHistory';
 import { useTTS } from '@/hooks/useTTS';
 import { useAuth } from '@/hooks/useAuth';
@@ -98,7 +97,6 @@ const SavedVocabulary: React.FC = () => {
   if (!user) {
     return (
       <div className="min-h-screen bg-background">
-        <Navigation />
         <main className="container py-8">
           <Card className="max-w-md mx-auto">
             <CardContent className="py-12 text-center">
@@ -119,8 +117,6 @@ const SavedVocabulary: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <Navigation />
-
       <main className="container py-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">

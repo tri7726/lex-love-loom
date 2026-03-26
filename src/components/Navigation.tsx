@@ -5,7 +5,6 @@ import {
   Home,
   BookOpen,
   Brain,
-  Mic,
   Menu,
   Trophy,
   MessageSquare,
@@ -49,6 +48,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { StreakBadge } from './StreakBadge';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 import { useTheme } from '@/hooks/useTheme';
 import { useFurigana } from '@/contexts/FuriganaContext';
 import { JishoSearch } from './JishoSearch';
@@ -73,8 +73,6 @@ const assessItems = [
 
 const skillItems = [
   { path: '/reading', icon: Book, label: 'Đọc hiểu', description: 'Luyện đọc báo & truyền thuyết' },
-  { path: '/sensei?mode=speaking', icon: Mic, label: 'Luyện nói AI', description: 'Phát âm & Hội thoại' },
-  { path: '/sensei?mode=roleplay', icon: MessageSquare, label: 'Hội thoại tình huống', description: 'Giao tiếp thực tế với AI' },
   { path: '/video-learning', icon: Video, label: 'Học qua Video', description: 'Phim & Nhạc Nhật' },
   { path: '/news', icon: Globe, label: 'Tin tức', description: 'Báo NHK Easy' },
 ];
@@ -94,14 +92,19 @@ interface NavigationProps {
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
-  streak = 7,
-  xp = 1250,
+  streak: propStreak,
+  xp: propXp,
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
   const { mode, setMode, userLevel } = useFurigana();
+  const { profile } = useProfile();
+
+  // Use props if provided, otherwise use profile data
+  const streak = propStreak ?? profile?.current_streak ?? 0;
+  const xp = propXp ?? profile?.total_xp ?? 0;
 
   const handleSignOut = async () => {
     await signOut();

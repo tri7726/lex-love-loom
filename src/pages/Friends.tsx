@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Navigation } from '@/components/Navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -46,7 +45,6 @@ export const Friends = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <Navigation />
       <main className="container py-10 space-y-8">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
