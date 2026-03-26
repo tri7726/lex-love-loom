@@ -117,7 +117,7 @@ export const Squads = () => {
         tags: s.tags || [],
       }));
 
-      setSquads(formattedSquads);
+      setSquads(mapped);
 
       // Fetch Squad Missions XP (Aggregation since Monday)
       if (user && mySquadIds.size > 0) {
