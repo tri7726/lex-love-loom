@@ -176,8 +176,17 @@ export const useSenseiChat = () => {
             systemPrompt = "Bạn là Sensei giúp người dùng luyện phát âm. Hãy phản hồi ngắn gọn bằng tiếng Nhật kèm dịch nghĩa tiếng Việt. " + mistakeContext;
           }
 
-          const result = await chat(chatHistory, systemPrompt);
-          aiResponse = typeof result === 'string' ? result : (result?.content || "Sensei đang suy nghĩ...");
+          try {
+            const result = await chat(chatHistory, systemPrompt);
+            aiResponse = typeof result === 'string' ? result : (result?.content || result?.text || "");
+          } catch (chatErr) {
+            console.error("Chat invocation failed, using fallback:", chatErr);
+          }
+
+          if (!aiResponse) {
+            // Robust fallback if AI fails
+            aiResponse = "Sensei đã nhận được tin nhắn của bạn! Hiện tại kết nối AI đang bận một chút, nhưng tôi vẫn ở đây hỗ trợ bạn học tiếng Nhật nhé. Bạn muốn hỏi thêm gì không?";
+          }
       }
 
       const aiMsg: SenseiMessage = {
