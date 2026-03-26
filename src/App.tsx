@@ -107,6 +107,7 @@ function App() {
                       <Route path="/quiz/story/:episodeId" element={<StoryModeFrame />} />
                       <Route path="/pvp/:challengeId" element={<PvPBattle />} />
                       <Route path="/admin/exam-manager" element={<ExamManager />} />
+                      <Route path="/admin/dashboard" element={<AdminDashboard />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </Suspense>
