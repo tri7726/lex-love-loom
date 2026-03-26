@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Upload, Link2, Trash2, Save, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertCircle, FileJson, RefreshCw } from 'lucide-react';
 import { Navigation } from '@/components/Navigation';
