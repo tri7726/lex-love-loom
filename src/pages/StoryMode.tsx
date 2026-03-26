@@ -1,12 +1,13 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Navigation } from '@/components/Navigation';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Map as MapIcon, Plane, Train, Utensils, ShoppingBag, Star, Lock, Sparkles, Zap } from 'lucide-react';
+import { Plane, Train, Utensils, ShoppingBag, Star, Sparkles, Zap, Trophy, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { AchievementGallery } from '@/components/story/AchievementGallery';
 
 const storyEpisodes = [
   {
@@ -57,6 +58,7 @@ const storyEpisodes = [
 
 export const StoryMode = () => {
   const navigate = useNavigate();
+  const [showAchievements, setShowAchievements] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#fdfbf9] text-[#2d1b24] pb-20 md:pb-0 overflow-x-hidden relative">
@@ -262,6 +264,27 @@ export const StoryMode = () => {
                ))}
             </div>
           </motion.div>
+
+          {/* Achievement Gallery Toggle */}
+          <div className="fixed bottom-24 right-8 z-[60] md:bottom-8">
+            <Button
+              onClick={() => setShowAchievements(true)}
+              className="h-16 w-16 md:h-20 md:w-20 rounded-full bg-white border-2 border-[#fa4b84]/20 shadow-2xl hover:scale-110 transition-all group overflow-hidden p-0"
+            >
+              <div className="absolute inset-0 bg-[#fa4b84]/5 group-hover:bg-[#fa4b84]/10 transition-colors" />
+              <div className="relative z-10 flex flex-col items-center">
+                 <Trophy className="h-6 w-6 md:h-8 md:w-8 text-[#fa4b84] mb-1" />
+                 <span className="text-[8px] font-black text-[#fa4b84] uppercase tracking-widest hidden md:block">Album</span>
+              </div>
+            </Button>
+          </div>
+
+          {/* Modal Overlay */}
+          <AnimatePresence>
+            {showAchievements && (
+              <AchievementGallery onClose={() => setShowAchievements(false)} />
+            )}
+          </AnimatePresence>
         </div>
       </main>
       

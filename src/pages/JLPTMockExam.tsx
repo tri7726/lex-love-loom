@@ -297,60 +297,60 @@ export const JLPTMockExam = () => {
 
         {/* Results Content */}
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center overflow-y-auto custom-scrollbar bg-sakura-light/5">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl w-full space-y-8 py-12">
-            <div className="w-24 h-24 rounded-[2.5rem] bg-white border-4 border-sakura shadow-2xl flex items-center justify-center mx-auto rotate-12">
-              <Trophy className="h-12 w-12 text-sakura" />
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-xl w-full space-y-6 py-8">
+            <div className="w-20 h-20 rounded-[2rem] bg-white border-[3px] border-sakura shadow-xl flex items-center justify-center mx-auto rotate-12">
+              <Trophy className="h-10 w-10 text-sakura" />
             </div>
 
-            <div className="space-y-3">
-              <h1 className="text-4xl sm:text-5xl font-black font-display text-slate-800 tracking-tight">Kết quả bài thi</h1>
+            <div className="space-y-2">
+              <h1 className="text-3xl sm:text-4xl font-black font-display text-slate-800 tracking-tight">Kết quả bài thi</h1>
               <div className="flex items-center justify-center gap-2">
-                <Badge className="bg-sakura text-white px-3 h-6 rounded-lg font-black">{meta?.level}</Badge>
+                <Badge className="bg-sakura text-white px-2.5 h-5 rounded-lg font-black text-[10px]">{meta?.level}</Badge>
                 <div className="h-1 w-1 rounded-full bg-sakura/30" />
-                <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px]">{meta?.title}</p>
+                <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-[9px]">{meta?.title}</p>
               </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-3">
               {Object.entries(sectionResults).map(([key, res]) => (
-                <Card key={key} className={cn("p-6 rounded-[2rem] border-2 shadow-sm", res.passed ? "border-emerald-100 bg-emerald-50/30" : "border-rose-100 bg-rose-50/30")}>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{key.replace('_', ' & ')}</p>
-                  <div className="text-2xl font-black text-slate-800">{res.score}<span className="text-xs text-slate-400">/{res.max}</span></div>
-                  <Badge variant="outline" className={cn("mt-4 border-none font-bold text-[9px] uppercase", res.passed ? "bg-emerald-500 text-white" : "bg-rose-500 text-white")}>
+                <Card key={key} className={cn("p-4 rounded-[1.5rem] border shadow-sm", res.passed ? "border-emerald-100 bg-emerald-50/20" : "border-rose-100 bg-rose-50/20")}>
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">{key.replace('_', ' & ')}</p>
+                  <div className="text-lg font-black text-slate-800">{res.score}<span className="text-[10px] text-slate-400">/{res.max}</span></div>
+                  <Badge variant="outline" className={cn("mt-2 border-none font-bold text-[8px] px-2 h-4 uppercase", res.passed ? "bg-emerald-500 text-white" : "bg-rose-500 text-white")}>
                     {res.passed ? 'ĐẠT' : 'LIỆT'}
                   </Badge>
                 </Card>
               ))}
             </div>
 
-            <Card className="border-4 border-sakura rounded-[3.5rem] shadow-elevated overflow-hidden bg-white">
-              <CardContent className="p-10 space-y-8">
+            <Card className="border-[3px] border-sakura rounded-[2.5rem] shadow-lg overflow-hidden bg-white">
+              <CardContent className="p-8 space-y-6">
                 <div className="flex flex-col items-center">
-                  <p className="text-xs font-black text-slate-400 uppercase tracking-[0.3em] mb-2">TỔNG ĐIỂM CHUẨN HÓA</p>
-                  <h2 className="text-7xl font-black text-crimson leading-none">{total}<span className="text-xl text-slate-300 ml-2">/180</span></h2>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">TỔNG ĐIỂM CHUẨN HÓA</p>
+                  <h2 className="text-5xl font-black text-crimson leading-none">{total}<span className="text-sm text-slate-300 ml-1">/180</span></h2>
                 </div>
                 
-                <div className="py-6 px-10 rounded-[2rem] bg-slate-50 border border-slate-100 flex items-center justify-around">
+                <div className="py-4 px-8 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-around">
                   <div className="text-center">
-                    <p className="text-xl font-black text-slate-800">{Math.round((total / 180) * 100)}%</p>
-                    <p className="text-[9px] text-slate-400 font-black uppercase">Tỉ lệ đúng</p>
+                    <p className="text-lg font-black text-slate-800">{Math.round((total / 180) * 100)}%</p>
+                    <p className="text-[8px] text-slate-400 font-black uppercase">Tỉ lệ đúng</p>
                   </div>
-                  <div className="h-8 w-px bg-slate-200" />
+                  <div className="h-6 w-px bg-slate-200" />
                   <div className="text-center">
-                    <p className="text-xl font-black text-slate-800">{formatTime(timeTaken)}</p>
-                    <p className="text-[9px] text-slate-400 font-black uppercase">Thời gian</p>
+                    <p className="text-lg font-black text-slate-800">{formatTime(timeTaken)}</p>
+                    <p className="text-[8px] text-slate-400 font-black uppercase">Thời gian</p>
                   </div>
                 </div>
 
                 <div className={cn(
-                  "py-5 rounded-2xl font-black text-lg tracking-widest shadow-xl",
-                  overallPassed ? "bg-emerald-500 text-white shadow-emerald-200" : "bg-rose-500 text-white shadow-rose-200"
+                  "py-4 rounded-xl font-black text-base tracking-widest shadow-lg",
+                  overallPassed ? "bg-emerald-500 text-white shadow-emerald-100" : "bg-rose-500 text-white shadow-rose-100"
                 )}>
                   {overallPassed ? 'PASS (ĐẠT)' : 'FAIL (CHƯA ĐẠT)'}
                 </div>
                 
                 {!overallPassed && total >= (meta?.passing_total || 90) && (
-                  <p className="text-xs text-rose-500 font-bold uppercase bg-rose-50 p-4 rounded-xl">
+                  <p className="text-[10px] text-rose-500 font-bold uppercase bg-rose-50 p-3 rounded-xl">
                     Lưu ý: Bạn trượt do bị điểm liệt (Sankuten) ở ít nhất một phần thi.
                   </p>
                 )}

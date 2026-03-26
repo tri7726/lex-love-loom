@@ -7,6 +7,8 @@ import {
 import { Volume2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFurigana } from '@/contexts/FuriganaContext';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 const JLPT_LEVELS: Record<string, number> = {
   'N5': 5,
@@ -22,7 +24,7 @@ interface JapaneseTextProps {
   meaning?: string;
   showFurigana?: boolean;
   clickable?: boolean;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
   className?: string;
   level?: string;
 }
@@ -38,6 +40,7 @@ export const JapaneseText: React.FC<JapaneseTextProps> = ({
   level,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isRevealed, setIsRevealed] = useState(false);
   const { mode, userLevel } = useFurigana();
 
   const sizeClasses = {
@@ -45,13 +48,8 @@ export const JapaneseText: React.FC<JapaneseTextProps> = ({
     md: 'text-2xl',
     lg: 'text-3xl',
     xl: 'text-4xl',
-  };
-
-  const furiganaSizes = {
-    sm: 'text-[0.5rem]',
-    md: 'text-xs',
-    lg: 'text-sm',
-    xl: 'text-base',
+    '2xl': 'text-6xl',
+    '3xl': 'text-7xl',
   };
 
   const speak = (e: React.MouseEvent) => {
@@ -66,31 +64,46 @@ export const JapaneseText: React.FC<JapaneseTextProps> = ({
 
   // Determine if furigana should be shown based on global mode and element level
   const shouldDisplayFurigana = () => {
+    if (isRevealed) return true;
     if (mode === 'never') return false;
     if (mode === 'always') return true;
     if (mode === 'smart' && level) {
       const kLevel = JLPT_LEVELS[level] || 5;
       const uLevel = JLPT_LEVELS[userLevel] || 5;
-      // If kanji level is at or below user's level (e.g. N5 (5) >= N3 (3)), hide it.
       if (kLevel >= uLevel) return false;
     }
-    // JLPT preset modes: hide furigana for words at or below the threshold level
     const presetThresholds: Record<string, number> = { n5: 5, n4: 4, n3: 3, n2: 2 };
     if (mode in presetThresholds && level) {
       const kLevel = JLPT_LEVELS[level] || 5;
       const threshold = presetThresholds[mode as keyof typeof presetThresholds];
-      return kLevel < threshold; // show furigana only when word is harder than threshold
+      return kLevel < threshold;
     }
     return showFurigana;
   };
 
   const activeShowFurigana = shouldDisplayFurigana();
 
+  const handleRubyClick = (e: React.MouseEvent) => {
+    if (!activeShowFurigana && furigana) {
+      e.stopPropagation();
+      setIsRevealed(true);
+      setTimeout(() => setIsRevealed(false), 3000); // Hide again after 3s
+    }
+  };
+
   const content = (
-    <ruby className={`font-jp ${sizeClasses[size]} ${className}`}>
+    <ruby 
+      className={cn(
+        "font-jp transition-all duration-300", 
+        sizeClasses[size], 
+        !activeShowFurigana && furigana && "cursor-help opacity-90 hover:opacity-100",
+        className
+      )}
+      onClick={handleRubyClick}
+    >
       {text}
       {activeShowFurigana && furigana && (
-        <rt>{furigana}</rt>
+        <rt className="animate-in fade-in slide-in-from-bottom-1 duration-300">{furigana}</rt>
       )}
     </ruby>
   );
@@ -102,28 +115,37 @@ export const JapaneseText: React.FC<JapaneseTextProps> = ({
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <button className="inline-flex cursor-pointer hover:bg-sakura-light/50 rounded px-0.5 transition-colors click-feedback" style={{ alignItems: 'flex-start' }}>
+        <button className="inline-flex cursor-pointer hover:bg-sakura-light/50 rounded px-0.5 transition-colors click-feedback group" style={{ alignItems: 'flex-start' }}>
           {content}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-4" align="center">
+      <PopoverContent className="w-64 p-4 rounded-[1.5rem] border-2 border-sakura/10 shadow-xl backdrop-blur-md bg-white/90" align="center">
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-2xl font-jp">{text}</span>
+            <span className="text-2xl font-jp font-black text-slate-800">{text}</span>
             <Button
               variant="ghost"
               size="icon"
               onClick={speak}
-              className="h-8 w-8 text-primary hover:text-primary/80"
+              className="h-9 w-9 bg-sakura/5 text-sakura hover:bg-sakura hover:text-white rounded-xl transition-all"
             >
               <Volume2 className="h-4 w-4" />
             </Button>
           </div>
           {furigana && (
-            <p className="text-sm text-muted-foreground font-jp">{furigana}</p>
+            <div className="flex items-center gap-2">
+               <Badge variant="outline" className="text-[10px] font-black uppercase text-sakura/50 border-sakura/20">Reading</Badge>
+               <p className="text-sm text-slate-500 font-jp font-bold">{furigana}</p>
+            </div>
           )}
           {meaning && (
-            <p className="text-sm font-medium border-t pt-2">{meaning}</p>
+            <div className="pt-2 border-t border-sakura/10">
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Meaning</p>
+              <p className="text-sm font-bold text-slate-700 leading-relaxed">{meaning}</p>
+            </div>
+          )}
+          {level && (
+            <Badge className="bg-sakura/10 text-sakura border-none text-[9px] font-black">{level}</Badge>
           )}
         </div>
       </PopoverContent>

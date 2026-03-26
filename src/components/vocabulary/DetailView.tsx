@@ -17,6 +17,7 @@ import { ListeningGame } from '@/components/games/ListeningGame';
 import { WriteGame } from '@/components/games/WriteGame';
 import { PronunciationGame } from '@/components/games/PronunciationGame';
 import { MatchGame } from '@/components/games/MatchGame';
+import { JapaneseText } from '@/components/JapaneseText';
 
 interface DetailViewProps {
   selectedSeries: TextbookSeries;
@@ -169,11 +170,16 @@ export const DetailView: React.FC<DetailViewProps> = ({
                   <div className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0">
                     {idx + 1}
                   </div>
-                  <div className="min-w-[90px] shrink-0">
-                    <p className="text-xl font-jp font-bold">{word.word}</p>
+                  <div className="min-w-[120px] shrink-0">
+                    <JapaneseText 
+                      text={word.word} 
+                      furigana={word.reading} 
+                      level={selectedLevel.level}
+                      size="md"
+                      className="font-bold"
+                    />
                   </div>
                   <div className="border-l pl-4 flex-1 min-w-0 space-y-0.5">
-                    {word.reading && <p className="text-sm text-muted-foreground font-jp">{word.reading}</p>}
                     {word.hanviet && <p className="text-[11px] font-semibold text-amber-600 uppercase tracking-wide">{word.hanviet}</p>}
                     <p className="text-sm">{word.meaning}</p>
                   </div>

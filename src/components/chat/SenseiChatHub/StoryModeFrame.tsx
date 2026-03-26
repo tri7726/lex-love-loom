@@ -5,11 +5,14 @@ import { STORY_EPISODES, StoryStage } from '@/data/story-episodes';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ChevronRight, Volume2, CheckCircle2, XCircle, ArrowLeft, MoreHorizontal, History, Sparkles, Zap, Heart } from 'lucide-react';
+import { ChevronRight, Volume2, CheckCircle2, XCircle, ArrowLeft, MoreHorizontal, History, Sparkles, Zap, Heart, Mic } from 'lucide-react';
 import { useTTS } from '@/hooks/useTTS';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { TypewriterText } from '@/components/story/TypewriterText';
+import { ShadowingOverlay } from '@/components/story/ShadowingOverlay';
+import { JapaneseText } from '@/components/JapaneseText';
 
 export const StoryModeFrame = () => {
   const { episodeId } = useParams<{ episodeId: string }>();
@@ -30,10 +33,26 @@ export const StoryModeFrame = () => {
   const [userInput, setUserInput] = useState('');
   const [showIntervention, setShowIntervention] = useState(false);
 
+  // Boss Battle State
+  const [bossHP, setBossHP] = useState<number | null>(null);
+  const [isBossActive, setIsBossActive] = useState(false);
+  const [isShaking, setIsShaking] = useState(false);
+
+  // Shadowing State
+  const [showShadowing, setShowShadowing] = useState(false);
+
   useEffect(() => {
     if (episode && currentStageIndex < episode.stages.length) {
       const stage = episode.stages[currentStageIndex];
       setHistory(prev => [...prev, stage.text]);
+      
+      if (stage.isBoss) {
+        setBossHP(stage.bossHP || 100);
+        setIsBossActive(true);
+      } else {
+        setIsBossActive(false);
+        setBossHP(null);
+      }
     }
   }, [currentStageIndex, episode]);
 
@@ -42,45 +61,83 @@ export const StoryModeFrame = () => {
   const currentStage = episode.stages[currentStageIndex];
   const progress = ((currentStageIndex + 1) / episode.stages.length) * 100;
 
-  const handleNext = () => {
+  const handleNext = (nextId?: string) => {
     if (energy <= 0) {
-      // Energy depletion logic
       setEnergy(3);
-      setCurrentStageIndex(0); // Restart episode
+      setCurrentStageIndex(0);
       setFeedback(null);
       setIsAnswering(false);
       setShowIntervention(false);
       return;
     }
 
+    if (nextId) {
+      const nextIndex = episode.stages.findIndex(s => s.id === nextId);
+      if (nextIndex !== -1) {
+        setCurrentStageIndex(nextIndex);
+        setFeedback(null);
+        setIsAnswering(false);
+        setShowIntervention(false);
+        setUserInput('');
+        return;
+      }
+    }
+
     if (currentStageIndex < episode.stages.length - 1) {
-      setCurrentStageIndex(prev => prev + 1);
-      setFeedback(null);
-      setIsAnswering(false);
-      setShowIntervention(false);
-      setUserInput('');
+      const currentNextId = currentStage.nextStageId;
+      if (currentNextId) {
+        handleNext(currentNextId);
+      } else {
+        setCurrentStageIndex(prev => prev + 1);
+        setFeedback(null);
+        setIsAnswering(false);
+        setShowIntervention(false);
+        setUserInput('');
+      }
     } else {
       navigate('/quiz/story');
     }
   };
 
-  const handleChoice = (isCorrect: boolean, explanation: string) => {
-    setIsAnswering(true);
+  const handleChoice = (isCorrect: boolean, explanation: string, nextId?: string) => {
     if (isCorrect) {
+      if (isBossActive && bossHP !== null) {
+        const damage = 35; // Fixed damage per correct answer
+        const newBossHP = Math.max(0, bossHP - damage);
+        setBossHP(newBossHP);
+        
+        if (newBossHP > 0) {
+          setFeedback({ 
+            isCorrect: true, 
+            message: `Chí mạng! Boss bị mất máu! (${newBossHP} HP)`, 
+            branch: 'success' 
+          });
+          setIsAnswering(true);
+          return;
+        }
+      }
+
+      setIsAnswering(true);
       setXp(prev => prev + 50);
-      setFeedback({ isCorrect, message: explanation, branch: 'success' });
-    } else {
-      const newEnergy = Math.max(0, energy - 1);
-      setEnergy(newEnergy);
       setFeedback({ 
         isCorrect, 
-        message: newEnergy === 0 
-          ? "Bạn đã hết năng lượng! Hãy bình tĩnh, Sensei sẽ giúp bạn ôn tập lại từ đầu." 
-          : explanation, 
+        message: explanation, 
+        branch: 'success',
+        nextId: nextId // Correctly set nextId in state
+      } as any);
+    } else {
+      setIsShaking(true);
+      setTimeout(() => setIsShaking(false), 500);
+      
+      const newEnergy = Math.max(0, energy - 1);
+      setEnergy(newEnergy);
+      setIsAnswering(true);
+      setFeedback({ 
+        isCorrect, 
+        message: isBossActive ? "BOSS TẤN CÔNG! Bạn bị mất 1 Tim!" : explanation, 
         branch: 'correction' 
       });
 
-      // Log mistake to Supabase
       if (user && !isCorrect) {
         const mistakeWord = currentStage.question?.text || currentStage.text;
         (supabase as any).from('user_mistakes').upsert({
@@ -93,7 +150,6 @@ export const StoryModeFrame = () => {
         });
       }
 
-      // Trigger intervention for wrong answers
       setTimeout(() => setShowIntervention(true), 1000);
     }
   };
@@ -101,6 +157,19 @@ export const StoryModeFrame = () => {
   const handleInputSubmit = () => {
     const isCorrect = userInput.trim().toLowerCase() === currentStage.question?.text.trim().toLowerCase();
     handleChoice(isCorrect, currentStage.question?.explanation || '');
+  };
+
+  const handleShadowingComplete = (score: number) => {
+    setShowShadowing(false);
+    if (score > 60) {
+      setXp(prev => prev + 25);
+      setFeedback({
+        isCorrect: true,
+        message: `Kỹ năng Shadowing tuyệt vời! +25 XP. (Độ chính xác: ${score}%)`,
+        branch: 'success'
+      });
+      setIsAnswering(true);
+    }
   };
 
   const getBackgroundUrl = () => {
@@ -112,7 +181,14 @@ export const StoryModeFrame = () => {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#fdfbf9] overflow-hidden flex flex-col font-sans">
+    <motion.div 
+      animate={isShaking ? { x: [-10, 10, -10, 10, 0] } : {}}
+      transition={{ duration: 0.4 }}
+      className={cn(
+        "relative min-h-screen bg-[#fdfbf9] overflow-hidden flex flex-col font-sans",
+        isShaking && "bg-red-50/30"
+      )}
+    >
       {/* Cinematic Background Layer */}
       <AnimatePresence mode="wait">
         <motion.div
@@ -202,28 +278,58 @@ export const StoryModeFrame = () => {
         </div>
       </header>
 
+      {/* Boss Health Bar Overlay */}
+      {isBossActive && bossHP !== null && (
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[60] w-full max-w-2xl px-8">
+          <motion.div 
+            initial={{ y: -50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="bg-black/40 backdrop-blur-xl border-2 border-red-500/50 p-6 rounded-[24px] shadow-[0_20px_50px_rgba(239,68,68,0.3)]"
+          >
+            <div className="flex justify-between items-end mb-3">
+              <div className="flex items-center gap-3">
+                 <div className="w-4 h-4 rounded-full bg-red-500 animate-pulse shadow-[0_0_10px_#ef4444]" />
+                 <span className="text-white font-black uppercase tracking-[0.3em] text-[10px]">Narita Final Boss</span>
+              </div>
+              <span className="text-red-400 font-black text-xl italic">{bossHP} <span className="text-[10px] opacity-60">HP</span></span>
+            </div>
+            <div className="h-4 bg-red-900/40 rounded-full overflow-hidden border border-red-500/20">
+              <motion.div 
+                initial={{ width: "100%" }}
+                animate={{ width: `${bossHP}%` }}
+                className="h-full bg-gradient-to-r from-red-600 via-red-500 to-orange-400 shadow-[0_0_15px_#ef4444]"
+              />
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {/* Character Sprite Container */}
       <main className="relative flex-1 flex flex-col items-center justify-end pb-[420px] z-20">
         <AnimatePresence mode="wait">
           {currentStage.character && (
             <motion.div
-              key={currentStage.character}
+              key={currentStage.character + currentStage.mood}
               initial={{ y: 100, opacity: 0, scale: 0.9 }}
               animate={{ y: 0, opacity: 1, scale: 1 }}
               exit={{ y: 50, opacity: 0, scale: 0.95 }}
               transition={{ type: "spring", damping: 20 }}
-              className="relative w-[350px] md:w-[500px]"
+              className="relative w-[400px] md:w-[600px] h-[600px] flex items-end"
             >
               {/* Character Glow Background */}
-              <div className="absolute inset-0 bg-white/40 blur-[100px] rounded-full -z-10 animate-pulse" />
+              <div className={cn(
+                "absolute inset-0 blur-[100px] rounded-full -z-10 animate-pulse",
+                currentStage.mood === 'happy' ? "bg-pink-200/40" : 
+                currentStage.mood === 'serious' ? "bg-blue-200/40" : "bg-white/40"
+              )} />
               
-              <div className="relative aspect-[3/4] flex items-end justify-center">
+              <div className="relative w-full h-full flex items-end justify-center">
                  <img 
-                   src={`https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${currentStage.character}&backgroundColor=transparent`} 
+                   src={`https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${currentStage.character}&backgroundColor=transparent&mood=${currentStage.mood || 'neutral'}`} 
                    alt={currentStage.character}
-                   className="w-full h-full object-contain p-12 drop-shadow-[0_20px_40px_rgba(250,75,132,0.1)] transition-all duration-700 hover:scale-105"
+                   className="w-full h-auto max-h-full object-contain p-12 drop-shadow-[0_20px_40px_rgba(250,75,132,0.15)] transition-all duration-700 hover:scale-105"
                  />
-                 <div className="absolute bottom-0 text-[180px] font-black text-[#fa4b84]/5 opacity-10 select-none tracking-tighter leading-none w-full text-center">
+                 <div className="absolute bottom-10 left-0 right-0 text-[120px] font-black text-[#fa4b84]/5 opacity-10 select-none tracking-tighter leading-none text-center -z-10">
                    {currentStage.character.toUpperCase()}
                  </div>
               </div>
@@ -275,30 +381,74 @@ export const StoryModeFrame = () => {
                   </div>
                   
                   <div className="space-y-4">
-                    <p className="text-2xl md:text-3xl font-bold text-[#1a1a1a] leading-snug tracking-tight">
-                       <motion.span
+                    <div className="text-2xl md:text-3xl font-bold text-[#1a1a1a] leading-snug tracking-tight min-h-[4rem]">
+                       <TypewriterText 
                          key={currentStage.text}
-                         initial={{ opacity: 0 }}
-                         animate={{ opacity: 1 }}
-                         transition={{ duration: 0.5 }}
-                       >
-                         {currentStage.text}
-                       </motion.span>
-                    </p>
+                         text={currentStage.text} 
+                         speed={25}
+                       />
+                    </div>
                     
                     {currentStage.jpText && (
-                      <div className="flex items-center gap-4 group">
-                        <p className="text-xl md:text-2xl text-[#fa4b84] font-japanese font-black tracking-wide bg-[#fa4b84]/5 px-5 py-2.5 rounded-2xl border border-[#fa4b84]/10">
-                          {currentStage.jpText}
-                        </p>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => speak(currentStage.jpText!)}
-                          className="h-12 w-12 rounded-full bg-white border border-[#ffe4e9] hover:bg-[#fa4b84] text-[#fa4b84] hover:text-white transition-all shadow-sm"
-                        >
-                          <Volume2 className="h-6 w-6" />
-                        </Button>
+                      <div className="flex items-center gap-4 group flex-wrap">
+                        <div className="bg-[#fa4b84]/5 px-5 py-3 rounded-2xl border border-[#fa4b84]/10">
+                          <div className="flex flex-wrap items-start gap-x-1">
+                            {(() => {
+                              const segments: any[] = [];
+                              const regex = /([^\[\s、。！？]+)(?:\[([^\]]+)\])?|([、。！？\s]+)/g;
+                              let match;
+                              const text = currentStage.jpText!;
+                              
+                              while ((match = regex.exec(text)) !== null) {
+                                if (match[3]) {
+                                  segments.push({ text: match[3], isPunctuation: true });
+                                } else {
+                                  segments.push({
+                                    text: match[1],
+                                    furigana: match[2],
+                                    level: episode.difficulty
+                                  });
+                                }
+                              }
+
+                              if (segments.length === 0) return <span className="text-xl md:text-2xl text-[#fa4b84] font-japanese font-black">{text}</span>;
+                              
+                              return segments.map((s, i) => (
+                                s.isPunctuation ? (
+                                  <span key={i} className="text-xl md:text-2xl text-[#fa4b84] font-japanese font-black self-end mb-1">{s.text}</span>
+                                ) : (
+                                  <JapaneseText 
+                                    key={i} 
+                                    text={s.text} 
+                                    furigana={s.furigana} 
+                                    level={s.level}
+                                    size="lg"
+                                    className="font-black text-[#fa4b84]"
+                                  />
+                                )
+                              ));
+                            })()}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => speak(currentStage.jpText!.replace(/\[.*?\]/g, ''))}
+                            className="h-12 w-12 rounded-full bg-white border border-[#ffe4e9] hover:bg-[#fa4b84] text-[#fa4b84] hover:text-white transition-all shadow-sm"
+                          >
+                            <Volume2 className="h-6 w-6" />
+                          </Button>
+
+                          <Button 
+                            variant="outline" 
+                            size="icon" 
+                            onClick={() => setShowShadowing(true)}
+                            className="h-12 w-12 rounded-full border-2 border-[#fa4b84]/20 text-[#fa4b84] hover:bg-[#fa4b84] hover:text-white transition-all shadow-sm group/mic"
+                          >
+                            <Mic className="h-6 w-6 group-hover/mic:scale-125 transition-transform" />
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -307,7 +457,7 @@ export const StoryModeFrame = () => {
                 <div className="flex items-end justify-center md:justify-end pb-2">
                   {!currentStage.question && (
                     <Button 
-                      onClick={handleNext}
+                      onClick={() => handleNext()}
                       className="group relative h-20 w-20 md:h-24 md:w-24 rounded-full bg-[#fa4b84] text-white p-0 overflow-hidden shadow-[0_15px_35px_rgba(250,75,132,0.4)] hover:bg-[#ff1a66] hover:scale-110 active:scale-90 transition-all duration-500"
                     >
                       <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover:translate-x-0 transition-transform duration-500" />
@@ -332,7 +482,7 @@ export const StoryModeFrame = () => {
                       {currentStage.question.options.map((option, idx) => (
                         <Button
                           key={idx}
-                          onClick={() => handleChoice(option.isCorrect, currentStage.question!.explanation)}
+                          onClick={() => handleChoice(option.isCorrect, currentStage.question!.explanation, option.nextStageId)}
                           className="h-20 rounded-[28px] bg-white border-2 border-[#f5eef0] hover:border-[#fa4b84] hover:bg-[#fa4b84]/5 text-[#1a1a1a] text-xl font-black tracking-tight transition-all duration-300 shadow-lg group/choice overflow-hidden"
                         >
                           <div className="absolute left-0 top-0 bottom-0 w-0 bg-[#fa4b84]/10 group-hover/choice:w-full transition-all duration-500" />
@@ -393,7 +543,7 @@ export const StoryModeFrame = () => {
                         "{feedback?.message}"
                      </p>
                      <Button 
-                       onClick={handleNext}
+                       onClick={() => handleNext()}
                        className="w-full h-14 rounded-2xl bg-[#fa4b84] text-white font-black uppercase tracking-widest text-xs hover:bg-[#ff1a66] transition-all"
                      >
                        Thử lại Stage này
@@ -442,7 +592,7 @@ export const StoryModeFrame = () => {
                         </p>
                       </div>
                       <Button 
-                        onClick={handleNext}
+                        onClick={() => handleNext((feedback as any).nextId)}
                         className={cn(
                           "px-10 h-14 rounded-2xl font-black uppercase tracking-[0.2em] transition-all text-white",
                           feedback.isCorrect ? "bg-green-500 hover:bg-green-600 shadow-[0_10px_20px_rgba(34,197,94,0.3)]" : "bg-red-500 hover:bg-red-600 shadow-[0_10px_20px_rgba(239,68,68,0.3)]"
@@ -499,6 +649,18 @@ export const StoryModeFrame = () => {
       
       {/* Aesthetic Overlay Noise */}
       <div className="fixed inset-0 pointer-events-none z-[60] opacity-[0.05] mix-blend-overlay bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-repeat" />
-    </div>
+
+      {/* Shadowing Modal */}
+      <AnimatePresence>
+        {showShadowing && (
+          <ShadowingOverlay 
+            targetText={currentStage.text}
+            jpText={currentStage.jpText || ''}
+            onClose={() => setShowShadowing(false)}
+            onComplete={handleShadowingComplete}
+          />
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 };

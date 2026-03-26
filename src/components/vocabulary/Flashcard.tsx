@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, X, CheckCircle2, RotateCcw, Volume2, Shuffle
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { VocabWord } from '@/hooks/useFlashcardFolders';
+import { JapaneseText } from '@/components/JapaneseText';
 
 export interface FlashcardProps {
   words: VocabWord[];
@@ -105,10 +106,13 @@ export const Flashcard: React.FC<FlashcardProps> = ({
                       </Button>
                     )}
                     <div className="notranslate" translate="no">
-                      <p className="text-6xl md:text-7xl font-jp text-rose-800 mb-4 drop-shadow-sm">{currentWord.word}</p>
-                      {currentWord.reading && (
-                        <p className="text-xl text-rose-400 font-jp">{currentWord.reading}</p>
-                      )}
+                      <JapaneseText 
+                        text={currentWord.word} 
+                        furigana={currentWord.reading} 
+                        size="3xl" 
+                        clickable={false}
+                        className="text-rose-800 drop-shadow-sm"
+                      />
                     </div>
                     <div className="mt-4 flex items-center justify-center gap-2">
                       <span className="text-xs text-rose-400 border border-rose-200 rounded-full px-3 py-1">

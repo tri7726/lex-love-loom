@@ -2,10 +2,13 @@ export interface StoryStage {
   id: string;
   type: 'dialogue' | 'quiz' | 'action';
   character?: 'Sensei' | 'Officer' | 'Player' | 'Staff';
+  mood?: 'neutral' | 'happy' | 'thinking' | 'surprised' | 'serious' | 'error';
   text: string;
   jpText?: string;
   audioUrl?: string;
   isHellMode?: boolean;
+  isBoss?: boolean;
+  bossHP?: number;
   question?: {
     id: string;
     type: 'choice' | 'input';
@@ -14,9 +17,11 @@ export interface StoryStage {
       id: string;
       text: string;
       isCorrect: boolean;
+      nextStageId?: string;
     }[];
     explanation: string;
   };
+  nextStageId?: string;
   source?: string;
 }
 
@@ -41,15 +46,16 @@ export const STORY_EPISODES: Episode[] = [
         id: 's1',
         type: 'dialogue',
         character: 'Sensei',
+        mood: 'happy',
         text: 'Chào bạn! Chào mừng đến với sân bay Narita. Bạn đã sẵn sàng cho chuyến hành trình tại Nhật Bản chưa?',
-        jpText: '成田空港へようこそ！日本での旅の準備はいいですか？',
+        jpText: '成田空港[なりたくうこう]へようこそ！日本[にほん]での旅[たび]の準備[じゅんび]はいいですか？',
       },
       {
         id: 's2',
         type: 'dialogue',
         character: 'Officer',
         text: 'Chào buổi sáng. Xin hãy xuất trình hộ chiếu.',
-        jpText: 'おはようございます。パスポートをお願いします。',
+        jpText: 'おはようございます。パスポート[ぱすぽーと]をお願[ねが]いします。',
       },
       {
         id: 's3',
@@ -124,6 +130,25 @@ export const STORY_EPISODES: Episode[] = [
             { id: '3', text: 'ホテルは新宿にあります。', isCorrect: false },
           ],
           explanation: '"泊まります (Tomarimasu)" là động từ chính xác để nói về việc trú lại tại một nơi.',
+        },
+      },
+      {
+        id: 's9-boss',
+        type: 'quiz',
+        character: 'Officer',
+        isBoss: true,
+        bossHP: 100,
+        text: 'TRẬN ĐẤU TRÙM: NHẬP CẢNH CUỐI CÙNG! Nhân viên yêu cầu bạn tổng kết lại tất cả. "Tại sao bạn lại đến Nhật Bản và bạn sẽ ở đâu?"',
+        question: {
+          id: 'q-boss-1',
+          type: 'choice',
+          text: 'Chọn câu trả lời đầy đủ và chính xác nhất:',
+          options: [
+            { id: 'b1', text: '観光です。新宿のホテルに泊まります。', isCorrect: true },
+            { id: 'b2', text: '仕事です。ホテルへ行きます。', isCorrect: false },
+            { id: 'b3', text: '観光です。友達の家にいます。', isCorrect: false },
+          ],
+          explanation: 'Chúc mừng! Bạn đã vượt qua thử thách cuối cùng của Sân bay Narita!',
         },
       },
     ],
