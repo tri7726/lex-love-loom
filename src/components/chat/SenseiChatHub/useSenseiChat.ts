@@ -145,9 +145,28 @@ export const useSenseiChat = () => {
       let metadata = {};
 
       if (type === 'analysis') {
-         aiResponse = await analyzeText(content);
+         const result = await analyzeText(content);
+         // analyzeText returns an object like {format, analysis, engine} - extract text
+         if (typeof result === 'string') {
+           aiResponse = result;
+         } else if (result?.analysis) {
+           aiResponse = typeof result.analysis === 'string' 
+             ? result.analysis 
+             : JSON.stringify(result.analysis, null, 2);
+         } else {
+           aiResponse = JSON.stringify(result, null, 2);
+         }
       } else if (type === 'correction') {
-         aiResponse = await checkGrammar(content);
+         const result = await checkGrammar(content);
+         if (typeof result === 'string') {
+           aiResponse = result;
+         } else if (result?.result) {
+           aiResponse = typeof result.result === 'string'
+             ? result.result
+             : JSON.stringify(result.result, null, 2);
+         } else {
+           aiResponse = JSON.stringify(result, null, 2);
+         }
       } else {
           const chatHistory = messages.map(m => ({ role: m.role, content: m.content }));
           chatHistory.push({ role: 'user', content });
@@ -184,7 +203,6 @@ export const useSenseiChat = () => {
           }
 
           if (!aiResponse) {
-            // Robust fallback if AI fails
             aiResponse = "Sensei đã nhận được tin nhắn của bạn! Hiện tại kết nối AI đang bận một chút, nhưng tôi vẫn ở đây hỗ trợ bạn học tiếng Nhật nhé. Bạn muốn hỏi thêm gì không?";
           }
       }
