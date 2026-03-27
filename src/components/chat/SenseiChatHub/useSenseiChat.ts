@@ -271,22 +271,26 @@ export const useSenseiChat = () => {
           fetchConversations();
         }
       } else {
-        // If it's an existing conversation, update the message history in DB
-        const currentConv = conversations.find(c => c.id === activeConversationId);
-        if (currentConv) {
-          const updatedAnalysis = {
-            ...(currentConv as any).analysis || {},
-            messages: [...messages, userMsg, aiMsg]
-          };
-          
-          await supabase
-            .from('analysis_history')
-            .update({ analysis: updatedAnalysis as Json })
-            .eq('id', activeConversationId);
-          
-          // Refresh local conversations to keep everything in sync
-          fetchConversations();
-        }
+        // If it's an existing conversation, fetch latest data first to avoid race conditions
+        const { data: latestData } = await supabase
+          .from('analysis_history')
+          .select('analysis')
+          .eq('id', activeConversationId)
+          .single();
+        
+        const existingMessages = (latestData?.analysis as any)?.messages || [];
+        const updatedAnalysis = {
+          ...(latestData?.analysis as any) || {},
+          messages: [...existingMessages, userMsg, aiMsg]
+        };
+        
+        await supabase
+          .from('analysis_history')
+          .update({ analysis: updatedAnalysis as Json })
+          .eq('id', activeConversationId);
+        
+        // Refresh local conversations to keep everything in sync
+        fetchConversations();
       }
     } catch (err) {
       toast.error("Sensei đang bận, vui lòng thử lại sau!");

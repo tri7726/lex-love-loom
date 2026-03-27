@@ -35,6 +35,104 @@ const VocabCard: React.FC<{ kanji: string; reading: string; meaning: string; onS
   </div>
 );
 
+const StructuredResult: React.FC<{ data: any }> = ({ data }) => {
+  if (!data || typeof data !== 'object') return null;
+  const analysis = data.analysis || data;
+  const overall = analysis.overall_analysis || analysis;
+  
+  return (
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-700">
+      {/* Overall Summary Card */}
+      <div className="relative group/overall">
+        <div className="absolute -inset-0.5 bg-gradient-to-r from-sakura/20 to-indigo-500/20 rounded-2xl blur opacity-20 group-hover/overall:opacity-40 transition-opacity" />
+        <div className="relative p-5 bg-white/60 backdrop-blur-sm rounded-2xl border border-sakura/10 shadow-sm">
+          <div className="flex items-center gap-2 mb-3">
+             <div className="h-6 w-6 rounded-lg bg-sakura/10 flex items-center justify-center">
+                <Info className="h-3 w-3 text-sakura" />
+             </div>
+             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tóm lược từ Sensei</span>
+          </div>
+          <p className="text-sm leading-relaxed text-slate-700 font-medium italic">
+            {overall.summary || overall.text_type_explanation || "Phân tích chuyên sâu từ Sensei..."}
+          </p>
+        </div>
+      </div>
+
+      {/* Sentences Section */}
+      <div className="space-y-6">
+        {analysis.sentences?.map((s: any, idx: number) => (
+          <div key={idx} className="relative group/sentence pl-4 border-l-2 border-sakura/10 hover:border-sakura transition-all">
+            <div className="mb-4">
+              <h3 className="text-2xl font-jp font-black text-slate-800 leading-tight mb-1 group-hover/sentence:text-sakura transition-colors">
+                {s.japanese}
+              </h3>
+              <p className="text-xs text-sakura font-bold tracking-wide">{s.vietnamese}</p>
+            </div>
+            
+            {s.breakdown?.words?.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                {s.breakdown.words.map((w: any, wIdx: number) => (
+                  <div key={wIdx} className="flex flex-col p-3 bg-white/40 hover:bg-white/60 backdrop-blur-sm rounded-xl border border-sakura/5 hover:border-sakura/10 transition-all shadow-sm relative group/word">
+                    <div className="flex justify-between items-baseline mb-0.5">
+                      <span className="text-sm font-jp font-black text-slate-800">{w.word}</span>
+                      <span className="text-[10px] text-sakura font-medium">{w.reading}</span>
+                    </div>
+                    <span className="text-[11px] text-slate-500 font-medium line-clamp-1">{w.meaning}</span>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full opacity-0 group-hover/word:opacity-100 transition-opacity hover:bg-sakura/5"
+                      onClick={() => window.dispatchEvent(new CustomEvent('save-word', { detail: w.word }))}
+                    >
+                      <Save className="h-3.5 w-3.5 text-sakura" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {s.grammar_patterns?.length > 0 && (
+              <div className="space-y-3 bg-sakura/[0.02] p-3 rounded-xl border border-sakura/[0.05]">
+                {s.grammar_patterns.map((p: any, pIdx: number) => (
+                  <div key={pIdx} className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-sakura text-white border-0 text-[9px] h-4 font-black">
+                        {p.pattern}
+                      </Badge>
+                      <span className="text-xs font-black text-slate-700">{p.meaning}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-relaxed pl-1">{p.usage}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Cultural Notes */}
+      {(analysis.cultural_notes?.length > 0 || analysis.grammar_summary?.cultural_notes?.length > 0) && (
+        <div className="pt-6 border-t border-sakura/10">
+          <div className="flex items-center gap-2 mb-4">
+             <div className="h-7 w-7 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+                <Sparkles className="h-4 w-4 text-indigo-500" />
+             </div>
+             <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500/60">Ghi chú tinh hoa văn hóa</h4>
+          </div>
+          <div className="space-y-3 bg-gradient-to-br from-indigo-500/[0.02] to-sakura/[0.02] p-4 rounded-2xl border border-indigo-500/5">
+            {[...(analysis.cultural_notes || []), ...(analysis.grammar_summary?.cultural_notes || [])].map((note: string, i: number) => (
+              <div key={i} className="flex gap-3 text-xs text-slate-600 leading-relaxed">
+                <span className="text-sakura shrink-0 mt-0.5">🌸</span>
+                <span className="font-medium">{note}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSaveWord, onSpeak }) => {
   const isAssistant = message.role === 'assistant';
   
@@ -69,16 +167,32 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSaveWord, o
   const renderContent = () => {
     switch (message.type) {
       case 'analysis':
+      case 'correction':
+        let structuredData = null;
+        try {
+          const jsonMatch = message.content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            structuredData = JSON.parse(jsonMatch[0]);
+          }
+        } catch (e) {}
+
         return (
-          <div className="space-y-3">
-             <div className="flex items-center gap-2 text-rose-500 font-black text-[10px] uppercase tracking-widest">
-                <Sparkles className="h-3 w-3" />
-                Phân tích chuyên sâu
+          <div className="space-y-4">
+             <div className="flex items-center gap-2 font-black text-[10px] uppercase tracking-widest"
+                  style={{ color: message.type === 'analysis' ? '#f43f5e' : '#3b82f6' }}>
+                {message.type === 'analysis' ? <Sparkles className="h-3 w-3" /> : <Languages className="h-3 w-3" />}
+                {message.type === 'analysis' ? 'Phân tích chuyên sâu' : 'Sửa lỗi ngữ pháp'}
              </div>
-             <div className="prose prose-sm prose-sakura max-w-none dark:prose-invert leading-normal font-sans">
-               <ReactMarkdown components={components}>{message.content}</ReactMarkdown>
-             </div>
-             {/* We can add buttons here for specific words detected in the analysis */}
+             {structuredData ? (
+               <StructuredResult data={structuredData} />
+             ) : (
+               <div className={cn(
+                 "prose prose-sm max-w-none dark:prose-invert leading-normal font-sans",
+                 isAssistant ? "prose-sakura" : ""
+               )}>
+                 <ReactMarkdown components={components}>{message.content}</ReactMarkdown>
+               </div>
+             )}
           </div>
         );
       case 'image':
@@ -116,18 +230,6 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSaveWord, o
                     </Button>
                   </div>
                 ))}
-             </div>
-          </div>
-        );
-      case 'correction':
-        return (
-          <div className="space-y-4">
-             <div className="flex items-center gap-2 text-blue-500 font-black text-[10px] uppercase tracking-widest">
-                <Languages className="h-3 w-3" />
-                Sửa lỗi ngữ pháp
-             </div>
-             <div className="p-3 bg-blue-500/5 rounded-xl border border-blue-500/10 text-sm">
-                {message.content}
              </div>
           </div>
         );
