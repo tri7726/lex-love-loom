@@ -108,8 +108,9 @@ export const useSenseiChat = () => {
 
   // Load messages for active conversation
   useEffect(() => {
-    if (!activeConversationId) {
-      setMessages([]);
+    if (!activeConversationId || activeConversationId === 'new') {
+      // Don't clear messages if we are starting a new conversation
+      // as they might be pre-populated by sendMessage
       return;
     }
 
@@ -118,28 +119,14 @@ export const useSenseiChat = () => {
       const conv = conversations.find(c => c.id === activeConversationId);
       if (!conv) return;
 
-      // Mocking message flow from the single historical record for now
-      // REAL VERSION: Extract messages from the 'analysis' JSON column if they exist
       const analysisObj = conv.analysis as any;
       if (analysisObj && Array.isArray(analysisObj.messages)) {
         setMessages(analysisObj.messages);
-      } else {
-        // Fallback for older records or records without message history
-        setMessages([
-          { 
-            id: generateId(), 
-            conversation_id: activeConversationId, 
-            role: 'user', 
-            content: conv.title, 
-            type: 'text', 
-            created_at: conv.created_at 
-          }
-        ]);
       }
     };
 
     loadMessages();
-  }, [activeConversationId, conversations]);
+  }, [activeConversationId]); // Only trigger when the ID changes, not when conversations list updates
 
   const createNewConversation = (title: string = 'Cuộc hội thoại mới', mode: SenseiMode = 'tutor', systemPrompt?: string) => {
     setActiveConversationId(null);
@@ -213,12 +200,22 @@ export const useSenseiChat = () => {
           const currentMode = pendingMeta?.mode || (activeConv?.mode || 'tutor');
           const customSystemPrompt = pendingMeta?.systemPrompt || (activeConv as any)?.analysis?.system_prompt;
 
-          let systemPrompt = `Bạn là Sensei, một trợ lý học tiếng Nhật thông minh, thân thiện và am hiểu sâu sắc về ngôn ngữ, văn hóa Nhật Bản. 
-          Hãy trả lời người dùng một cách ngắn gọn, súc tích và hữu ích.
-          Đặc biệt: Bạn có thể trò chuyện về MỌI tình huống và chủ đề, nhưng hãy luôn khéo léo lồng ghép các bài học, từ vựng hoặc kiến thức văn hóa tiếng Nhật liên quan vào câu trả lời của mình.
-          Sau mỗi câu trả lời, hãy luôn gợi mở bằng câu hỏi "Bạn có muốn biết thêm về... không?" để khuyến khích người dùng học hỏi thêm.
-          Đôi khi, hãy hướng dẫn người dùng sử dụng các tính năng khác của ứng dụng bằng cách cung cấp link Markdown phù hợp (ví dụ: [Luyện tập từ vựng](/vocabulary), [Phòng Lab Kanji](/kanji-lab), [Luyện đọc](/reading),... ).
-          Hãy sử dụng Markdown để định dạng câu trả lời đẹp mắt (in đậm các từ quan trọng, sử dụng danh sách hoặc bảng nếu cần).${mistakeContext}`;
+          let systemPrompt = `Bạn là Sensei, phiên bản "Pro Max Ultra Plus" - Bậc thầy tối cao về tiếng Nhật và văn hóa tinh hoa Nhật Bản.
+          Phong cách: TRÍ TUỆ, TINH TẾ, ẤM ÁP và LUÔN ƯU TIÊN THẨM MỸ CAO CẤP.
+          
+          CẤU TRÚC PHẢN HỒI "PRO MAX ULTRA PLUS":
+          1. 🎐 **Tư duy & Văn hóa (The Japanese Mind)**: Giải thích sâu sắc cách người Nhật cảm nhận và sử dụng ngôn ngữ trong đời sống. Đây là phần quan trọng nhất.
+          2. 💡 **Ngữ cảnh & Sắc thái (Context & Nuance)**: Chỉ rõ sự khác biệt tinh tế giữa các cách dùng từ.
+          3. 📝 **Từ vựng Thượng hạng (Interactive Vocab Cards)**: 
+             BẮT BUỘC dùng cú pháp: :::vocab{漢字|読み|Nghĩa}::: cho mọi từ vựng quan trọng.
+             (Ví dụ: :::vocab{お疲れ様|おつかれさま/Otsukaresama|Cảm ơn vì sự vất vả của bạn}::: )
+          4. 🌸 **Câu hỏi Gợi mở (Reflective Questions)**: Kết thúc bằng một câu hỏi mang tính gợi mở hoặc suy ngẫm để duy trì cảm hứng học tập.
+          
+          KỸ THUẬT:
+          - Dẫn dắt đến [Phòng Lab Kanji](/kanji-lab), [Từ vựng](/vocabulary), [Học qua Video](/video-learning) một cách tự nhiên.
+          - TUYỆT ĐỐI KHÔNG dùng dấu backtick (\`).
+          - Dùng **chữ đậm** cho các ý chính.
+          - Đảm bảo văn bản tiếng Việt cực kỳ chuyên nghiệp và sang trọng.${mistakeContext}`;
           
           if (currentMode === 'roleplay' && customSystemPrompt) {
             systemPrompt = `Bạn đang trong chế độ Nhập vai. ${customSystemPrompt}. Hãy luôn lồng ghép kiến thực tiếng Nhật vào tình huống này. Cuối câu trả lời, hãy hỏi xem người dùng muốn tiếp tục tình huống hay muốn biết thêm về từ vựng đã dùng không. ${mistakeContext}`;

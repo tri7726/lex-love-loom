@@ -14,6 +14,27 @@ interface ChatMessageProps {
   onSpeak?: (text: string) => void;
 }
 
+const VocabCard: React.FC<{ kanji: string; reading: string; meaning: string; onSave?: () => void; onSpeak?: () => void }> = ({ kanji, reading, meaning, onSave, onSpeak }) => (
+  <div className="my-4 bg-white/40 backdrop-blur-sm border border-sakura/20 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group/card overflow-hidden relative">
+    <div className="absolute top-0 right-0 p-2 flex gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity">
+      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-white/80 hover:bg-sakura/10" onClick={onSpeak}>
+        <Volume2 className="h-4 w-4 text-sakura" />
+      </Button>
+      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-white/80 hover:bg-sakura/10" onClick={onSave}>
+        <Save className="h-4 w-4 text-sakura" />
+      </Button>
+    </div>
+    <div className="flex flex-col gap-1">
+      <div className="flex items-baseline gap-2">
+        <span className="text-2xl font-jp font-black text-slate-800">{kanji}</span>
+        <span className="text-sm font-jp text-sakura/60 font-medium">{reading}</span>
+      </div>
+      <div className="h-px w-full bg-gradient-to-r from-sakura/20 to-transparent my-1" />
+      <p className="text-sm text-slate-600 font-medium">{meaning}</p>
+    </div>
+  </div>
+);
+
 export const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSaveWord, onSpeak }) => {
   const isAssistant = message.role === 'assistant';
   
@@ -33,11 +54,16 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSaveWord, o
         </a>
       );
     },
-    p: ({ children }: any) => <p className="mb-4 last:mb-0 leading-relaxed">{children}</p>,
-    strong: ({ children }: any) => <strong className="font-black text-slate-900 dark:text-white mx-0.5">{children}</strong>,
-    ul: ({ children }: any) => <ul className="list-disc pl-4 mb-4 space-y-1">{children}</ul>,
-    ol: ({ children }: any) => <ol className="list-decimal pl-4 mb-4 space-y-1">{children}</ol>,
-    li: ({ children }: any) => <li className="text-slate-700 dark:text-slate-300">{children}</li>,
+    p: ({ children }: any) => <p className="mb-4 last:mb-0 leading-relaxed text-slate-700 dark:text-slate-300">{children}</p>,
+    strong: ({ children }: any) => <strong className="font-bold text-slate-800 dark:text-white mx-0.5 bg-sakura/5 px-1 rounded-sm border-b border-sakura/20">{children}</strong>,
+    ul: ({ children }: any) => <ul className="list-disc pl-5 mb-4 space-y-2 border-l-2 border-sakura/10 ml-1 py-1">{children}</ul>,
+    ol: ({ children }: any) => <ol className="list-decimal pl-5 mb-4 space-y-2 border-l-2 border-indigo-500/10 ml-1 py-1">{children}</ol>,
+    li: ({ children }: any) => <li className="text-slate-700 dark:text-slate-300 leading-normal pl-1">{children}</li>,
+    h1: ({ children }: any) => <h1 className="text-xl font-serif font-black text-slate-800 mb-4 mt-2">{children}</h1>,
+    h2: ({ children }: any) => <h2 className="text-lg font-serif font-bold text-slate-700 mb-3 mt-4 flex items-center gap-2">
+      <span className="h-1.5 w-1.5 rounded-full bg-sakura animate-pulse" />
+      {children}
+    </h2>,
   };
 
   const renderContent = () => {
@@ -49,7 +75,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSaveWord, o
                 <Sparkles className="h-3 w-3" />
                 Phân tích chuyên sâu
              </div>
-             <div className="prose prose-sm prose-sakura max-w-none dark:prose-invert leading-relaxed">
+             <div className="prose prose-sm prose-sakura max-w-none dark:prose-invert leading-normal font-sans">
                <ReactMarkdown components={components}>{message.content}</ReactMarkdown>
              </div>
              {/* We can add buttons here for specific words detected in the analysis */}
@@ -106,14 +132,48 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSaveWord, o
           </div>
         );
       default:
-        return (
-          <div className={cn(
-            "prose prose-sm max-w-none dark:prose-invert leading-relaxed",
-            isAssistant ? "prose-sakura" : ""
-          )}>
-            <ReactMarkdown components={components}>{message.content}</ReactMarkdown>
-          </div>
-        );
+        try {
+          const content = message.content || '';
+          if (content.includes(':::vocab{')) {
+            const parts = content.split(/(:::vocab\{[^}]+\}:::)/g);
+            return (
+              <div className={cn(
+                "prose prose-sm max-w-none dark:prose-invert leading-normal font-sans",
+                isAssistant ? "prose-sakura" : ""
+              )}>
+                {parts.map((part, index) => {
+                  if (part.startsWith(':::vocab{')) {
+                    const match = part.match(/:::vocab\{([^|]+)\|([^|]+)\|([^}]+)\}:::/);
+                    if (match) {
+                      const [, kanji, reading, meaning] = match;
+                      return (
+                        <VocabCard 
+                          key={index}
+                          kanji={kanji.trim()} 
+                          reading={reading.trim()} 
+                          meaning={meaning.trim()} 
+                          onSave={() => onSaveWord?.(kanji.trim())}
+                          onSpeak={() => onSpeak?.(kanji.trim())}
+                        />
+                      );
+                    }
+                  }
+                  return <ReactMarkdown key={index} components={components}>{part}</ReactMarkdown>;
+                })}
+              </div>
+            );
+          }
+          return (
+            <div className={cn(
+              "prose prose-sm max-w-none dark:prose-invert leading-normal font-sans",
+              isAssistant ? "prose-sakura" : ""
+            )}>
+              <ReactMarkdown components={components}>{content}</ReactMarkdown>
+            </div>
+          );
+        } catch (e) {
+          return <div className="text-sm font-sans">{message.content}</div>;
+        }
     }
   };
 
@@ -133,19 +193,25 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSaveWord, o
         </div>
       )}
       
-      <div className={cn(
-        "max-w-[85%] md:max-w-[75%] rounded-[2.5rem] px-8 py-5 relative group transition-all duration-500",
-        isAssistant 
-          ? "bg-white border border-slate-50 text-slate-800 shadow-sm rounded-tl-none" 
-          : "bg-sakura/5 text-slate-700 border border-sakura/10 shadow-sm rounded-tr-none"
-      )}>
-        <div className={cn(
-          "leading-relaxed",
-          isAssistant ? "font-serif text-lg" : "font-sans font-medium text-sm"
-        )}>
+      <div className="flex-1 relative space-y-2">
+        <div 
+          className={cn(
+            "max-w-[85%] md:max-w-[75%] rounded-[1.75rem] px-5 py-4 transition-all duration-500 group relative",
+            isAssistant 
+              ? "bg-white/80 backdrop-blur-md border border-sakura/10 shadow-[0_10px_30px_-10px_rgba(255,183,197,0.15)] rounded-tl-none" 
+              : "bg-sakura text-white shadow-soft rounded-tr-none ml-auto"
+          )}
+        >
+          {isAssistant && (
+            <div className="absolute -left-12 top-0">
+                <div className="h-10 w-10 rounded-2xl bg-white shadow-sm flex items-center justify-center border border-sakura/5 animate-float-slow">
+                  <span className="text-lg">🌸</span>
+                </div>
+            </div>
+          )}
           {renderContent()}
         </div>
-        
+          
         {isAssistant && (message.metadata as any)?.source && (
           <div className="absolute -top-3.5 right-8">
             <Badge variant="secondary" className="bg-white text-sakura border-sakura/10 text-[9px] px-3 py-1 rounded-full font-black uppercase tracking-[0.2em] shadow-md ring-1 ring-sakura/5">
@@ -155,7 +221,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSaveWord, o
         )}
         
         {isAssistant && (
-          <div className="absolute -bottom-14 left-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-3 group-hover:translate-y-0">
+          <div className="absolute -bottom-12 left-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-3 group-hover:translate-y-0">
             <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full bg-white shadow-lg border border-sakura/10 hover:bg-sakura/5 hover:scale-110 active:scale-90 transition-all" onClick={() => onSpeak?.(message.content)}>
               <Volume2 className="h-4 w-4 text-sakura" />
             </Button>
