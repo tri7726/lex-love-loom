@@ -207,7 +207,7 @@ export const VoiceHub = ({ isOpen, onClose, onSuccess, targetSentence, systemPro
       setIsProcessing(false);
       processingRef.current = false;
     }
-  }, [mode, activeSentence, messages, systemPrompt, speak, awardXP]);
+  }, [mode, activeSentence, messages, systemPrompt, speak, awardXP, onSuccess]);
 
   // ── STT ───────────────────────────────────────────────────────────────────
   const { isListening, transcript, startListening, stopListening, isSupported } =

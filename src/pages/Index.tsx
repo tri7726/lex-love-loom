@@ -47,6 +47,7 @@ import { useWordHistory } from '@/hooks/useWordHistory';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { useWritingLab } from '@/contexts/WritingLabContext';
 
 import { MINNA_N5_VOCAB } from '@/data/minna-n5';
 
@@ -86,6 +87,7 @@ const wordOfTheDay = getWordOfTheDay();
 export const Index = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { openWritingLab } = useWritingLab();
   const { profile, loading: profileLoading, updateStreak } = useProfile();
   const { history, isLoading: historyLoading } = useWordHistory();
   const [leaderboard, setLeaderboard] = React.useState<{ rank: number; userId: string; username: string; xp: number; streak: number; avatar?: string; isCurrentUser: boolean }[]>([]);
@@ -244,7 +246,7 @@ export const Index = () => {
         navigate('/vocabulary');
         break;
       case 'kanji-writing':
-        navigate('/kanji-lab');
+        if (writingRecs.length > 0) openWritingLab(writingRecs[0].word);
         break;
       case 'ai-chat':
         navigate('/sensei');
@@ -423,7 +425,7 @@ export const Index = () => {
                 <div 
                   key={rec.id} 
                   className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-indigo-jp/10 flex items-center justify-between group hover:border-indigo-jp/30 transition-all cursor-pointer"
-                  onClick={() => navigate(`/kanji-lab?word=${rec.word}`)}
+                  onClick={() => openWritingLab(rec.word)}
                 >
                   <div className="flex items-center gap-4">
                     <div className="h-12 w-12 rounded-xl bg-indigo-jp/5 flex items-center justify-center font-jp text-3xl font-black text-indigo-jp">

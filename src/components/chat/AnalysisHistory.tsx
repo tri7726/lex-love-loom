@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { History, Search, RefreshCw, Layers, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -12,7 +12,7 @@ import { format } from 'date-fns';
 export interface AnalysisItem {
   id: string;
   content: string;
-  analysis: any;
+  analysis: unknown;
   created_at: string;
   engine: string;
 }
@@ -28,7 +28,7 @@ export const AnalysisHistory = ({ onSelect, maxItems = 12 }: AnalysisHistoryProp
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     if (!user) {
       setHistory([]);
       setLoading(false);
@@ -50,11 +50,11 @@ export const AnalysisHistory = ({ onSelect, maxItems = 12 }: AnalysisHistoryProp
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, maxItems]);
 
   useEffect(() => {
     fetchHistory();
-  }, [user, maxItems]);
+  }, [fetchHistory]);
 
   const filteredHistory = history.filter(item => 
     (item.content || '').toLowerCase().includes(searchQuery.toLowerCase())

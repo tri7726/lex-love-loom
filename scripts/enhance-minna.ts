@@ -128,7 +128,7 @@ async function run() {
       finalSql += `FROM textbooks t JOIN lessons l ON l.textbook_id = t.id AND l.lesson_number = ${i}\n`;
       finalSql += `CROSS JOIN (VALUES\n`;
       
-      const values = extras.map((w: any) => {
+      const values = extras.map((w: { word: string; reading: string; meaning_vi: string }) => {
           const word = (w.word || '').replace(/'/g, "''");
           const reading = (w.reading || '').replace(/'/g, "''");
           const meaning = (w.meaning_vi || '').replace(/'/g, "''");

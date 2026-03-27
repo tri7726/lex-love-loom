@@ -1,10 +1,11 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, X, CheckCircle2, RotateCcw, Volume2, Shuffle, ArrowUpDown, Star, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, CheckCircle2, RotateCcw, Volume2, Shuffle, ArrowUpDown, Star, Sparkles, PenTool } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { VocabWord } from '@/hooks/useFlashcardFolders';
 import { JapaneseText } from '@/components/JapaneseText';
+import { useWritingLab } from '@/contexts/WritingLabContext';
 
 export interface FlashcardProps {
   words: VocabWord[];
@@ -49,6 +50,7 @@ export const Flashcard: React.FC<FlashcardProps> = ({
   grad = 'from-rose-50 to-white',
   isCustom = false,
 }) => {
+  const { openWritingLab } = useWritingLab();
   const progress = words.length > 0 ? ((flashcardIndex + 1) / words.length) * 100 : 0;
 
   return (
@@ -63,38 +65,38 @@ export const Flashcard: React.FC<FlashcardProps> = ({
           }}
         >
           <div className={cn(
-            'relative rounded-[3.5rem] overflow-hidden min-h-[300px] md:min-h-[340px] shadow-[0_20px_50px_-15px_rgba(0,0,0,0.03)] transition-all duration-500',
-            'bg-white border border-slate-50/50'
+            'relative rounded-3xl overflow-hidden min-h-[240px] md:min-h-[280px] shadow-2xl shadow-rose-200/40 transition-all duration-500',
+            'bg-gradient-to-br from-rose-100 via-pink-50 to-white border border-rose-200'
           )}>
-            {/* Decorative elements - extremely subtle */}
+            {/* Decorative elements - Snippet Style Optimized */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
-              <div className="absolute -top-24 -right-24 w-64 h-64 bg-sakura/5 rounded-full blur-[80px]" />
-              <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-sakura/5 rounded-full blur-[80px]" />
-              <div className="absolute top-8 right-10 text-slate-50 font-display font-black text-7xl select-none opacity-50">
-                {isCustom ? ((reversedCard ? isFlipped : !isFlipped) ? '漢' : '訳') : (isFlipped ? '訳' : '漢')}
+              <div className="absolute -top-16 -right-16 w-48 h-48 bg-rose-200/20 rounded-full blur-2xl" />
+              <div className="absolute -bottom-12 -left-12 w-36 h-36 bg-pink-200/15 rounded-full blur-2xl" />
+              <div className="absolute top-4 right-4 text-rose-200/30 text-[80px] font-jp select-none leading-none">
+                {isFlipped ? '🌸' : '語'}
               </div>
             </div>
 
             {/* Progress bar */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-slate-50 pointer-events-none">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-rose-200/30 pointer-events-none">
               <motion.div
-                className="h-full bg-sakura"
+                className="h-full bg-gradient-to-r from-rose-300 via-pink-300 to-rose-400"
                 animate={{ width: `${progress}%` }}
                 transition={{ duration: 0.3 }}
               />
             </div>
 
             {/* Content */}
-            <div className="relative z-10 flex flex-col items-center justify-center min-h-[300px] md:min-h-[340px] p-10">
+            <div className="relative z-10 flex flex-col items-center justify-center min-h-[240px] md:min-h-[280px] p-8">
               <AnimatePresence mode="wait">
                 {(reversedCard ? isFlipped : !isFlipped) ? (
                   <motion.div
                     key={`front-${flashcardIndex}`}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.4 }}
-                    className="text-center relative w-full space-y-4"
+                    initial={{ opacity: 0, rotateY: -90 }}
+                    animate={{ opacity: 1, rotateY: 0 }}
+                    exit={{ opacity: 0, rotateY: 90 }}
+                    transition={{ duration: 0.3 }}
+                    className="text-center"
                   >
                     {isWordSaved && toggleSaved && (
                       <Button
@@ -105,39 +107,31 @@ export const Flashcard: React.FC<FlashcardProps> = ({
                         <Star className={cn('h-6 w-6', isWordSaved(currentWord.word) && 'fill-amber-400 text-amber-400')} />
                       </Button>
                     )}
-                    <div className="notranslate" translate="no">
-                      <JapaneseText 
-                        text={currentWord.word} 
-                        furigana={currentWord.reading} 
-                        size="3xl" 
-                        clickable={false}
-                        className="text-slate-800 font-jp font-black tracking-tight"
-                      />
-                    </div>
-                    <div className="pt-4">
-                       <span className="text-[10px] font-black uppercase tracking-widest text-slate-300 bg-slate-50 px-4 py-1.5 rounded-full border border-slate-100/50">
-                         Nhấp để lật thẻ
+                    <p className="text-6xl md:text-7xl font-jp text-rose-800 mb-4 drop-shadow-sm">{currentWord.word}</p>
+                    {currentWord.reading && (
+                      <p className="text-xl text-rose-400 font-jp">{currentWord.reading}</p>
+                    )}
+                    <div className="mt-4 flex items-center justify-center gap-2">
+                       <span className="text-xs text-rose-400 border border-rose-200 rounded-full px-3 py-1">
+                         nhấp để lật
                        </span>
                     </div>
                   </motion.div>
                 ) : (
                   <motion.div
                     key={`back-${flashcardIndex}`}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.4 }}
-                    className="text-center space-y-4"
+                    initial={{ opacity: 0, rotateY: 90 }}
+                    animate={{ opacity: 1, rotateY: 0 }}
+                    exit={{ opacity: 0, rotateY: -90 }}
+                    transition={{ duration: 0.3 }}
+                    className="text-center"
                   >
-                    <p className="text-4xl md:text-5xl font-display font-medium text-slate-800 leading-tight">{currentWord.meaning}</p>
+                    <p className="text-3xl md:text-4xl font-bold text-rose-800 mb-3">{currentWord.meaning}</p>
                     {currentWord.hanviet && (
-                      <div className="flex items-center justify-center gap-2 text-sakura">
-                         <Sparkles className="h-3 w-3" />
-                         <p className="text-xs uppercase tracking-[0.2em] font-black">{currentWord.hanviet}</p>
-                      </div>
+                      <p className="text-base text-amber-400/80 uppercase tracking-widest font-medium">{currentWord.hanviet}</p>
                     )}
-                    <p className="notranslate text-lg text-slate-400 font-jp mt-2 border-t border-slate-50 pt-4" translate="no">
-                      {currentWord.word} <span className="text-sakura/60 font-medium">({currentWord.reading})</span>
+                    <p className="text-lg text-rose-400 font-jp mt-2">
+                      {currentWord.word} {currentWord.reading && `(${currentWord.reading})`}
                     </p>
                   </motion.div>
                 )}
@@ -162,7 +156,7 @@ export const Flashcard: React.FC<FlashcardProps> = ({
 
             {/* Counter */}
             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 pointer-events-none">
-              <span className="text-[10px] text-slate-300 font-black uppercase tracking-widest tabular-nums">
+              <span className="text-xs text-rose-400 font-bold tracking-widest tabular-nums">
                 {flashcardIndex + 1} / {words.length}
               </span>
             </div>
@@ -194,7 +188,17 @@ export const Flashcard: React.FC<FlashcardProps> = ({
           <Button
             variant="ghost" 
             size="icon"
-            className={cn('h-10 w-10 rounded-xl transition-all', autoSpeak ? 'bg-sakura/10 text-sakura' : 'text-slate-400')}
+            className="h-10 w-10 rounded-xl text-slate-400 hover:text-sakura group transition-all"
+            onClick={(e) => { e.stopPropagation(); openWritingLab(currentWord.word); }}
+            title="Luyện viết (Lab)"
+          >
+            <PenTool className="h-4 w-4 group-hover:rotate-12 transition-transform" />
+          </Button>
+
+          <Button
+            variant="ghost" 
+            size="icon"
+            className={cn('h-10 w-10 rounded-xl transition-all', autoSpeak ? 'bg-rose-100 text-rose-600' : 'text-slate-400')}
             onClick={() => setAutoSpeak(!autoSpeak)}
             title={autoSpeak ? 'Tắt tự phát âm' : 'Bật tự phát âm khi lật'}
           >
@@ -204,7 +208,7 @@ export const Flashcard: React.FC<FlashcardProps> = ({
           <Button
             variant="ghost" 
             size="icon"
-            className={cn('h-10 w-10 rounded-xl transition-all', shuffled ? 'bg-sakura/10 text-sakura' : 'text-slate-400')}
+            className={cn('h-10 w-10 rounded-xl transition-all', shuffled ? 'bg-rose-100 text-rose-600' : 'text-slate-400')}
             onClick={() => setShuffled(!shuffled)}
             title="Xáo trộn thẻ"
           >
@@ -214,7 +218,7 @@ export const Flashcard: React.FC<FlashcardProps> = ({
           <Button
             variant="ghost" 
             size="icon"
-            className={cn('h-10 w-10 rounded-xl transition-all', reversedCard ? 'bg-sakura/10 text-sakura' : 'text-slate-400')}
+            className={cn('h-10 w-10 rounded-xl transition-all', reversedCard ? 'bg-rose-100 text-rose-600' : 'text-slate-400')}
             onClick={() => { setReversedCard(!reversedCard); setIsFlipped(false); }}
             title={reversedCard ? 'Mặt trước: Nhật' : 'Mặt trước: Nghĩa'}
           >

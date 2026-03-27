@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Languages, CheckCircle2, Info, Volume2, Save } from 'lucide-react';
+import { Sparkles, Languages, CheckCircle2, Info, Volume2, Save, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -35,7 +35,13 @@ const VocabCard: React.FC<{ kanji: string; reading: string; meaning: string; onS
   </div>
 );
 
-const StructuredResult: React.FC<{ data: any }> = ({ data }) => {
+interface StructuredResultProps {
+  data: any;
+  onSaveWord?: (word: string) => void;
+  onSpeak?: (text: string) => void;
+}
+
+const StructuredResult = ({ data, onSaveWord, onSpeak }: StructuredResultProps) => {
   if (!data || typeof data !== 'object') return null;
   const analysis = data.analysis || data;
   const overall = analysis.overall_analysis || analysis;
@@ -63,7 +69,8 @@ const StructuredResult: React.FC<{ data: any }> = ({ data }) => {
         {analysis.sentences?.map((s: any, idx: number) => (
           <div key={idx} className="relative group/sentence pl-4 border-l-2 border-sakura/10 hover:border-sakura transition-all">
             <div className="mb-4">
-              <h3 className="text-2xl font-jp font-black text-slate-800 leading-tight mb-1 group-hover/sentence:text-sakura transition-colors">
+              <h3 className="text-2xl font-jp font-black text-slate-800 leading-tight mb-1 group-hover/sentence:text-sakura transition-colors cursor-pointer"
+                  onClick={() => onSpeak?.(s.japanese)}>
                 {s.japanese}
               </h3>
               <p className="text-xs text-sakura font-bold tracking-wide">{s.vietnamese}</p>
@@ -73,19 +80,29 @@ const StructuredResult: React.FC<{ data: any }> = ({ data }) => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                 {s.breakdown.words.map((w: any, wIdx: number) => (
                   <div key={wIdx} className="flex flex-col p-3 bg-white/40 hover:bg-white/60 backdrop-blur-sm rounded-xl border border-sakura/5 hover:border-sakura/10 transition-all shadow-sm relative group/word">
-                    <div className="flex justify-between items-baseline mb-0.5">
-                      <span className="text-sm font-jp font-black text-slate-800">{w.word}</span>
-                      <span className="text-[10px] text-sakura font-medium">{w.reading}</span>
+                    <div className="flex justify-between items-baseline mb-0.5" onClick={() => onSpeak?.(w.word)}>
+                      <span className="text-sm font-jp font-black text-slate-800 cursor-pointer">{w.word}</span>
+                      <span className="text-[10px] text-sakura font-medium cursor-pointer">{w.reading}</span>
                     </div>
                     <span className="text-[11px] text-slate-500 font-medium line-clamp-1">{w.meaning}</span>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full opacity-0 group-hover/word:opacity-100 transition-opacity hover:bg-sakura/5"
-                      onClick={() => window.dispatchEvent(new CustomEvent('save-word', { detail: w.word }))}
-                    >
-                      <Save className="h-3.5 w-3.5 text-sakura" />
-                    </Button>
+                    <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover/word:opacity-100 transition-opacity">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-6 w-6 rounded-full hover:bg-sakura/5"
+                        onClick={() => onSpeak?.(w.word)}
+                      >
+                        <Volume2 className="h-3 w-3 text-sakura" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-6 w-6 rounded-full hover:bg-sakura/5"
+                        onClick={() => onSaveWord?.(w.word)}
+                      >
+                        <Save className="h-3.5 w-3.5 text-sakura" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -109,6 +126,49 @@ const StructuredResult: React.FC<{ data: any }> = ({ data }) => {
           </div>
         ))}
       </div>
+
+      {/* Suggested Flashcards Section */}
+      {analysis.suggested_flashcards?.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+             <div className="h-6 w-6 rounded-lg bg-sakura/10 flex items-center justify-center">
+                <BookOpen className="h-3 w-3 text-sakura" />
+             </div>
+             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Thẻ học gợi ý</span>
+          </div>
+          <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide -mx-2 px-2">
+            {analysis.suggested_flashcards.map((f: any, i: number) => (
+              <div key={i} className="min-w-[200px] bg-gradient-to-br from-white to-sakura/5 backdrop-blur-sm border border-sakura/20 rounded-[1.25rem] p-4 shadow-sm hover:shadow-md transition-all relative group/flashcard shrink-0">
+                <div className="flex flex-col gap-1">
+                  <span className="text-xl font-jp font-black text-slate-800">{f.word || f.kanji}</span>
+                  <span className="text-[10px] text-sakura font-bold tracking-tight">{f.reading}</span>
+                  <div className="h-px w-full bg-sakura/10 my-1" />
+                  <span className="text-xs text-slate-600 font-medium leading-tight">{f.meaning}</span>
+                  <p className="text-[10px] text-slate-400 italic mt-1 line-clamp-1">"{f.example_sentence}"</p>
+                </div>
+                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/flashcard:opacity-100 transition-opacity">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-7 w-7 rounded-full bg-white/80"
+                    onClick={() => onSpeak?.(f.word || f.kanji)}
+                  >
+                    <Volume2 className="h-3.5 w-3.5 text-sakura" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-7 w-7 rounded-full bg-white/80"
+                    onClick={() => onSaveWord?.(f.word || f.kanji)}
+                  >
+                    <Save className="h-3.5 w-3.5 text-sakura" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Cultural Notes */}
       {(analysis.cultural_notes?.length > 0 || analysis.grammar_summary?.cultural_notes?.length > 0) && (
@@ -184,7 +244,11 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSaveWord, o
                 {message.type === 'analysis' ? 'Phân tích chuyên sâu' : 'Sửa lỗi ngữ pháp'}
              </div>
              {structuredData ? (
-               <StructuredResult data={structuredData} />
+               <StructuredResult 
+                 data={structuredData} 
+                 onSaveWord={onSaveWord}
+                 onSpeak={onSpeak}
+               />
              ) : (
                <div className={cn(
                  "prose prose-sm max-w-none dark:prose-invert leading-normal font-sans",

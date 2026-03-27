@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Volume2, Star } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Volume2, Star, PenTool } from 'lucide-react';
+import { useWritingLab } from '@/contexts/WritingLabContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -54,6 +55,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
   flashcardIndex, setFlashcardIndex, isFlipped, setIsFlipped, autoSpeak, setAutoSpeak, reversedCard, setReversedCard, shuffled, setShuffled, speak,
   activeGame, setActiveGame, showReviewPanel, setShowReviewPanel,
 }) => {
+  const { openWritingLab } = useWritingLab();
   const words = displayWords.length ? displayWords : selectedLesson.words;
   const currentWord = words[flashcardIndex];
   const lessonIndex = selectedLevel.lessons.indexOf(selectedLesson);
@@ -156,11 +158,20 @@ export const DetailView: React.FC<DetailViewProps> = ({
         </div>
         <div className="space-y-2">
           {words.map((word, idx) => (
-            <motion.div key={word.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.015 }}>
+            <motion.div 
+              key={word.id} 
+              initial={{ opacity: 0, y: 10 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              transition={{ 
+                duration: 0.3,
+                delay: Math.min(idx * 0.012, 0.15) // Cap stagger at 12 items (0.15s)
+              }}
+              className="will-change-transform"
+            >
               <Card
                 className={cn(
                   'notranslate group transition-all duration-300 hover:bg-slate-50/50 cursor-pointer border-slate-100 shadow-none hover:shadow-sm',
-                  flashcardIndex === idx ? 'bg-sakura/5 border-sakura/20' : 'bg-white'
+                  flashcardIndex === idx ? 'bg-rose-50/50 border-rose-200 ring-4 ring-rose-50' : 'bg-white'
                 )}
                 translate="no"
                 onClick={() => { setFlashcardIndex(idx); setIsFlipped(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
@@ -169,20 +180,32 @@ export const DetailView: React.FC<DetailViewProps> = ({
                   <div className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0">
                     {idx + 1}
                   </div>
-                  <div className="min-w-[120px] shrink-0">
+                  <div className="min-w-[90px] shrink-0">
                     <JapaneseText 
                       text={word.word} 
                       furigana={word.reading} 
                       level={selectedLevel.level}
-                      size="md"
-                      className="font-bold"
+                      size="lg"
+                      className="font-bold text-slate-800"
                     />
                   </div>
-                  <div className="border-l pl-4 flex-1 min-w-0 space-y-0.5">
-                    {word.hanviet && <p className="text-[11px] font-semibold text-amber-600 uppercase tracking-wide">{word.hanviet}</p>}
-                    <p className="text-sm">{word.meaning}</p>
+                  <div className="border-l border-slate-100 pl-4 flex-1 min-w-0 space-y-0.5">
+                    {word.reading && (
+                      <p className="text-sm text-muted-foreground font-jp">{word.reading}</p>
+                    )}
+                    {word.hanviet && (
+                      <p className="text-[11px] font-semibold text-amber-600 uppercase tracking-wide">{word.hanviet}</p>
+                    )}
+                    <p className="text-sm text-slate-700 font-medium">{word.meaning}</p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-sakura"
+                      onClick={(e) => { e.stopPropagation(); openWritingLab(word.word); }}
+                      title="Luyện viết Lab"
+                    >
+                      <PenTool className="h-3.5 w-3.5" />
+                    </Button>
                     <Button
                       variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={(e) => { e.stopPropagation(); speak(word.word); }}

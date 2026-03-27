@@ -12,6 +12,8 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { JLPTAnalytics } from '@/components/analytics/JLPTAnalytics';
+import { FloatingSakura } from '@/components/ui/FloatingSakura';
+import { Progress } from '@/components/ui/progress';
 
 interface MockExam {
   id: string;
@@ -29,6 +31,90 @@ interface ExamResult {
   time_taken: number;
   completed_at: string;
 }
+
+const ExamCard = ({ exam, result, index }: { exam: MockExam, result: ExamResult | undefined, index: number }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  const completed = !!result;
+  const isMastered = result?.score === result?.max_score && (result?.max_score || 0) > 0;
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, x: -10 }} 
+      animate={{ opacity: 1, x: 0 }} 
+      transition={{ delay: index * 0.05 }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <Card className={cn(
+        "relative hover:shadow-xl hover:shadow-rose-100 transition-all duration-300 group overflow-hidden rounded-2xl border-rose-100",
+        completed ? "bg-white/60" : "bg-white"
+      )}>
+        <FloatingSakura isHovering={isHovered} />
+        
+        <div className="absolute inset-x-0 bottom-0 h-1 bg-rose-50 overflow-hidden">
+          {completed && <div className="h-full bg-gradient-to-r from-rose-300 to-pink-400" style={{ width: '100%' }} />}
+        </div>
+
+        <CardContent className="p-0 flex flex-col sm:flex-row">
+          <div className="p-5 flex-1 space-y-3 relative z-10">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge className="bg-gradient-to-br from-rose-400 to-pink-500 text-white font-black text-[10px] px-3 rounded-full h-5 border-0">
+                {exam.level}
+              </Badge>
+              <Badge variant="outline" className="border-rose-100 text-rose-400 text-[10px] h-5 px-3 rounded-full bg-rose-50/30">
+                {exam.difficulty}
+              </Badge>
+              {completed && (
+                <Badge variant="secondary" className={cn(
+                  "gap-1 text-[10px] h-5 px-3 rounded-full border-0",
+                  isMastered ? "bg-amber-100 text-amber-600 font-black animate-pulse" : "bg-emerald-50 text-emerald-600"
+                )}>
+                  {isMastered ? <Trophy className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
+                  {isMastered ? 'MASTERED' : 'HOÀN THÀNH'}
+                </Badge>
+              )}
+            </div>
+            
+            <div>
+              <h3 className="text-lg font-bold text-rose-800 transition-colors font-display leading-tight">{exam.title}</h3>
+              <p className="text-[11px] text-rose-300 font-medium uppercase tracking-widest mt-0.5">JLPT Standard Examination</p>
+            </div>
+
+            <div className="flex flex-wrap gap-4 text-xs text-rose-400/80">
+              <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> {exam.duration} phút</span>
+              <span className="flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" /> {exam.question_count} câu hỏi</span>
+            </div>
+          </div>
+
+          <div className="bg-rose-50/20 p-5 sm:w-48 border-l border-rose-50 flex flex-col justify-center gap-3 text-center relative z-10">
+            {completed ? (
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <p className="text-[10px] text-rose-400 uppercase font-black tracking-widest">Điểm cao nhất</p>
+                  <div className="flex items-center justify-center gap-2">
+                    <h4 className="text-2xl font-black text-rose-600">{result?.score}</h4>
+                    <span className="text-rose-300 font-bold">/ {result?.max_score}</span>
+                  </div>
+                </div>
+                <Link to={`/mock-exam/${exam.id}`} className="w-full block">
+                  <Button className="w-full h-10 rounded-xl border-rose-200 text-rose-500 hover:bg-rose-500 hover:text-white transition-all text-xs font-black shadow-none" variant="outline">
+                    LÀM LẠI ĐỀ
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <Link to={`/mock-exam/${exam.id}`} className="w-full block">
+                <Button className="w-full gap-2 h-14 text-base font-black bg-gradient-to-br from-rose-400 to-pink-500 hover:from-rose-500 hover:to-pink-600 text-white shadow-xl shadow-rose-200/50 rounded-xl border-none transition-transform hover:scale-[1.03]">
+                  BẮT ĐẦU <ChevronRight className="h-5 w-5" />
+                </Button>
+              </Link>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+};
 
 export const MockTestCenter = () => {
   const { user } = useAuth();
@@ -90,6 +176,17 @@ export const MockTestCenter = () => {
 
   const filteredExams = exams.filter(e => !selectedLevel || e.level === selectedLevel);
 
+  const getLevelStats = (level: string) => {
+    const levelExams = exams.filter(e => e.level === level);
+    if (levelExams.length === 0) return { completed: 0, total: 0, percent: 0 };
+    const completedInLevel = levelExams.filter(e => !!latestByExam[e.id]).length;
+    return {
+      completed: completedInLevel,
+      total: levelExams.length,
+      percent: Math.round((completedInLevel / levelExams.length) * 100)
+    };
+  };
+
   return (
     <div className="min-h-screen bg-background pb-10">
       <main className="container py-4 space-y-6">
@@ -139,17 +236,27 @@ export const MockTestCenter = () => {
                 </Button>
               </Link>
             )}
-            <div className="bg-sakura/5 p-1 rounded-xl flex gap-1 border border-sakura/10 h-9 items-center">
-              {['All', 'N5', 'N4', 'N3', 'N2', 'N1'].map(l => (
-                <Button key={l} variant={selectedLevel === (l === 'All' ? null : l) ? 'default' : 'ghost'}
-                  size="sm" onClick={() => setSelectedLevel(l === 'All' ? null : l)} 
-                  className={cn(
-                    "font-bold px-2 rounded-lg transition-all h-7 text-[10px]",
-                    selectedLevel === (l === 'All' ? null : l) ? "bg-crimson text-white shadow-md shadow-crimson/20" : "text-sakura hover:bg-sakura/10"
-                  )}>
-                  {l}
-                </Button>
-              ))}
+            <div className="bg-sakura/5 p-1 rounded-xl flex gap-1 border border-sakura/10 h-9 items-center overflow-x-auto no-scrollbar max-w-full">
+              {['All', 'N5', 'N4', 'N3', 'N2', 'N1'].map(l => {
+                const stats = l !== 'All' ? getLevelStats(l) : null;
+                return (
+                  <Button key={l} variant={selectedLevel === (l === 'All' ? null : l) ? 'default' : 'ghost'}
+                    size="sm" onClick={() => setSelectedLevel(l === 'All' ? null : l)} 
+                    className={cn(
+                      "font-bold px-3 rounded-lg transition-all h-7 text-[10px] relative overflow-hidden group/btn",
+                      selectedLevel === (l === 'All' ? null : l) ? "bg-crimson text-white shadow-md shadow-crimson/20" : "text-sakura hover:bg-white border-transparent hover:border-sakura/20 border"
+                    )}>
+                    <div className="relative z-10 flex flex-col items-center">
+                      <span>{l}</span>
+                      {stats && stats.percent > 0 && selectedLevel !== l && (
+                        <div className="absolute -bottom-1.5 w-full h-[2px] bg-sakura/30 rounded-full overflow-hidden">
+                          <div className="h-full bg-sakura" style={{ width: `${stats.percent}%` }} />
+                        </div>
+                      )}
+                    </div>
+                  </Button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -183,53 +290,9 @@ export const MockTestCenter = () => {
           </div>
         ) : (
           <div className="grid gap-4">
-            {filteredExams.map((exam, index) => {
-              const result = latestByExam[exam.id];
-              const completed = !!result;
-              return (
-                <motion.div key={exam.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }}>
-                  <Card className="hover:shadow-soft transition-all group border-l-4 border-l-sakura overflow-hidden rounded-xl border-t border-r border-b">
-                    <CardContent className="p-0 flex flex-col sm:flex-row">
-                      <div className="p-4 flex-1 space-y-2">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <Badge className="bg-sakura text-white font-black text-[9px] px-2 rounded-md h-5">{exam.level}</Badge>
-                          <Badge variant="outline" className="border-sakura/10 text-sakura text-[9px] h-5">{exam.difficulty}</Badge>
-                          {completed && (
-                            <Badge variant="secondary" className="bg-sakura/5 text-crimson gap-1 text-[9px] h-5">
-                              <CheckCircle2 className="h-2.5 w-2.5" /> Đã làm
-                            </Badge>
-                          )}
-                        </div>
-                        <h3 className="text-base font-bold group-hover:text-crimson transition-colors font-display leading-tight">{exam.title}</h3>
-                        <div className="flex flex-wrap gap-3 text-[10px] text-muted-foreground">
-                          <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {exam.duration}m</span>
-                          <span className="flex items-center gap-1"><FileText className="h-3 w-3" /> {exam.question_count} câu</span>
-                        </div>
-                      </div>
-                      <div className="bg-muted/10 p-4 sm:w-44 border-l border-muted flex flex-col justify-center gap-2 text-center">
-                        {completed ? (
-                          <div className="space-y-2">
-                            <div>
-                              <p className="text-[9px] text-sakura/50 uppercase font-black tracking-widest">Điểm nhất</p>
-                              <h4 className="text-xl font-bold text-crimson">{result.score}/{result.max_score}</h4>
-                            </div>
-                            <Link to={`/mock-exam/${exam.id}`} className="w-full block">
-                              <Button className="w-full h-8 rounded-lg border-sakura/10 text-sakura hover:bg-sakura/5 text-[10px] font-bold" variant="outline">Làm lại</Button>
-                            </Link>
-                          </div>
-                        ) : (
-                          <Link to={`/mock-exam/${exam.id}`} className="w-full block">
-                            <Button className="w-full gap-2 h-10 text-sm font-black bg-sakura hover:bg-sakura/90 text-white shadow-soft rounded-lg border-none">
-                              Bắt đầu <ChevronRight className="h-4 w-4" />
-                            </Button>
-                          </Link>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              );
-            })}
+            {filteredExams.map((exam, index) => (
+              <ExamCard key={exam.id} exam={exam} result={latestByExam[exam.id]} index={index} />
+            ))}
           </div>
         )}
 

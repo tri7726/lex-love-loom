@@ -170,7 +170,7 @@ If the user asks for a quiz, generate a short 3-question quiz about the lesson c
     } finally {
       setIsLoading(false);
     }
-  }, [toast, profile, messages, unitId, level, unitTitle, contextData, speak, input, isLoading]);
+  }, [profile, messages, unitId, level, unitTitle, contextData, speak, input, isLoading]);
 
 
   const handleRoleplay = (scenario: string) => {

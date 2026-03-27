@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Volume2, CheckCircle2, XCircle, ArrowRight, RotateCcw, ChevronLeft, Sparkles, Star, Trophy, Target, BookOpen, Timer, Skull, Flame } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -81,53 +81,7 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
     });
   }, [vocabulary, isReversed, subMode, gameKey]);
 
-  const currentQuestion = questions[currentIndex];
-  const progress = ((currentIndex + 1) / questions.length) * 100;
-
-  useEffect(() => {
-    if (!difficulty || difficulty === 'peaceful' || gameComplete || showResult) return;
-
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 0.1) {
-          handleAnswer(-1);
-          return 0;
-        }
-        return prev - 0.1;
-      });
-    }, 100);
-
-    if (difficulty === 'demon' || difficulty === 'hell') {
-      const flashTimer = setTimeout(() => setIsFlashActive(true), 1500);
-      return () => {
-        clearInterval(timer);
-        clearTimeout(flashTimer);
-      };
-    }
-    return () => clearInterval(timer);
-  }, [currentIndex, difficulty, gameComplete, showResult]);
-
-  useEffect(() => {
-    if (difficulty && difficulty !== 'peaceful') {
-      setTimeLeft(getTimerForDifficulty(difficulty));
-      setIsFlashActive(false);
-    }
-  }, [currentIndex, difficulty]);
-
-  useEffect(() => {
-    if (showResult && (difficulty === 'demon' || difficulty === 'hell' || difficulty === 'infinite')) {
-      const isCorrect = selectedAnswer === currentQuestion?.correctIndex;
-      if (isCorrect) {
-        const delay = difficulty === 'hell' ? 1000 : 2000;
-        const autoNext = setTimeout(() => {
-          handleNext();
-        }, delay);
-        return () => clearTimeout(autoNext);
-      }
-    }
-  }, [showResult, difficulty, selectedAnswer, currentQuestion]);
-
-  const speak = (text: string) => {
+  const speak = useCallback((text: string) => {
     if ('speechSynthesis' in window) {
       speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
@@ -135,9 +89,12 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
       utterance.rate = 0.8;
       speechSynthesis.speak(utterance);
     }
-  };
+  }, []);
 
-  const handleAnswer = (index: number) => {
+  const currentQuestion = questions[currentIndex];
+  const progress = ((currentIndex + 1) / questions.length) * 100;
+
+  const handleAnswer = useCallback((index: number) => {
     if (showResult) return;
     setSelectedAnswer(index);
     setShowResult(true);
@@ -162,7 +119,54 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
     if (currentQuestion) {
       onUpdateMastery(currentQuestion.word.id, isCorrect);
     }
-  };
+  }, [showResult, currentQuestion, streak, maxStreak, showStreak, difficulty, onUpdateMastery]);
+
+  useEffect(() => {
+    if (!difficulty || difficulty === 'peaceful' || gameComplete || showResult) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 0.1) {
+          handleAnswer(-1);
+          return 0;
+        }
+        return prev - 0.1;
+      });
+    }, 100);
+
+    if (difficulty === 'demon' || difficulty === 'hell') {
+      const flashTimer = setTimeout(() => setIsFlashActive(true), 1500);
+      return () => {
+        clearInterval(timer);
+        clearTimeout(flashTimer);
+      };
+    }
+    return () => clearInterval(timer);
+  }, [currentIndex, difficulty, gameComplete, showResult, handleAnswer]);
+
+  useEffect(() => {
+    if (difficulty && difficulty !== 'peaceful') {
+      setTimeLeft(getTimerForDifficulty(difficulty));
+      setIsFlashActive(false);
+    }
+  }, [currentIndex, difficulty]);
+
+  useEffect(() => {
+    if (showResult && (difficulty === 'demon' || difficulty === 'hell' || difficulty === 'infinite')) {
+      const isCorrect = selectedAnswer === currentQuestion?.correctIndex;
+      if (isCorrect) {
+        const delay = difficulty === 'hell' ? 1000 : 2000;
+        const autoNext = setTimeout(() => {
+          handleNext();
+        }, delay);
+        return () => clearTimeout(autoNext);
+      }
+    }
+  }, [showResult, difficulty, selectedAnswer, currentQuestion]);
+
+
+
+
 
   const handleNext = () => {
     if (currentIndex + 1 >= questions.length) {

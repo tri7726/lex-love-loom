@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Trophy, Timer, RotateCcw, ChevronLeft, Star, Sparkles, 
@@ -148,7 +148,7 @@ export const MatchGame: React.FC<MatchGameProps> = ({
     }
   }, [mode, difficulty, gameComplete, cards.length]);
 
-  const handleCardClick = (card: MatchCard) => {
+  const handleCardClick = useCallback((card: MatchCard) => {
     if (
       card.matched || 
       selectedCards.find((c) => c.id === card.id) || 
@@ -203,7 +203,7 @@ export const MatchGame: React.FC<MatchGameProps> = ({
         }, 800);
       }
     }
-  };
+  }, [selectedCards, wrongMatch, lastMatchTime, combo, difficulty, matchedPairs, gameWords.length, onUpdateMastery]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

@@ -132,8 +132,16 @@ export const WordWritingLab: React.FC<WordWritingLabProps> = ({
               <div className="text-5xl font-black text-sakura">
                 {Math.round(scores.reduce((a, b) => a + b, 0) / (scores.length || 1))}%
               </div>
-              <Button onClick={() => window.location.reload()} variant="outline" className="rounded-2xl px-8 h-12 border-2">
-                Luyện từ khác
+              <Button 
+                onClick={() => {
+                  setCurrentIndex(0);
+                  setIsFinished(false);
+                  setScores(new Array(chars.length).fill(0));
+                }} 
+                variant="outline" 
+                className="rounded-2xl px-8 h-12 border-2 border-sakura/20 text-sakura font-bold hover:bg-sakura/5"
+              >
+                Luyện lại từ này
               </Button>
             </motion.div>
           ) : (
@@ -149,14 +157,15 @@ export const WordWritingLab: React.FC<WordWritingLabProps> = ({
                   kanji={activeChar}
                   onSuccess={onCharSuccess}
                   size={size}
+                  showGuide={true} // Defaulting to guided in lab, can be made dynamic later
                 />
               ) : (
                 <div 
-                  className="flex flex-col items-center justify-center gap-4 bg-slate-50 border-4 border-dashed border-slate-200 rounded-[2.5rem]"
+                  className="flex flex-col items-center justify-center gap-4 bg-white/40 backdrop-blur-sm border-4 border-dashed border-sakura/10 rounded-[3rem]"
                   style={{ width: size, height: size }}
                 >
-                  <span className="text-8xl font-jp text-slate-300 animate-pulse">{activeChar}</span>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tự động hoàn thành...</p>
+                  <span className="text-8xl font-jp text-sakura/20 animate-pulse">{activeChar}</span>
+                  <p className="text-[10px] font-black text-sakura/40 uppercase tracking-[0.2em]">Tự động hoàn thành...</p>
                 </div>
               )}
             </motion.div>

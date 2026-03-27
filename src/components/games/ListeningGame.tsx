@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Volume2, CheckCircle2, XCircle, ArrowRight, RotateCcw, ChevronLeft, Headphones, Star, Sparkles, Trophy } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -60,15 +60,7 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
   const currentQuestion = questions[currentIndex];
   const progress = ((currentIndex + 1) / questions.length) * 100;
 
-  useEffect(() => {
-    // Auto-play on new question
-    if (currentQuestion && !hasPlayed) {
-      setTimeout(() => speak(currentQuestion.word.word), 500);
-      setHasPlayed(true);
-    }
-  }, [currentIndex, currentQuestion, hasPlayed]);
-
-  const speak = (text: string) => {
+  const speak = useCallback((text: string) => {
     if ('speechSynthesis' in window) {
       speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
@@ -76,9 +68,18 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
       utterance.rate = playbackRate * 0.7; // Base rate adjusted by multiplier
       speechSynthesis.speak(utterance);
     }
-  };
+  }, [playbackRate]);
 
-  const handleAnswer = (index: number) => {
+  useEffect(() => {
+    // Auto-play on new question
+    if (currentQuestion && !hasPlayed) {
+      const timer = setTimeout(() => speak(currentQuestion.word.word), 500);
+      setHasPlayed(true);
+      return () => clearTimeout(timer);
+    }
+  }, [currentQuestion, hasPlayed, speak]);
+
+  const handleAnswer = useCallback((index: number) => {
     if (showResult) return;
 
     setSelectedAnswer(index);
@@ -91,7 +92,7 @@ export const ListeningGame: React.FC<ListeningGameProps> = ({
     if (currentQuestion) {
       onUpdateMastery(currentQuestion.word.id, isCorrect);
     }
-  };
+  }, [showResult, currentQuestion, onUpdateMastery]);
 
   const handleNext = () => {
     if (currentIndex + 1 >= questions.length) {

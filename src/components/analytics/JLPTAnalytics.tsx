@@ -13,24 +13,36 @@ import { vi } from 'date-fns/locale';
 interface ExamResult {
   id: string;
   score: number;
-  section_scores: Record<string, { score: number }>;
+  section_scores: any; // Using any here to matches the JSON type from Supabase while allowing easy access
   passed: boolean;
   completed_at: string;
-  created_at: string;
+  created_at?: string;
   mock_exams: {
     title: string;
     level: string;
   };
 }
 
+interface FormattedData {
+  date: string;
+  fullDate: string;
+  score: number;
+  vocab: number;
+  reading: number;
+  listening: number;
+  title: string | undefined;
+  level: string | undefined;
+  passed: boolean;
+}
+
 export const JLPTAnalytics = () => {
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<FormattedData[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      const { data: results, error } = await (supabase as any)
+      const { data: results, error } = await supabase
         .from('mock_exam_results')
         .select(`
           id, score, section_scores, passed, completed_at,
@@ -39,18 +51,19 @@ export const JLPTAnalytics = () => {
         .order('completed_at', { ascending: true });
 
       if (results) {
-        const formatted = results.map((r: ExamResult) => {
-          const timestamp = r.completed_at || (r as any).created_at; 
+        const formatted = (results as any[]).map((r): FormattedData => {
+          const timestamp = r.completed_at || r.created_at; 
+          const sectionScores = r.section_scores as any;
           return {
             date: timestamp ? format(new Date(timestamp), 'dd/MM', { locale: vi }) : '—',
             fullDate: timestamp ? format(new Date(timestamp), 'PPP', { locale: vi }) : '—',
             score: r.score,
-            vocab: r.section_scores?.vocabulary_grammar?.score ?? 0,
-            reading: r.section_scores?.reading?.score ?? 0,
-            listening: r.section_scores?.listening?.score ?? 0,
+            vocab: sectionScores?.vocabulary_grammar?.score ?? 0,
+            reading: sectionScores?.reading?.score ?? 0,
+            listening: sectionScores?.listening?.score ?? 0,
             title: r.mock_exams?.title,
             level: r.mock_exams?.level,
-            passed: r.passed
+            passed: r.passed || false
           };
         });
         setData(formatted);

@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { KanjiCanvas } from '@/components/kanji/KanjiCanvas';
 import { cn } from '@/lib/utils';
 import { KANJI_DB } from '@/data/kanji-db';
+import { KanjiWriterCanvas } from '@/components/kanji/KanjiWriterCanvas';
 
 interface KanjiStudyOverlayProps {
   isOpen: boolean;
@@ -207,19 +208,19 @@ export const KanjiStudyOverlay: React.FC<KanjiStudyOverlayProps> = ({
                     key={p} 
                     className={cn(
                       "h-1.5 w-8 rounded-full transition-all duration-300",
-                      currentPhase === p ? "bg-sakura w-12" : (['LEARN', 'QUIZ', 'WRITE_GUIDED', 'WRITE_BLIND'] as string[]).indexOf(currentPhase as string) > i || (currentPhase as string) === 'COMPLETE' ? "bg-matcha" : "bg-sakura/10"
+                      currentPhase === p ? "bg-rose-500 w-12" : (['LEARN', 'QUIZ', 'WRITE_GUIDED', 'WRITE_BLIND'] as string[]).indexOf(currentPhase as string) > i || (currentPhase as string) === 'COMPLETE' ? "bg-emerald-500" : "bg-rose-100"
                     )}
                   />
                 ))}
               </div>
               <span className="text-[10px] font-bold text-matcha uppercase tracking-tighter">Mastery Level: {currentIndex + 1}</span>
             </div>
-            <Progress value={((currentIndex + 1) / unitKanji.length) * 100} className="h-2 bg-sakura/10" />
+            <Progress value={((currentIndex + 1) / unitKanji.length) * 100} className="h-2 bg-rose-100" />
           </div>
 
               <div className="flex items-center gap-3">
-                 <div className="flex items-center gap-2 px-3 py-1 bg-sakura/10 text-sakura rounded-lg font-bold border border-sakura/20">
-                   <Zap className="h-4 w-4 fill-sakura" />
+                 <div className="flex items-center gap-2 px-3 py-1 bg-rose-50 text-rose-500 rounded-lg font-bold border border-rose-100">
+                   <Zap className="h-4 w-4 fill-rose-500" />
                    <span>STREAK: {streak}</span>
                  </div>
                  <div className="hidden md:flex items-center gap-2 bg-gold/10 px-3 py-1.5 rounded-full border border-gold/20">
@@ -288,7 +289,7 @@ export const KanjiStudyOverlay: React.FC<KanjiStudyOverlayProps> = ({
                     <Button 
                       size="lg" 
                       onClick={startQuiz}
-                      className="w-full h-20 rounded-[30px] bg-sakura hover:bg-sakura-dark text-white text-xl font-black gap-3 shadow-2xl shadow-sakura/30 group"
+                      className="w-full h-20 rounded-3xl bg-gradient-to-r from-rose-400 to-pink-500 hover:from-rose-500 hover:to-pink-600 text-white text-xl font-black gap-3 shadow-2xl shadow-rose-200 group"
                     >
                       BẮT ĐẦU THỬ THÁCH
                       <ChevronRight className="h-8 w-8 transition-transform group-hover:translate-x-2" />
@@ -333,10 +334,10 @@ export const KanjiStudyOverlay: React.FC<KanjiStudyOverlayProps> = ({
                       key={i}
                       variant="outline"
                       className={cn(
-                        "h-20 text-xl font-bold rounded-2xl border-2 transition-all",
-                        quizAnswered && opt === currentKanji.meaning_vi && "bg-matcha/20 border-matcha text-matcha",
+                        "h-20 text-xl font-bold rounded-2xl border-2 transition-all shadow-sm",
+                        quizAnswered && opt === currentKanji.meaning_vi && "bg-emerald-50 border-emerald-400 text-emerald-700",
                         quizAnswered && opt !== currentKanji.meaning_vi && quizCorrect === false && "bg-destructive/10 border-destructive opacity-50",
-                        !quizAnswered && "hover:border-sakura hover:text-sakura hover:scale-[1.02]"
+                        !quizAnswered && "bg-gradient-to-br from-rose-50 to-pink-50 border-rose-200 hover:border-rose-400 hover:text-rose-600 hover:shadow-rose-100 hover:scale-[1.02]"
                       )}
                       onClick={() => handleQuizAnswer(opt)}
                       disabled={quizAnswered}
@@ -376,23 +377,13 @@ export const KanjiStudyOverlay: React.FC<KanjiStudyOverlayProps> = ({
                 </div>
 
                 <div className="flex-1 bg-white p-6 lg:p-12 flex flex-col items-center justify-center border-l border-sakura/10 relative">
-                   <div className="absolute top-8 left-8">
-                     <Badge variant="outline" className={cn(
-                       "px-4 py-2 text-lg font-bold gap-2 rounded-xl",
-                       currentPhase === 'WRITE_BLIND' ? "text-destructive border-destructive bg-destructive/5" : "text-matcha border-matcha bg-matcha/5"
-                     )}>
-                       {currentPhase === 'WRITE_BLIND' ? <Zap className="h-5 w-5" /> : <Pencil className="h-5 w-5" />}
-                       {currentPhase === 'WRITE_BLIND' ? "VIẾT KHÔNG DẪN" : "CÓ HƯỚNG DẪN"}
-                     </Badge>
-                   </div>
-
                    <div className="w-full max-w-md space-y-8">
-                     <KanjiCanvas 
+                     <KanjiWriterCanvas 
                       key={`${currentPhase}-${currentKanji.character}`}
                       kanji={currentKanji.character} 
-                      meaning={currentKanji.meaning_vi}
                       showGuide={currentPhase === 'WRITE_GUIDED'}
-                      onComplete={currentPhase === 'WRITE_GUIDED' ? handleWriteGuidedComplete : handleWriteBlindComplete}
+                      onSuccess={currentPhase === 'WRITE_GUIDED' ? handleWriteGuidedComplete : handleWriteBlindComplete}
+                      size={340}
                      />
                    </div>
                 </div>

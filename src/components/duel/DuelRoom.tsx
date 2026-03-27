@@ -10,8 +10,9 @@ import { useDuelChannel } from '@/hooks/useDuelChannel';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useXP } from '@/hooks/useXP';
-import { useConfetti } from '@/components/ConfettiProvider';
+import { useConfetti } from '@/hooks/useConfetti';
 import { useToast } from '@/hooks/use-toast';
+import { VocabularyItem } from '@/types/vocabulary';
 import { MINNA_N5_VOCAB } from '@/data/minna-n5';
 import { MINNA_N4_VOCAB } from '@/data/minna-n4';
 
@@ -19,7 +20,7 @@ function shuffle<T>(arr: T[]): T[] {
   return [...arr].sort(() => Math.random() - 0.5);
 }
 
-function buildQuestions(vocabPool: any[], count = 6): DuelQuestionData[] {
+function buildQuestions(vocabPool: VocabularyItem[], count = 6): DuelQuestionData[] {
   const pool = shuffle(vocabPool).slice(0, count);
   // Flatten all words to use as potential distractors
   const allMeanings = vocabPool.map(w => w.meaning).filter(Boolean);
@@ -90,7 +91,7 @@ export const DuelRoom = ({ challenge, onClose }: DuelRoomProps) => {
         }
       } catch (e) {}
 
-      let vocabPool: any[] = [];
+      let vocabPool: VocabularyItem[] = [];
       const chapterMatch = topicStr.match(/(\d+)/);
       const isN4 = topicStr.toUpperCase().includes('N4');
       const minnaPool = isN4 ? MINNA_N4_VOCAB : MINNA_N5_VOCAB;
@@ -150,7 +151,7 @@ export const DuelRoom = ({ challenge, onClose }: DuelRoomProps) => {
         // Update result in DB
         const updateChallenge = async () => {
           try {
-            await (supabase as any)
+            await supabase
               .from('challenges')
               .update({
                 challenger_score: isChallenger ? myScore : opponentScore,

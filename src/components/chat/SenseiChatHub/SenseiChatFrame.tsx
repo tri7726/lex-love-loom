@@ -25,38 +25,32 @@ export const SenseiChatFrame: React.FC<SenseiChatFrameProps> = ({
 
   if (!conversation) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-12 text-center space-y-8 bg-gradient-to-b from-transparent via-white/50 to-sakura/5 relative overflow-hidden">
-        {/* Decorative background elements */}
-        <div className="absolute top-1/4 -left-20 h-96 w-96 bg-sakura/5 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/4 -right-20 h-96 w-96 bg-indigo-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+      <div className="flex-1 flex flex-col items-center justify-center p-12 text-center space-y-8 bg-transparent relative overflow-hidden">
+        {/* Simplified Decorative elements for Zen feel */}
+        <div className="absolute top-1/4 left-1/4 h-64 w-64 bg-sakura/5 rounded-full blur-3xl animate-pulse" />
         
-        <div className="relative z-10">
-          <div className="h-40 w-40 rounded-[4rem] bg-white/80 backdrop-blur-md flex items-center justify-center border border-sakura/10 shadow-[0_20px_50px_-15px_rgba(255,183,197,0.2)] animate-float">
-             <Sparkles className="h-16 w-16 text-sakura opacity-40" />
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="h-40 w-40 rounded-[4rem] bg-white/40 backdrop-blur-xl flex items-center justify-center border border-sakura/10 shadow-soft animate-float mb-12">
+             <Sparkles className="h-20 w-20 text-sakura opacity-40 shadow-sakura" />
           </div>
-          <div className="absolute -top-4 -right-4 h-12 w-12 bg-white rounded-2xl shadow-xl flex items-center justify-center border border-sakura/10 animate-pulse">
-            <span className="text-xl">🌸</span>
-          </div>
+          
+          <h2 className="text-4xl md:text-6xl font-medium text-slate-800 mb-6 font-serif max-w-3xl leading-tight tracking-tight">
+            Khai phóng bản lĩnh Tiếng Nhật
+          </h2>
+          <p className="text-xs md:text-sm text-slate-400 uppercase tracking-[0.5em] font-medium max-w-lg leading-loose opacity-70">
+            Chọn một chương mục hội thoại để bắt đầu hành trình cùng Sensei
+          </p>
+          <div className="h-px w-24 bg-gradient-to-r from-transparent via-sakura/20 to-transparent mt-8" />
         </div>
-        
-        <div className="space-y-4 max-w-md z-10">
-           <h3 className="text-4xl font-serif font-black text-slate-800 tracking-tight leading-tight">
-             Khai phóng bản lĩnh Tiếng Nhật
-           </h3>
-           <p className="text-[11px] text-slate-400 font-black uppercase tracking-[0.4em] leading-relaxed max-w-xs mx-auto">
-             Chọn một chương mục hội thoại để bắt đầu hành trình cùng Sensei
-           </p>
-        </div>
-        <div className="h-px w-24 bg-gradient-to-r from-transparent via-sakura/30 to-transparent z-10" />
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="flex-1 flex flex-col min-h-0 bg-transparent">
       {/* Message Area */}
-      <ScrollArea ref={scrollRef} className="flex-1 p-6 md:p-10 overflow-y-auto">
-        <div className="max-w-4xl mx-auto py-4">
+      <ScrollArea ref={scrollRef} className="flex-1 p-6 md:px-12 hide-scrollbar">
+        <div className="max-w-[80%] mx-auto py-8 pb-24 space-y-8">
           {messages?.map((m) => (
             <ChatMessage 
               key={m.id} 

@@ -726,7 +726,9 @@ export type Database = {
           id: string
           level: string | null
           max_score: number | null
+          passed: boolean | null
           score: number
+          section_scores: Json | null
           time_taken: number | null
           user_id: string | null
         }
@@ -736,9 +738,11 @@ export type Database = {
           id?: string
           level?: string | null
           max_score?: number | null
+          passed?: boolean | null
           score: number
+          section_scores?: Json | null
           time_taken?: number | null
-          user_id?: string | null
+          user_id: string | null
         }
         Update: {
           completed_at?: string
@@ -746,7 +750,9 @@ export type Database = {
           id?: string
           level?: string | null
           max_score?: number | null
+          passed?: boolean | null
           score?: number
+          section_scores?: Json | null
           time_taken?: number | null
           user_id?: string | null
         }
@@ -1878,6 +1884,13 @@ export type Database = {
       }
     }
     Functions: {
+      earn_xp: {
+        Args: {
+          p_amount: number
+          p_source: string
+        }
+        Returns: undefined
+      }
       get_due_flashcards_count: { Args: { user_uuid: string }; Returns: number }
       get_folder_flashcard_count: {
         Args: { folder_uuid: string }
@@ -1890,6 +1903,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      record_activity: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       update_kanji_progress: {
         Args: {

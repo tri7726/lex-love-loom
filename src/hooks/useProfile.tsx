@@ -126,14 +126,14 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [user, fetchProfile]);
 
   const addXp = useCallback(async (amount: number) => {
-    if (!user || !profile) return;
+    if (!user) return;
     try {
-      const newXp = (profile.total_xp || 0) + amount;
-      const { error } = await supabase
-        .from('profiles')
-        .update({ total_xp: newXp })
-        .eq('user_id', user.id);
+      const { error } = await supabase.rpc('earn_xp', { 
+        p_amount: amount, 
+        p_source: 'Activity' 
+      });
       if (error) throw error;
+      
       toast({
         title: `+${amount} XP!`,
         description: `Bạn đã nhận thêm ${amount} kinh nghiệm.`,
@@ -141,52 +141,17 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch (error: any) {
       console.error('Error adding XP:', error);
     }
-  }, [user, profile, toast]);
+  }, [user, toast]);
 
   const updateStreak = useCallback(async () => {
-    if (!user || !profile) return;
+    if (!user) return;
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const lastDate = (profile as any).last_activity_date;
-      if (lastDate === today) return;
-
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-      const isConsecutive = lastDate === yesterdayStr;
-      const newStreak = isConsecutive ? (profile.current_streak ?? 0) + 1 : 1;
-      const newLongest = Math.max(newStreak, profile.longest_streak ?? 0);
-
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          current_streak: newStreak,
-          longest_streak: newLongest,
-          last_activity_date: today,
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', user.id);
-
+      const { error } = await supabase.rpc('record_activity');
       if (error) throw error;
-      
-      const streakBonus = 25;
-      const newXp = (profile.total_xp || 0) + streakBonus;
-      await supabase
-        .from('profiles')
-        .update({ total_xp: newXp })
-        .eq('user_id', user.id);
-        
-      if (newStreak > 1) {
-        toast({
-          title: `🔥 Streak ${newStreak} ngày!`,
-          description: `Bạn đã nhận thêm ${streakBonus} XP.`,
-        });
-      }
     } catch (e) {
       console.error('Streak update error:', e);
     }
-  }, [user, profile, toast]);
+  }, [user]);
 
   return (
     <ProfileContext.Provider value={{ profile, loading, addXp, updateStreak, refreshProfile: fetchProfile }}>

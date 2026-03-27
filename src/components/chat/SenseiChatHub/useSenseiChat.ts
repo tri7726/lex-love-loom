@@ -22,8 +22,20 @@ export const useSenseiChat = () => {
   const [messages, setMessages] = useState<SenseiMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [pendingMeta, setPendingMeta] = useState<{ title: string; mode: SenseiMode; systemPrompt?: string } | null>(null);
+  const [guestMessageCount, setGuestMessageCount] = useState<number>(0);
 
-  const STORAGE_KEY = `sensei_active_conv_${user?.id || 'guest'}`;
+  const isGuest = !user;
+  const STORAGE_KEY_ACTIVE = `sensei_active_conv_${user?.id || 'guest'}`;
+  const STORAGE_KEY_GUEST_CONVS = 'sensei_guest_conversations';
+  const STORAGE_KEY_GUEST_COUNT = 'sensei_guest_message_count';
+
+  // Load guest count on init
+  useEffect(() => {
+    if (isGuest) {
+      const savedCount = localStorage.getItem(STORAGE_KEY_GUEST_COUNT);
+      if (savedCount) setGuestMessageCount(parseInt(savedCount));
+    }
+  }, [isGuest]);
 
   // Helper to change active conversation and load its messages
   const setActiveConversationId = useCallback(async (id: string | null) => {
@@ -33,13 +45,23 @@ export const useSenseiChat = () => {
       return;
     }
 
-    // Load messages immediately from the existing conversations state first for speed
+    if (isGuest) {
+      const guestMessagesKey = `sensei_guest_messages_${id}`;
+      const savedMessages = localStorage.getItem(guestMessagesKey);
+      if (savedMessages) {
+        setMessages(JSON.parse(savedMessages));
+      } else {
+        setMessages([]);
+      }
+      return;
+    }
+
+    // Load messages immediately from the existing conversations state first for speed (Logged in)
     const conv = conversations.find(c => c.id === id);
     if (conv) {
       const messages = (conv.analysis as any)?.messages || [];
       setMessages(messages);
     } else {
-      // If not in cache, fetch from DB
       const { data } = await supabase
         .from('analysis_history')
         .select('analysis')
@@ -50,45 +72,43 @@ export const useSenseiChat = () => {
         setMessages((data.analysis as any)?.messages || []);
       }
     }
-  }, [conversations]);
+  }, [conversations, isGuest]);
 
   // Initialize activeConversationId from localStorage
   useEffect(() => {
-    const savedId = localStorage.getItem(STORAGE_KEY);
+    const savedId = localStorage.getItem(STORAGE_KEY_ACTIVE);
     if (savedId && !activeConversationId && savedId !== 'new') {
       setActiveConversationId(savedId);
     }
-  }, [user, setActiveConversationId, activeConversationId, STORAGE_KEY]);
+  }, [user, STORAGE_KEY_ACTIVE]);
 
   // Sync activeConversationId to localStorage
   useEffect(() => {
     if (activeConversationId) {
-      localStorage.setItem(STORAGE_KEY, activeConversationId);
+      localStorage.setItem(STORAGE_KEY_ACTIVE, activeConversationId);
     } else {
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(STORAGE_KEY_ACTIVE);
     }
-  }, [activeConversationId, STORAGE_KEY]);
+  }, [activeConversationId, STORAGE_KEY_ACTIVE]);
 
-  // Fetch conversations and cleanup old ones
+  // Fetch conversations
   const fetchConversations = useCallback(async () => {
-    if (!user) return;
+    if (isGuest) {
+      const saved = localStorage.getItem(STORAGE_KEY_GUEST_CONVS);
+      if (saved) {
+        setConversations(JSON.parse(saved));
+      }
+      return;
+    }
     
-    // Using analysis_history as a proxy for conversations for now 
-    // to avoid schema migration blocks, but we treat them as sessions
     const { data, error } = await supabase
       .from('analysis_history')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching conversations:', error);
-      return;
-    }
+    if (error) return;
 
-    // Transform into SenseiConversation
-    // Note: This is an adaptation. In a real production app, 
-    // we would use the dedicated ai_conversations table from our plan.
     const mapped: SenseiConversation[] = (data || []).map(item => ({
       id: item.id,
       user_id: item.user_id,
@@ -96,23 +116,12 @@ export const useSenseiChat = () => {
       mode: (item.analysis as any)?.mode || 'tutor',
       is_pinned: (item.analysis as any)?.is_pinned || false,
       analysis: item.analysis as Json,
-      updated_at: item.created_at, // Use created_at as updated_at for now
+      updated_at: item.created_at,
       created_at: item.created_at
     }));
 
-    // Auto-cleanup logic (Client-side trigger)
-    const filtered = mapped.filter(c => {
-      const isPinned = c.is_pinned;
-      const daysOld = (new Date().getTime() - new Date(c.updated_at).getTime()) / (1000 * 60 * 60 * 24);
-      if (!isPinned && daysOld > 15) {
-        // We could trigger a background delete here
-        return false;
-      }
-      return true;
-    });
-
-    setConversations(filtered);
-  }, [user]);
+    setConversations(mapped);
+  }, [user, isGuest]);
 
   // Combine real conversations with virtual pending one
   const allConversations = useCallback(() => {
@@ -136,13 +145,14 @@ export const useSenseiChat = () => {
   const createNewConversation = (title: string = 'Cuộc hội thoại mới', mode: SenseiMode = 'tutor', systemPrompt?: string) => {
     setActiveConversationId(null);
     setPendingMeta({ title, mode, systemPrompt });
-    
-    // If there's a system prompt, we might want to show a welcoming message from the AI
-    // but usually we wait for user input.
   };
 
   const sendMessage = async (content: string, type: SenseiMessageType, metadata?: any) => {
-    if (!user) return;
+    if (isGuest && guestMessageCount >= 5) {
+      toast.error("Bạn đã hết lượt dùng thử. Đăng nhập để tiếp tục nhé!");
+      return;
+    }
+
     setIsLoading(true);
 
     const userMsg: SenseiMessage = {
@@ -155,7 +165,6 @@ export const useSenseiChat = () => {
       created_at: new Date().toISOString()
     };
 
-    // Use latest messages state via functional update
     let currentMessages: SenseiMessage[] = [];
     setMessages(prev => {
       currentMessages = [...prev, userMsg];
@@ -166,68 +175,46 @@ export const useSenseiChat = () => {
       let aiResponse = "";
       let aiMeta = {};
 
+      // AI Logic (Identical for Guest and User)
       if (type === 'analysis') {
-         const result = await analyzeText(content);
-         // analyzeText returns an object like {format, analysis, engine} - extract text
-         if (typeof result === 'string') {
-           aiResponse = result;
-         } else if (result?.analysis) {
-           aiResponse = typeof result.analysis === 'string' 
-             ? result.analysis 
-             : JSON.stringify(result.analysis, null, 2);
-         } else {
-           aiResponse = JSON.stringify(result, null, 2);
-         }
+          const result = await analyzeText(content);
+          aiResponse = typeof result === 'string' ? result : (result?.analysis || JSON.stringify(result));
       } else if (type === 'correction') {
-         const result = await checkGrammar(content);
-         if (typeof result === 'string') {
-           aiResponse = result;
-         } else if (result?.result) {
-           aiResponse = typeof result.result === 'string'
-             ? result.result
-             : JSON.stringify(result.result, null, 2);
-         } else {
-           aiResponse = JSON.stringify(result, null, 2);
-         }
+          const result = await checkGrammar(content);
+          aiResponse = typeof result === 'string' ? result : (result?.result || JSON.stringify(result));
       } else {
           const chatHistory = currentMessages.map(m => ({ role: m.role, content: m.content }));
           
-          // Fetch user mistakes for personalization
-          const { data: mistakes } = await (supabase as any)
-            .from('user_mistakes')
-            .select('word')
-            .eq('user_id', user.id)
-            .order('last_mistake_at', { ascending: false })
-            .limit(5);
-          
-          const mistakeContext = mistakes && mistakes.length > 0 
-            ? `\nLưu ý: Bạn hay gặp khó khăn với: ${mistakes.map(m => m.word).join(', ')}.`
-            : "";
+          let mistakeContext = "";
+          if (!isGuest) {
+            const { data: mistakes } = await (supabase as any)
+              .from('user_mistakes')
+              .select('word')
+              .eq('user_id', user.id)
+              .order('last_mistake_at', { ascending: false })
+              .limit(5);
+            
+            if (mistakes && mistakes.length > 0) {
+              mistakeContext = `\nLưu ý: Bạn hay gặp khó khăn với: ${mistakes.map((m: any) => m.word).join(', ')}.`;
+            }
+          }
 
           const activeConv = conversations.find(c => c.id === activeConversationId);
           const currentMode = pendingMeta?.mode || (activeConv?.mode || 'tutor');
           const customSystemPrompt = pendingMeta?.systemPrompt || (activeConv as any)?.analysis?.system_prompt;
 
-          let systemPrompt = `Bạn là Sensei, phiên bản "Pro Max Ultra Plus" - Bậc thầy tối cao.
-          :::vocab{漢字|読み|Nghĩa}::: cho mọi từ mới.
-          Tuyệt đối không dùng dấu backtick (\`).${mistakeContext}`;
+          let systemPrompt = `Bạn là Sensei, phiên bản "Pro Max Ultra Plus" - Bậc thầy tối cao về Nhật ngữ và Văn hóa tinh hoa.
+          CẤU TRÚC PHẢN HỒI "PRO MAX ULTRA PLUS":
+          1. 🎐 **Tư duy & Văn hóa**: Giải thích sâu sắc cách người Nhật cảm nhận và sử dụng ngôn ngữ.
+          2. 🔥 **Teachable Moment**: Cung cấp :::vocab{漢字|読み|Nghĩa}::: cho từ mới. Không dùng backtick.
+          3. 🌸 **Câu hỏi Gợi mở**: Kết thúc bằng một câu hỏi mang tính suy ngẫm.${mistakeContext}`;
           
           if (currentMode === 'roleplay' && customSystemPrompt) {
             systemPrompt = `Nhập vai: ${customSystemPrompt}. ${mistakeContext}`;
-          } else if (currentMode === 'speaking') {
-            systemPrompt = "Bạn là Sensei giúp người dùng luyện phát âm. Hãy phản hồi ngắn gọn bằng tiếng Nhật kèm dịch nghĩa tiếng Việt và nhận xét về ngữ điệu. Khuyến khích người dùng thử lại hoặc học thêm từ vựng liên quan. " + mistakeContext;
           }
 
-          try {
-            const result = await chat(chatHistory, systemPrompt);
-            aiResponse = typeof result === 'string' ? result : (result?.content || result?.text || "Sensei đã sẵn sàng!");
-          } catch (chatErr) {
-            console.error("Chat invocation failed, using fallback:", chatErr);
-          }
-
-          if (!aiResponse) {
-            aiResponse = "Sensei đã nhận được tin nhắn của bạn! Hiện tại kết nối AI đang bận một chút, nhưng tôi vẫn ở đây hỗ trợ bạn học tiếng Nhật nhé. Bạn muốn hỏi thêm gì không?";
-          }
+          const result = await chat(chatHistory, systemPrompt);
+          aiResponse = typeof result === 'string' ? result : (result?.content || "Sensei đã sẵn sàng!");
       }
 
       const aiMsg: SenseiMessage = {
@@ -240,50 +227,69 @@ export const useSenseiChat = () => {
         created_at: new Date().toISOString()
       };
 
-      // update local state again
       let finalMessages: SenseiMessage[] = [];
       setMessages(prev => {
         finalMessages = [...prev, aiMsg];
         return finalMessages;
       });
 
-      // If it's a new conversation, save it
-      if (!activeConversationId) {
-        const { data, error } = await supabase
-          .from('analysis_history')
-          .insert({
-            user_id: user.id,
-            content: content,
-            analysis: { 
-              title: pendingMeta?.title || content.substring(0, 20), 
-              mode: pendingMeta?.mode || 'tutor', 
-              system_prompt: pendingMeta?.systemPrompt,
-              messages: finalMessages as any 
-            } as Json,
-            engine: 'gemini'
-          })
-          .select()
-          .single();
+      // Persistence Layer
+      if (isGuest) {
+        const newCount = guestMessageCount + 1;
+        setGuestMessageCount(newCount);
+        localStorage.setItem(STORAGE_KEY_GUEST_COUNT, newCount.toString());
 
-        if (!error && data) {
-          setActiveConversationIdState(data.id);
-          setPendingMeta(null); // Clear pending meta after saving
-          fetchConversations();
+        if (!activeConversationId) {
+          const newId = generateId();
+          const newConv: SenseiConversation = {
+            id: newId,
+            user_id: 'guest',
+            title: pendingMeta?.title || content.substring(0, 20),
+            mode: pendingMeta?.mode || 'tutor',
+            is_pinned: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          const updatedConvs = [newConv, ...conversations];
+          setConversations(updatedConvs);
+          localStorage.setItem(STORAGE_KEY_GUEST_CONVS, JSON.stringify(updatedConvs));
+          localStorage.setItem(`sensei_guest_messages_${newId}`, JSON.stringify(finalMessages));
+          setActiveConversationIdState(newId);
+          setPendingMeta(null);
+        } else {
+          localStorage.setItem(`sensei_guest_messages_${activeConversationId}`, JSON.stringify(finalMessages));
         }
       } else {
-        // If it's an existing conversation, update with the current local messages state
-        const updatedAnalysis = {
-          ...(conversations.find(c => c.id === activeConversationId)?.analysis as any) || {},
-          messages: finalMessages
-        };
-        
-        await supabase
-          .from('analysis_history')
-          .update({ analysis: updatedAnalysis as Json })
-          .eq('id', activeConversationId);
-        
-        // Refresh local conversations to keep everything in sync
-        fetchConversations();
+        // Authenticated Persistence (User)
+        if (!activeConversationId) {
+          const { data, error } = await supabase
+            .from('analysis_history')
+            .insert({
+              user_id: user.id,
+              content: content,
+              analysis: { 
+                title: pendingMeta?.title || content.substring(0, 20), 
+                mode: pendingMeta?.mode || 'tutor', 
+                system_prompt: pendingMeta?.systemPrompt,
+                messages: finalMessages as any 
+              } as Json,
+              engine: 'gemini'
+            })
+            .select().single();
+
+          if (!error && data) {
+            setActiveConversationIdState(data.id);
+            setPendingMeta(null);
+            fetchConversations();
+          }
+        } else {
+          const updatedAnalysis = {
+            ...(conversations.find(c => c.id === activeConversationId)?.analysis as any) || {},
+            messages: finalMessages
+          };
+          await supabase.from('analysis_history').update({ analysis: updatedAnalysis as Json }).eq('id', activeConversationId);
+          fetchConversations();
+        }
       }
     } catch (err) {
       toast.error("Sensei đang bận, vui lòng thử lại sau!");
@@ -293,23 +299,23 @@ export const useSenseiChat = () => {
   };
 
   const togglePin = async (id: string) => {
+    if (isGuest) return; // Feature for VIPs
     const conv = conversations.find(c => c.id === id);
     if (!conv) return;
-
-    const pinnedCount = conversations.filter(c => c.is_pinned).length;
-    if (!conv.is_pinned && pinnedCount >= 4) {
-      toast.warning("Bạn chỉ có thể ghim tối đa 4 hội thoại!");
-      return;
-    }
-
-    // Update metadata in analysis_history
     const newMetadata = { ...((conv as any).analysis || {}), is_pinned: !conv.is_pinned };
     await supabase.from('analysis_history').update({ analysis: newMetadata }).eq('id', id);
     fetchConversations();
   };
 
   const deleteConversation = async (id: string) => {
-    await supabase.from('analysis_history').delete().eq('id', id);
+    if (isGuest) {
+      const updated = conversations.filter(c => c.id !== id);
+      setConversations(updated);
+      localStorage.setItem(STORAGE_KEY_GUEST_CONVS, JSON.stringify(updated));
+      localStorage.removeItem(`sensei_guest_messages_${id}`);
+    } else {
+      await supabase.from('analysis_history').delete().eq('id', id);
+    }
     if (activeConversationId === id) setActiveConversationId(null);
     fetchConversations();
   };
@@ -334,6 +340,8 @@ export const useSenseiChat = () => {
     sendMessage,
     createNewConversation,
     pinConversation: togglePin,
-    deleteConversation
+    deleteConversation,
+    isGuest,
+    guestMessageCount
   };
 };

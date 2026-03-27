@@ -1,10 +1,11 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Play, Info, BookOpen, Layers } from 'lucide-react';
+import { X, Play, Info, BookOpen, Layers, PenTool } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useWritingLab } from '@/contexts/WritingLabContext';
 
 interface KanjiDetailCardProps {
   kanji: {
@@ -27,6 +28,7 @@ export const KanjiDetailCard: React.FC<KanjiDetailCardProps> = ({
   onClose,
   onStartStudy,
 }) => {
+  const { openWritingLab } = useWritingLab();
   if (!kanji) return null;
 
   return (
@@ -100,15 +102,28 @@ export const KanjiDetailCard: React.FC<KanjiDetailCardProps> = ({
 
                 <div className="pt-4 flex flex-col gap-3">
                   <Button 
-                    className="w-full h-12 rounded-xl bg-sakura hover:bg-sakura-dark text-white font-bold gap-2 shadow-lg shadow-sakura/20"
+                    className="w-full h-12 rounded-xl bg-sakura hover:bg-sakura-dark text-white font-bold gap-2 shadow-lg shadow-sakura/20 transition-all hover:scale-[1.02]"
                     onClick={onStartStudy}
                   >
                     <Play className="h-4 w-4" />
                     Học Unit này
                   </Button>
+                  
                   <Button 
                     variant="outline" 
-                    className="w-full h-12 rounded-xl border-2 border-sakura/20 bg-transparent text-sakura hover:bg-sakura/5 font-bold gap-2"
+                    className="w-full h-12 rounded-xl border-2 border-sakura/20 bg-white/50 text-sakura hover:bg-sakura/5 font-bold gap-2 transition-all hover:scale-[1.02]"
+                    onClick={() => {
+                      onClose();
+                      openWritingLab(kanji.character);
+                    }}
+                  >
+                    <PenTool className="h-4 w-4" />
+                    Luyện viết (Lab)
+                  </Button>
+
+                  <Button 
+                    variant="ghost" 
+                    className="w-full h-12 rounded-xl text-muted-foreground hover:bg-sakura/5 font-bold gap-2"
                   >
                     <BookOpen className="h-4 w-4" />
                     Xem thêm ví dụ

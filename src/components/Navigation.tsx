@@ -61,7 +61,6 @@ const navItems = [
 const studyItems = [
   { path: '/learning-path', icon: MapIcon, label: 'Lộ trình', description: 'Chinh phục JLPT N5-N1' },
   { path: '/vocabulary', icon: BookOpen, label: 'Từ vựng', description: 'Kho từ & Hán tự' },
-  { path: '/kanji-lab', icon: PenTool, label: 'Phòng Lab Kanji', description: 'Luyện viết & Kiểm tra nét' },
   { path: '/grammar', icon: BookMarked, label: 'Ngữ pháp', description: 'Cấu trúc & Mẫu câu' },
   { path: '/kanji-worksheet', icon: Palette, label: 'Tập viết PDF', description: 'Tạo bảng tập viết Hán tự' },
 ];

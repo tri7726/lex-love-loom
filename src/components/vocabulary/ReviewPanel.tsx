@@ -17,12 +17,12 @@ interface ReviewPanelProps {
 }
 
 const MODES = [
-  { mode: 'classic' as GameMode, icon: Target, label: 'Cổ điển', desc: 'Trắc nghiệm trí tuệ', gradient: 'bg-white', border: 'border-slate-50 hover:border-sakura/20', iconColor: 'text-sakura', shadow: 'hover:shadow-lg' },
-  { mode: 'speed' as GameMode, icon: Zap, label: 'Tốc độ', desc: 'Phản xạ chớp nhoáng', gradient: 'bg-white', border: 'border-slate-50 hover:border-sakura/20', iconColor: 'text-sakura', shadow: 'hover:shadow-lg' },
-  { mode: 'listening' as GameMode, icon: Headphones, label: 'Nghe', desc: 'Luyện tai tinh tường', gradient: 'bg-white', border: 'border-slate-50 hover:border-sakura/20', iconColor: 'text-sakura', shadow: 'hover:shadow-lg' },
-  { mode: 'writing' as GameMode, icon: PenTool, label: 'Viết', desc: 'Rèn luyện nét chữ', gradient: 'bg-white', border: 'border-slate-50 hover:border-sakura/20', iconColor: 'text-sakura', shadow: 'hover:shadow-lg' },
-  { mode: 'match' as GameMode, icon: Sparkles, label: 'Ghép cặp', desc: 'Kết nối tri thức', gradient: 'bg-white', border: 'border-slate-50 hover:border-sakura/20', iconColor: 'text-sakura', shadow: 'hover:shadow-lg' },
-  { mode: 'pronunciation' as GameMode, icon: Mic, label: 'Phát âm', desc: 'Ngữ điệu bản xứ', gradient: 'bg-white', border: 'border-slate-50 hover:border-sakura/20', iconColor: 'text-sakura', shadow: 'hover:shadow-lg' },
+  { mode: 'classic' as GameMode, icon: Target, label: 'Cổ điển', desc: 'Trắc nghiệm trí tuệ', gradient: 'from-rose-50 to-pink-50', border: 'border-rose-200 hover:border-rose-400', iconColor: 'text-rose-500', shadow: 'hover:shadow-rose-100' },
+  { mode: 'speed' as GameMode, icon: Zap, label: 'Tốc độ', desc: 'Phản xạ chớp nhoáng', gradient: 'from-pink-50 to-rose-50', border: 'border-pink-200 hover:border-pink-400', iconColor: 'text-pink-500', shadow: 'hover:shadow-pink-100' },
+  { mode: 'listening' as GameMode, icon: Headphones, label: 'Nghe', desc: 'Luyện tai tinh tường', gradient: 'from-rose-50 to-pink-50', border: 'border-rose-200 hover:border-rose-400', iconColor: 'text-rose-400', shadow: 'hover:shadow-rose-100' },
+  { mode: 'writing' as GameMode, icon: PenTool, label: 'Viết', desc: 'Rèn luyện nét chữ', gradient: 'from-pink-50 to-rose-50', border: 'border-pink-200 hover:border-pink-400', iconColor: 'text-pink-400', shadow: 'hover:shadow-pink-100' },
+  { mode: 'match' as GameMode, icon: Sparkles, label: 'Ghép cặp', desc: 'Kết nối tri thức', gradient: 'from-rose-50 to-pink-50', border: 'border-rose-200 hover:border-rose-400', iconColor: 'text-rose-500', shadow: 'hover:shadow-rose-100' },
+  { mode: 'pronunciation' as GameMode, icon: Mic, label: 'Phát âm', desc: 'Ngữ điệu bản xứ', gradient: 'from-pink-50 to-rose-50', border: 'border-rose-200 hover:border-rose-400', iconColor: 'text-sakura', shadow: 'hover:shadow-sakura/10' },
 ];
 
 export const ReviewPanel: React.FC<ReviewPanelProps> = ({
@@ -39,9 +39,9 @@ export const ReviewPanel: React.FC<ReviewPanelProps> = ({
       <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
         <Button
           className={cn(
-            'w-full gap-4 py-8 text-sm font-black uppercase tracking-[0.3em] rounded-[1.5rem] shadow-xl transition-all duration-500',
-            'bg-slate-900 border-2 border-white/10 text-white',
-            'hover:bg-black hover:scale-[1.01] active:scale-[0.99]'
+            'w-full gap-4 py-8 text-sm font-black uppercase tracking-[0.3em] rounded-full shadow-[0_20px_40px_-12px_rgba(244,63,94,0.3)] transition-all duration-500',
+            'bg-gradient-to-r from-rose-400 via-pink-400 to-rose-500 border-t border-white/20 text-white',
+            'hover:from-rose-500 hover:via-pink-500 hover:to-rose-600 hover:scale-[1.02] hover:shadow-rose-300/40 active:scale-[0.98]'
           )}
           onClick={() => setShowReviewPanel(!showReviewPanel)}
         >
@@ -59,8 +59,8 @@ export const ReviewPanel: React.FC<ReviewPanelProps> = ({
             exit={{ opacity: 0, height: 0, y: -10 }}
             transition={{ duration: 0.3, ease: 'easeInOut' }}
           >
-            <Card className="border-0 shadow-2xl rounded-[2.5rem] overflow-hidden mt-4 bg-white">
-              <div className="h-1 w-full bg-slate-900" />
+            <Card className="border-0 shadow-2xl rounded-3xl overflow-hidden mt-4 bg-white">
+              <div className="h-1 w-full bg-gradient-to-r from-rose-300 via-pink-300 to-rose-400" />
               <CardContent className="p-6 space-y-5">
                 <div className="flex items-center gap-2">
                   <Target className="h-5 w-5 text-rose-400" />
@@ -100,20 +100,20 @@ export const ReviewPanel: React.FC<ReviewPanelProps> = ({
                 )}
 
                 {!isCustom && (
-                  <div className="flex justify-around pt-8 border-t border-slate-50 text-center">
+                  <div className="flex justify-around pt-8 border-t border-rose-50 text-center">
                     <div>
-                      <p className="text-3xl font-display font-black text-slate-800 tracking-tighter">{wordCount}</p>
-                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-300 mt-1">Nữ vựng</p>
+                      <p className="text-3xl font-bold text-rose-500 tracking-tighter">{wordCount}</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-rose-300 mt-1">Từ vựng</p>
                     </div>
-                    <div className="w-px h-8 bg-slate-50" />
+                    <div className="w-px h-8 bg-rose-50" />
                     <div>
-                      <p className="text-3xl font-display font-black text-slate-800 tracking-tighter">6</p>
-                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-300 mt-1">Chủ đồ</p>
+                      <p className="text-3xl font-bold text-amber-500 tracking-tighter">6</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-amber-300 mt-1">Chế độ</p>
                     </div>
-                    <div className="w-px h-8 bg-slate-50" />
+                    <div className="w-px h-8 bg-rose-50" />
                     <div>
-                      <p className={cn('text-3xl font-display font-black tracking-tighter', levelAccentClass)}>{levelText}</p>
-                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-300 mt-1">Cấp bậc</p>
+                      <p className={cn('text-3xl font-bold tracking-tighter', levelAccentClass?.replace('text-', 'text-rose-500'))}>{levelText}</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-rose-300 mt-1">Level</p>
                     </div>
                   </div>
                 )}

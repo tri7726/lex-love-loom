@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=EB+Garamond:ital,wght@0,400..800;1,400..800&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -16,16 +16,16 @@
     --popover: 30 30% 99%;
     --popover-foreground: 0 0% 15%;
 
-    /* Sakura pink primary - More vibrant and premium */
-    --primary: 345 85% 65%;
+    /* Sakura pink primary - Aligned with rose-400 from ref snippet */
+    --primary: 350 89% 60%;
     --primary-foreground: 0 0% 100%;
 
     /* Warm cream secondary - Refined for harmony */
     --secondary: 35 60% 90%;
-    --secondary-foreground: 345 40% 25%;
+    --secondary-foreground: 350 40% 25%;
 
-    --muted: 345 30% 96%;
-    --muted-foreground: 345 15% 45%;
+    --muted: 350 30% 96%;
+    --muted-foreground: 350 15% 45%;
 
     /* Gold accent for achievements */
     --accent: 38 95% 55%;
@@ -34,18 +34,18 @@
     --destructive: 0 85% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 345 20% 92%;
-    --input: 345 20% 92%;
-    --ring: 345 85% 65%;
+    --border: 350 20% 92%;
+    --input: 350 20% 92%;
+    --ring: 350 89% 60%;
 
     --radius: 1.25rem;
 
-    /* Custom Sakura Palette */
-    --sakura: 345 85% 65%;
-    --sakura-light: 345 100% 97%;
-    --sakura-soft: 345 100% 92%;
-    --sakura-dark: 345 60% 45%;
-    --crimson: 345 85% 35%;
+    /* Custom Sakura Palette - Exact Rose/Pink mapping */
+    --sakura: 350 89% 60%;
+    --sakura-light: 350 100% 98%;
+    --sakura-soft: 350 100% 95%;
+    --sakura-dark: 350 80% 45%;
+    --crimson: 350 85% 35%;
     --gold: 38 95% 55%;
     --gold-light: 42 100% 75%;
     --cream: 35 60% 98%;
@@ -212,12 +212,20 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
-    font-family: "Noto Sans JP", system-ui, sans-serif;
+    @apply bg-background text-foreground antialiased;
+    font-family: "Outfit", "Noto Sans JP", system-ui, sans-serif;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: "Playfair Display", "Noto Sans JP", serif;
+    font-family: "EB Garamond", "Noto Sans JP", serif;
+  }
+
+  .font-serif {
+    font-family: "EB Garamond", serif !important;
+  }
+
+  .font-sans {
+    font-family: "Outfit", sans-serif !important;
   }
 }
 
@@ -438,4 +446,25 @@
   .border-sakura-light {
     border-color: hsl(var(--sakura-light));
   }
+}
+@keyframes petal-fall {
+  0% {
+    transform: translateY(0) translateX(0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.6;
+  }
+  90% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(110vh) translateX(100px) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+.animate-petal-fall {
+  animation: petal-fall linear infinite;
+  will-change: transform;
 }

@@ -41,9 +41,9 @@ export const SeriesView: React.FC<SeriesViewProps> = ({
       {/* Hero Header */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-rose-50 via-pink-50 to-white p-8 md:p-10 border border-rose-100">
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-24 -right-24 w-64 h-64 bg-gradient-to-br from-rose-300/20 to-transparent rounded-full blur-3xl" />
-          <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-gradient-to-tr from-pink-300/20 to-transparent rounded-full blur-3xl" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[200px] font-jp text-rose-300/[0.08] select-none">
+          <div className="absolute -top-16 -right-16 w-52 h-52 bg-rose-200/10 rounded-full blur-2xl" />
+          <div className="absolute -bottom-12 -left-12 w-40 h-40 bg-pink-200/10 rounded-full blur-2xl" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[200px] font-jp text-rose-300/[0.05] select-none">
             語
           </div>
         </div>
@@ -121,11 +121,11 @@ export const SeriesView: React.FC<SeriesViewProps> = ({
               return (
                 <motion.div
                   key={`${series.id}-${level.level}`}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: seriesIdx * 0.15 + idx * 0.07 }}
-                  whileHover={{ scale: 1.04, y: -6 }}
-                  whileTap={{ scale: 0.96 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: Math.min(seriesIdx * 0.1 + idx * 0.05, 0.3) }}
+                  whileHover={{ y: -4 }}
+                  whileTap={{ scale: 0.98 }}
                 >
                   <Card
                     className="cursor-pointer group relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-shadow duration-300"

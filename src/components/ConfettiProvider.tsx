@@ -3,11 +3,11 @@ import confetti from 'canvas-confetti';
 
 type ConfettiType = 'success' | 'sakura' | 'school' | 'pride';
 
-interface ConfettiContextType {
+export interface ConfettiContextType {
   fire: (type?: ConfettiType) => void;
 }
 
-const ConfettiContext = createContext<ConfettiContextType | undefined>(undefined);
+export const ConfettiContext = createContext<ConfettiContextType | undefined>(undefined);
 
 export const ConfettiProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const fire = useCallback((type: ConfettiType = 'success') => {
@@ -48,7 +48,7 @@ export const ConfettiProvider: React.FC<{ children: React.ReactNode }> = ({ chil
        const count = 200;
        const defaults = { origin: { y: 0.7 } };
 
-       function fireEffect(particleRatio: number, opts: any) {
+       function fireEffect(particleRatio: number, opts: confetti.Options) {
          confetti({
            ...defaults,
            ...opts,
@@ -69,12 +69,4 @@ export const ConfettiProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       {children}
     </ConfettiContext.Provider>
   );
-};
-
-export const useConfetti = () => {
-  const context = useContext(ConfettiContext);
-  if (context === undefined) {
-    throw new Error('useConfetti must be used within a ConfettiProvider');
-  }
-  return context;
 };
