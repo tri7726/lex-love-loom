@@ -1,3 +1,4 @@
+import React, { forwardRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Flame, X, BookOpen, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -5,7 +6,7 @@ import { Link } from 'react-router-dom';
 import { useStreakReminder } from '@/hooks/useStreakReminder';
 import { cn } from '@/lib/utils';
 
-export const StreakReminderBanner = () => {
+export const StreakReminderBanner = forwardRef<HTMLDivElement>((_, ref) => {
   const { state, currentStreak, dismiss } = useStreakReminder();
 
   if (state === 'none') return null;
@@ -38,38 +39,38 @@ export const StreakReminderBanner = () => {
   };
 
   const c = config[state];
+  if (!c) return null;
 
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0, y: -12 }}
+        ref={ref}
+        initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -12 }}
-        className={cn(
-          'relative flex items-center gap-4 px-4 py-3 rounded-2xl border-2 shadow-sm',
-          c.bg
-        )}
+        exit={{ opacity: 0, y: -10 }}
+        className={cn('relative rounded-xl border p-4 flex items-center gap-4', c.bg)}
       >
         <div className="shrink-0">{c.icon}</div>
-
         <div className="flex-1 min-w-0">
-          <p className="font-bold text-sm leading-tight">{c.title}</p>
+          <p className="font-semibold text-sm text-foreground">{c.title}</p>
           <p className="text-xs text-muted-foreground mt-0.5">{c.body}</p>
         </div>
-
         <div className="flex items-center gap-2 shrink-0">
-          <Link to="/vocabulary">
-            <Button size="sm" className={cn('h-8 rounded-xl text-xs font-bold px-4', c.ctaClass)}
-              onClick={dismiss}>
-              {c.cta}
-            </Button>
-          </Link>
-          <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-muted-foreground hover:bg-background/50"
-            onClick={dismiss}>
+          <Button asChild size="sm" className={cn('text-xs', c.ctaClass)}>
+            <Link to="/vocabulary">{c.cta}</Link>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={dismiss}
+          >
             <X className="h-3.5 w-3.5" />
           </Button>
         </div>
       </motion.div>
     </AnimatePresence>
   );
-};
+});
+
+StreakReminderBanner.displayName = 'StreakReminderBanner';
