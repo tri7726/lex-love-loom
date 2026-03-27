@@ -109,7 +109,7 @@ export const Flashcard: React.FC<FlashcardProps> = ({
                       <JapaneseText 
                         text={currentWord.word} 
                         furigana={currentWord.reading} 
-                        size="5xl" 
+                        size="3xl" 
                         clickable={false}
                         className="text-slate-800 font-jp font-black tracking-tight"
                       />
