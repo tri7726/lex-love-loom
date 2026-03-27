@@ -8,7 +8,10 @@ import { SenseiSidebar } from '@/components/chat/SenseiChatHub/SenseiSidebar';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useSearchParams } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { SenseiMode } from '@/components/chat/SenseiChatHub/types';
+import { BookOpen, Mic, Languages, MessageSquare } from 'lucide-react';
 
 export default function SenseiHub() {
   const { 
@@ -24,8 +27,44 @@ export default function SenseiHub() {
   } = useSenseiChat();
 
   const isMobile = useIsMobile();
-  const activeMode = 'tutor';
+  const [searchParams] = useSearchParams();
+  const activeMode = (searchParams.get('mode') as SenseiMode) || 'tutor';
   const filteredConversations = conversations.filter(c => c.mode === activeMode);
+
+  const getModeInfo = (mode: SenseiMode) => {
+    switch (mode) {
+      case 'roleplay':
+        return { 
+          title: 'Roleplay Studio', 
+          subtitle: 'Nhập vai tình huống thực tế', 
+          icon: MessageSquare,
+          color: 'bg-indigo-500/10 text-indigo-500'
+        };
+      case 'speaking':
+        return { 
+          title: 'Speaking Lab', 
+          subtitle: 'Luyện phát âm chuẩn Sensei', 
+          icon: Mic,
+          color: 'bg-rose-500/10 text-rose-500' 
+        };
+      case 'analysis':
+        return { 
+          title: 'Grammar Analytics', 
+          subtitle: 'Phân tích mẫu câu chuyên sâu', 
+          icon: Languages,
+          color: 'bg-blue-500/10 text-blue-500'
+        };
+      default:
+        return { 
+          title: 'Sakura Sensei', 
+          subtitle: 'Trợ lý học tiếng Nhật thông minh', 
+          icon: Sparkles,
+          color: 'bg-sakura/10 text-sakura'
+        };
+    }
+  };
+
+  const modeInfo = getModeInfo(activeMode);
 
   const sidebarContent = (
     <SenseiSidebar 
@@ -64,15 +103,15 @@ export default function SenseiHub() {
                 </SheetContent>
               </Sheet>
             )}
-            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
-              <Sparkles className="h-5 w-5" />
+            <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center shrink-0 transition-colors", modeInfo.color)}>
+              <modeInfo.icon className="h-5 w-5" />
             </div>
             <div className="min-w-0">
               <h2 className="text-lg font-bold text-foreground tracking-tight truncate">
-                Sakura Sensei
+                {modeInfo.title}
               </h2>
               <p className="text-[10px] text-muted-foreground font-medium tracking-wider uppercase">
-                Trợ lý học tiếng Nhật
+                {modeInfo.subtitle}
               </p>
             </div>
           </div>

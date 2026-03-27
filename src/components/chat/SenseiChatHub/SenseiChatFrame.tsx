@@ -25,22 +25,29 @@ export const SenseiChatFrame: React.FC<SenseiChatFrameProps> = ({
 
   if (!conversation) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-12 text-center space-y-8 bg-gradient-to-b from-white to-cream/20">
-        <div className="relative">
-          <div className="h-32 w-32 rounded-[3.5rem] bg-white flex items-center justify-center border border-slate-50 shadow-sm animate-float">
-             <Sparkles className="h-14 w-14 text-sakura opacity-20" />
+      <div className="flex-1 flex flex-col items-center justify-center p-12 text-center space-y-8 bg-gradient-to-b from-transparent via-white/50 to-sakura/5 relative overflow-hidden">
+        {/* Decorative background elements */}
+        <div className="absolute top-1/4 -left-20 h-96 w-96 bg-sakura/5 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-1/4 -right-20 h-96 w-96 bg-indigo-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+        
+        <div className="relative z-10">
+          <div className="h-40 w-40 rounded-[4rem] bg-white/80 backdrop-blur-md flex items-center justify-center border border-sakura/10 shadow-[0_20px_50px_-15px_rgba(255,183,197,0.2)] animate-float">
+             <Sparkles className="h-16 w-16 text-sakura opacity-40" />
           </div>
-          <div className="absolute -top-2 -right-2 h-8 w-8 bg-white rounded-full shadow-md flex items-center justify-center border border-sakura/5 animate-pulse">
-            <span className="text-sm">🌸</span>
+          <div className="absolute -top-4 -right-4 h-12 w-12 bg-white rounded-2xl shadow-xl flex items-center justify-center border border-sakura/10 animate-pulse">
+            <span className="text-xl">🌸</span>
           </div>
         </div>
-        <div className="space-y-4 max-w-sm">
-           <h3 className="text-3xl font-serif font-black text-slate-800 tracking-tight">Khởi nguồn trí tuệ</h3>
-           <p className="text-xs text-slate-400 font-bold uppercase tracking-[0.3em] leading-relaxed">
-             Chọn một chương mục hội thoại để bắt đầu hành trình khai phóng ngôn ngữ cùng Sensei
+        
+        <div className="space-y-4 max-w-md z-10">
+           <h3 className="text-4xl font-serif font-black text-slate-800 tracking-tight leading-tight">
+             Khai phóng bản lĩnh Tiếng Nhật
+           </h3>
+           <p className="text-[11px] text-slate-400 font-black uppercase tracking-[0.4em] leading-relaxed max-w-xs mx-auto">
+             Chọn một chương mục hội thoại để bắt đầu hành trình cùng Sensei
            </p>
         </div>
-        <div className="h-px w-16 bg-gradient-to-r from-transparent via-sakura/20 to-transparent" />
+        <div className="h-px w-24 bg-gradient-to-r from-transparent via-sakura/30 to-transparent z-10" />
       </div>
     );
   }

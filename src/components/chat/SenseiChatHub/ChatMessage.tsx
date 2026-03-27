@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { SenseiMessage } from './types';
+import ReactMarkdown from 'react-markdown';
+import { Link } from 'react-router-dom';
 
 interface ChatMessageProps {
   message: SenseiMessage;
@@ -14,6 +16,29 @@ interface ChatMessageProps {
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSaveWord, onSpeak }) => {
   const isAssistant = message.role === 'assistant';
+  
+  const components = {
+    a: ({ href, children, ...props }: any) => {
+      const isInternal = href?.startsWith('/');
+      if (isInternal) {
+        return (
+          <Link to={href} className="text-sakura hover:underline font-bold transition-all">
+            {children}
+          </Link>
+        );
+      }
+      return (
+        <a href={href} target="_blank" rel="noopener noreferrer" className="text-sakura hover:underline decoration-sakura/30" {...props}>
+          {children}
+        </a>
+      );
+    },
+    p: ({ children }: any) => <p className="mb-4 last:mb-0 leading-relaxed">{children}</p>,
+    strong: ({ children }: any) => <strong className="font-black text-slate-900 dark:text-white mx-0.5">{children}</strong>,
+    ul: ({ children }: any) => <ul className="list-disc pl-4 mb-4 space-y-1">{children}</ul>,
+    ol: ({ children }: any) => <ol className="list-decimal pl-4 mb-4 space-y-1">{children}</ol>,
+    li: ({ children }: any) => <li className="text-slate-700 dark:text-slate-300">{children}</li>,
+  };
 
   const renderContent = () => {
     switch (message.type) {
@@ -24,7 +49,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSaveWord, o
                 <Sparkles className="h-3 w-3" />
                 Phân tích chuyên sâu
              </div>
-             <div className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</div>
+             <div className="prose prose-sm prose-sakura max-w-none dark:prose-invert leading-relaxed">
+               <ReactMarkdown components={components}>{message.content}</ReactMarkdown>
+             </div>
              {/* We can add buttons here for specific words detected in the analysis */}
           </div>
         );
@@ -79,7 +106,14 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSaveWord, o
           </div>
         );
       default:
-        return <div className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</div>;
+        return (
+          <div className={cn(
+            "prose prose-sm max-w-none dark:prose-invert leading-relaxed",
+            isAssistant ? "prose-sakura" : ""
+          )}>
+            <ReactMarkdown components={components}>{message.content}</ReactMarkdown>
+          </div>
+        );
     }
   };
 
