@@ -18,12 +18,39 @@ export const useSenseiChat = () => {
   const { user } = useAuth();
   const { analyzeText, checkGrammar, chat } = useAI();
   const [conversations, setConversations] = useState<SenseiConversation[]>([]);
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [activeConversationId, setActiveConversationIdState] = useState<string | null>(null);
   const [messages, setMessages] = useState<SenseiMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [pendingMeta, setPendingMeta] = useState<{ title: string; mode: SenseiMode; systemPrompt?: string } | null>(null);
 
   const STORAGE_KEY = `sensei_active_conv_${user?.id || 'guest'}`;
+
+  // Helper to change active conversation and load its messages
+  const setActiveConversationId = useCallback(async (id: string | null) => {
+    setActiveConversationIdState(id);
+    if (!id || id === 'new') {
+      setMessages([]);
+      return;
+    }
+
+    // Load messages immediately from the existing conversations state first for speed
+    const conv = conversations.find(c => c.id === id);
+    if (conv) {
+      const messages = (conv.analysis as any)?.messages || [];
+      setMessages(messages);
+    } else {
+      // If not in cache, fetch from DB
+      const { data } = await supabase
+        .from('analysis_history')
+        .select('analysis')
+        .eq('id', id)
+        .single();
+      
+      if (data) {
+        setMessages((data.analysis as any)?.messages || []);
+      }
+    }
+  }, [conversations]);
 
   // Initialize activeConversationId from localStorage
   useEffect(() => {
@@ -31,7 +58,7 @@ export const useSenseiChat = () => {
     if (savedId && !activeConversationId && savedId !== 'new') {
       setActiveConversationId(savedId);
     }
-  }, [user, STORAGE_KEY]);
+  }, [user, setActiveConversationId, activeConversationId, STORAGE_KEY]);
 
   // Sync activeConversationId to localStorage
   useEffect(() => {
@@ -106,31 +133,8 @@ export const useSenseiChat = () => {
     fetchConversations();
   }, [fetchConversations]);
 
-  // Load messages for active conversation
-  useEffect(() => {
-    if (!activeConversationId || activeConversationId === 'new') {
-      // Don't clear messages if we are starting a new conversation
-      // as they might be pre-populated by sendMessage
-      return;
-    }
-
-    const loadMessages = async () => {
-      // In this specialized implementation, we check if the conversation has a history in its JSON
-      const conv = conversations.find(c => c.id === activeConversationId);
-      if (!conv) return;
-
-      const analysisObj = conv.analysis as any;
-      if (analysisObj && Array.isArray(analysisObj.messages)) {
-        setMessages(analysisObj.messages);
-      }
-    };
-
-    loadMessages();
-  }, [activeConversationId]); // Only trigger when the ID changes, not when conversations list updates
-
   const createNewConversation = (title: string = 'Cuộc hội thoại mới', mode: SenseiMode = 'tutor', systemPrompt?: string) => {
     setActiveConversationId(null);
-    setMessages([]);
     setPendingMeta({ title, mode, systemPrompt });
     
     // If there's a system prompt, we might want to show a welcoming message from the AI
@@ -151,11 +155,16 @@ export const useSenseiChat = () => {
       created_at: new Date().toISOString()
     };
 
-    setMessages(prev => [...prev, userMsg]);
+    // Use latest messages state via functional update
+    let currentMessages: SenseiMessage[] = [];
+    setMessages(prev => {
+      currentMessages = [...prev, userMsg];
+      return currentMessages;
+    });
 
     try {
       let aiResponse = "";
-      let metadata = {};
+      let aiMeta = {};
 
       if (type === 'analysis') {
          const result = await analyzeText(content);
@@ -181,8 +190,7 @@ export const useSenseiChat = () => {
            aiResponse = JSON.stringify(result, null, 2);
          }
       } else {
-          const chatHistory = messages.map(m => ({ role: m.role, content: m.content }));
-          chatHistory.push({ role: 'user', content });
+          const chatHistory = currentMessages.map(m => ({ role: m.role, content: m.content }));
           
           // Fetch user mistakes for personalization
           const { data: mistakes } = await (supabase as any)
@@ -193,39 +201,26 @@ export const useSenseiChat = () => {
             .limit(5);
           
           const mistakeContext = mistakes && mistakes.length > 0 
-            ? `\nLưu ý: Người dùng gần đây hay gặp khó khăn với: ${mistakes.map(m => m.word).join(', ')}. Hãy lồng ghép việc ôn tập các phần này nếu phù hợp.`
+            ? `\nLưu ý: Bạn hay gặp khó khăn với: ${mistakes.map(m => m.word).join(', ')}.`
             : "";
 
           const activeConv = conversations.find(c => c.id === activeConversationId);
           const currentMode = pendingMeta?.mode || (activeConv?.mode || 'tutor');
           const customSystemPrompt = pendingMeta?.systemPrompt || (activeConv as any)?.analysis?.system_prompt;
 
-          let systemPrompt = `Bạn là Sensei, phiên bản "Pro Max Ultra Plus" - Bậc thầy tối cao về tiếng Nhật và văn hóa tinh hoa Nhật Bản.
-          Phong cách: TRÍ TUỆ, TINH TẾ, ẤM ÁP và LUÔN ƯU TIÊN THẨM MỸ CAO CẤP.
-          
-          CẤU TRÚC PHẢN HỒI "PRO MAX ULTRA PLUS":
-          1. 🎐 **Tư duy & Văn hóa (The Japanese Mind)**: Giải thích sâu sắc cách người Nhật cảm nhận và sử dụng ngôn ngữ trong đời sống. Đây là phần quan trọng nhất.
-          2. 💡 **Ngữ cảnh & Sắc thái (Context & Nuance)**: Chỉ rõ sự khác biệt tinh tế giữa các cách dùng từ.
-          3. 📝 **Từ vựng Thượng hạng (Interactive Vocab Cards)**: 
-             BẮT BUỘC dùng cú pháp: :::vocab{漢字|読み|Nghĩa}::: cho mọi từ vựng quan trọng.
-             (Ví dụ: :::vocab{お疲れ様|おつかれさま/Otsukaresama|Cảm ơn vì sự vất vả của bạn}::: )
-          4. 🌸 **Câu hỏi Gợi mở (Reflective Questions)**: Kết thúc bằng một câu hỏi mang tính gợi mở hoặc suy ngẫm để duy trì cảm hứng học tập.
-          
-          KỸ THUẬT:
-          - Dẫn dắt đến [Phòng Lab Kanji](/kanji-lab), [Từ vựng](/vocabulary), [Học qua Video](/video-learning) một cách tự nhiên.
-          - TUYỆT ĐỐI KHÔNG dùng dấu backtick (\`).
-          - Dùng **chữ đậm** cho các ý chính.
-          - Đảm bảo văn bản tiếng Việt cực kỳ chuyên nghiệp và sang trọng.${mistakeContext}`;
+          let systemPrompt = `Bạn là Sensei, phiên bản "Pro Max Ultra Plus" - Bậc thầy tối cao.
+          :::vocab{漢字|読み|Nghĩa}::: cho mọi từ mới.
+          Tuyệt đối không dùng dấu backtick (\`).${mistakeContext}`;
           
           if (currentMode === 'roleplay' && customSystemPrompt) {
-            systemPrompt = `Bạn đang trong chế độ Nhập vai. ${customSystemPrompt}. Hãy luôn lồng ghép kiến thực tiếng Nhật vào tình huống này. Cuối câu trả lời, hãy hỏi xem người dùng muốn tiếp tục tình huống hay muốn biết thêm về từ vựng đã dùng không. ${mistakeContext}`;
+            systemPrompt = `Nhập vai: ${customSystemPrompt}. ${mistakeContext}`;
           } else if (currentMode === 'speaking') {
             systemPrompt = "Bạn là Sensei giúp người dùng luyện phát âm. Hãy phản hồi ngắn gọn bằng tiếng Nhật kèm dịch nghĩa tiếng Việt và nhận xét về ngữ điệu. Khuyến khích người dùng thử lại hoặc học thêm từ vựng liên quan. " + mistakeContext;
           }
 
           try {
             const result = await chat(chatHistory, systemPrompt);
-            aiResponse = typeof result === 'string' ? result : (result?.content || result?.text || "");
+            aiResponse = typeof result === 'string' ? result : (result?.content || result?.text || "Sensei đã sẵn sàng!");
           } catch (chatErr) {
             console.error("Chat invocation failed, using fallback:", chatErr);
           }
@@ -241,11 +236,16 @@ export const useSenseiChat = () => {
         role: 'assistant',
         content: aiResponse,
         type,
-        metadata: { ...metadata, source: 'Notebook N5' } as any,
+        metadata: { ...aiMeta, source: 'Sensei Hub' } as any,
         created_at: new Date().toISOString()
       };
 
-      setMessages(prev => [...prev, aiMsg]);
+      // update local state again
+      let finalMessages: SenseiMessage[] = [];
+      setMessages(prev => {
+        finalMessages = [...prev, aiMsg];
+        return finalMessages;
+      });
 
       // If it's a new conversation, save it
       if (!activeConversationId) {
@@ -258,7 +258,7 @@ export const useSenseiChat = () => {
               title: pendingMeta?.title || content.substring(0, 20), 
               mode: pendingMeta?.mode || 'tutor', 
               system_prompt: pendingMeta?.systemPrompt,
-              messages: [userMsg, aiMsg] as any 
+              messages: finalMessages as any 
             } as Json,
             engine: 'gemini'
           })
@@ -266,22 +266,15 @@ export const useSenseiChat = () => {
           .single();
 
         if (!error && data) {
-          setActiveConversationId(data.id);
+          setActiveConversationIdState(data.id);
           setPendingMeta(null); // Clear pending meta after saving
           fetchConversations();
         }
       } else {
-        // If it's an existing conversation, fetch latest data first to avoid race conditions
-        const { data: latestData } = await supabase
-          .from('analysis_history')
-          .select('analysis')
-          .eq('id', activeConversationId)
-          .single();
-        
-        const existingMessages = (latestData?.analysis as any)?.messages || [];
+        // If it's an existing conversation, update with the current local messages state
         const updatedAnalysis = {
-          ...(latestData?.analysis as any) || {},
-          messages: [...existingMessages, userMsg, aiMsg]
+          ...(conversations.find(c => c.id === activeConversationId)?.analysis as any) || {},
+          messages: finalMessages
         };
         
         await supabase
