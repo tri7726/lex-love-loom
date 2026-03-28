@@ -68,6 +68,27 @@ export const useSRS = () => {
       console.error('Error updating SRS data:', updateError);
     }
 
+    // 4. RAG Indexing: log the SRS result as a learning signal
+    const srsLabel = quality >= 4 ? 'nhớ tốt' : quality >= 3 ? 'nhớ được' : 'quên hoặc còn khó';
+    // Fetch word name for context
+    const { data: wordData } = await (supabase as any)
+      .from('flashcards')
+      .select('word, meaning')
+      .eq('id', flashcardId)
+      .single();
+
+    if (wordData?.word) {
+      supabase.functions.invoke('sensei-rag', {
+        body: {
+          action: 'index',
+          user_id: user.id,
+          content: `Flashcard SRS: Từ "${wordData.word}" (${wordData.meaning || ''}). Kết quả: ${srsLabel} (chất lượng: ${quality}/5). Interval tiếp theo: ${interval} ngày.`,
+          source_type: 'flashcard',
+          metadata: { flashcard_id: flashcardId, quality, interval }
+        }
+      }).catch(() => {}); // fire-and-forget
+    }
+
     return { interval, nextReview };
   }, [user]);
 

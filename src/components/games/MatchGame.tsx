@@ -58,7 +58,7 @@ export const MatchGame: React.FC<MatchGameProps> = ({
   const [bestCombo, setBestCombo] = useState(0);
   const [isMemoryModeToggle, setIsMemoryModeToggle] = useState(false);
 
-  const getDifficultySettings = (diff: ChallengeLevel) => {
+  const getDifficultySettings = useCallback((diff: ChallengeLevel) => {
     const memory = isMemoryModeToggle || diff === 'hard';
     switch(diff) {
       case 'easy': return { pairs: 10, memory, bonus: memory ? 1.5 : 1 };
@@ -66,7 +66,7 @@ export const MatchGame: React.FC<MatchGameProps> = ({
       case 'hard': return { pairs: 20, memory: true, bonus: 3 };
       default: return { pairs: 10, memory, bonus: 1 };
     }
-  };
+  }, [isMemoryModeToggle]);
 
   const validVocabulary = useMemo(() => {
     if (!mode) return [];
@@ -82,7 +82,7 @@ export const MatchGame: React.FC<MatchGameProps> = ({
     const settings = getDifficultySettings(difficulty);
     const shuffled = [...validVocabulary].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, Math.min(settings.pairs, validVocabulary.length));
-  }, [validVocabulary, difficulty]);
+  }, [validVocabulary, difficulty, getDifficultySettings]);
 
   const initializeGame = React.useCallback(() => {
     if (!mode || !difficulty) return;
@@ -203,7 +203,7 @@ export const MatchGame: React.FC<MatchGameProps> = ({
         }, 800);
       }
     }
-  }, [selectedCards, wrongMatch, lastMatchTime, combo, difficulty, matchedPairs, gameWords.length, onUpdateMastery]);
+  }, [selectedCards, wrongMatch, lastMatchTime, combo, difficulty, matchedPairs, gameWords.length, onUpdateMastery, getDifficultySettings]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

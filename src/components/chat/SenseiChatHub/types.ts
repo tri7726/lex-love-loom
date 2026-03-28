@@ -1,6 +1,6 @@
 import { Json } from "@/integrations/supabase/types";
 
-export type SenseiMessageType = 'text' | 'analysis' | 'correction' | 'image';
+export type SenseiMessageType = 'text' | 'analysis' | 'correction' | 'image' | 'widget';
 export type SenseiMode = 'tutor' | 'roleplay' | 'analysis' | 'speaking';
 
 export interface SenseiMessage {

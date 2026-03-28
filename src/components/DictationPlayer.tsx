@@ -228,7 +228,7 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
     } finally {
       setIsAnalyzing(false);
     }
-  }, [segments]);
+  }, [segments, supabase]);
 
   // Play current segment - use segments[currentIndex] directly for fresh reference
   const playCurrentSegment = useCallback(() => {
@@ -280,7 +280,7 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
         if (error) console.error('Error saving progress:', error);
       });
     }
-  }, [currentIndex, user, currentSegment]);
+  }, [currentIndex, user, currentSegment, awardXP, fire, supabase]);
 
   // Handle speaking completion
   const handleSpeakingComplete = useCallback((score: number) => {

@@ -5,6 +5,25 @@ import { SenseiConversation, SenseiMessage, SenseiMessageType, SenseiMode } from
 import { useAI } from '@/contexts/AIContext';
 import { toast } from 'sonner';
 import { Json } from '@/integrations/supabase/types';
+import { CORE_RULES, getContextualGreeting, getNonRepeatingCulturalFact, getRandomNextStep, getTimeOfDay } from './prompt_repository';
+
+const assembleSystemPrompt = (mode: SenseiMode, mistakeContext?: string | null) => {
+  const greeting = getContextualGreeting(mode);
+  const culturalFact = getNonRepeatingCulturalFact();
+  const nextStep = getRandomNextStep();
+
+  return `Bạn là **Sensei Pro Max** – chuyên gia Nhật ngữ & văn hóa Nhật Bản đẳng cấp cao.
+
+${greeting}
+
+💡 *Kiến thức văn hóa hôm nay*: ${culturalFact}
+
+${CORE_RULES}
+
+${mistakeContext ? `\n⚠️ **Lưu ý lỗi trước đó**: ${mistakeContext}. Hãy phân tích nguyên nhân sâu và giúp người học điều chỉnh tư duy.` : ''}
+
+${nextStep}`;
+};
 
 const generateId = () => {
   try {
@@ -59,7 +78,7 @@ export const useSenseiChat = () => {
     // Load messages immediately from the existing conversations state first for speed (Logged in)
     const conv = conversations.find(c => c.id === id);
     if (conv) {
-      const messages = (conv.analysis as any)?.messages || [];
+      const messages = (conv.analysis as { messages?: SenseiMessage[] })?.messages || [];
       setMessages(messages);
     } else {
       const { data } = await supabase
@@ -69,7 +88,7 @@ export const useSenseiChat = () => {
         .single();
       
       if (data) {
-        setMessages((data.analysis as any)?.messages || []);
+        setMessages((data.analysis as { messages?: SenseiMessage[] })?.messages || []);
       }
     }
   }, [conversations, isGuest]);
@@ -80,7 +99,7 @@ export const useSenseiChat = () => {
     if (savedId && !activeConversationId && savedId !== 'new') {
       setActiveConversationId(savedId);
     }
-  }, [user, STORAGE_KEY_ACTIVE]);
+  }, [user, STORAGE_KEY_ACTIVE, activeConversationId, setActiveConversationId]);
 
   // Sync activeConversationId to localStorage
   useEffect(() => {
@@ -109,16 +128,24 @@ export const useSenseiChat = () => {
 
     if (error) return;
 
-    const mapped: SenseiConversation[] = (data || []).map(item => ({
-      id: item.id,
-      user_id: item.user_id,
-      title: (item.analysis as any)?.title || (item.content ? item.content.substring(0, 30) : "Hội thoại mới"),
-      mode: (item.analysis as any)?.mode || 'tutor',
-      is_pinned: (item.analysis as any)?.is_pinned || false,
-      analysis: item.analysis as Json,
-      updated_at: item.created_at,
-      created_at: item.created_at
-    }));
+    const mapped: SenseiConversation[] = (data || []).map(item => {
+      const analysis = item.analysis as { 
+        title?: string; 
+        mode?: SenseiMode; 
+        is_pinned?: boolean;
+      } | null;
+      
+      return {
+        id: item.id,
+        user_id: item.user_id,
+        title: analysis?.title || (item.content ? item.content.substring(0, 30) : "Hội thoại mới"),
+        mode: analysis?.mode || 'tutor',
+        is_pinned: analysis?.is_pinned || false,
+        analysis: item.analysis as Json,
+        updated_at: item.created_at,
+        created_at: item.created_at
+      };
+    });
 
     setConversations(mapped);
   }, [user, isGuest]);
@@ -195,7 +222,13 @@ export const useSenseiChat = () => {
               .limit(5);
             
             if (mistakes && mistakes.length > 0) {
-              mistakeContext = `\nLưu ý: Bạn hay gặp khó khăn với: ${mistakes.map((m: any) => m.word).join(', ')}.`;
+              const mistakeList = mistakes
+                .map((m: { word: string; context?: string }) => {
+                  const ctx = m.context && m.context !== 'N/A' ? ` (trong ngữ cảnh: ${m.context})` : '';
+                  return `${m.word}${ctx}`;
+                })
+                .join(', ');
+              mistakeContext = `\nLưu ý: Bạn hay gặp khó khăn với: ${mistakeList}. Hãy ưu tiên đặt câu hỏi hoặc tạo widget liên quan đến các điểm yếu này.`;
             }
           }
 
@@ -203,17 +236,20 @@ export const useSenseiChat = () => {
           const currentMode = pendingMeta?.mode || (activeConv?.mode || 'tutor');
           const customSystemPrompt = pendingMeta?.systemPrompt || (activeConv as any)?.analysis?.system_prompt;
 
-          let systemPrompt = `Bạn là Sensei, phiên bản "Pro Max Ultra Plus" - Bậc thầy tối cao về Nhật ngữ và Văn hóa tinh hoa.
-          CẤU TRÚC PHẢN HỒI "PRO MAX ULTRA PLUS":
-          1. 🎐 **Tư duy & Văn hóa**: Giải thích sâu sắc cách người Nhật cảm nhận và sử dụng ngôn ngữ.
-          2. 🔥 **Teachable Moment**: Cung cấp :::vocab{漢字|読み|Nghĩa}::: cho từ mới. Không dùng backtick.
-          3. 🌸 **Câu hỏi Gợi mở**: Kết thúc bằng một câu hỏi mang tính suy ngẫm.${mistakeContext}`;
+          let systemPrompt = assembleSystemPrompt(currentMode, mistakeContext);
           
           if (currentMode === 'roleplay' && customSystemPrompt) {
-            systemPrompt = `Nhập vai: ${customSystemPrompt}. ${mistakeContext}`;
+            systemPrompt = `Bạn là **Sensei Pro Max** trong chế độ nhập vai.
+
+🎭 **Nhập vai**: ${customSystemPrompt}
+
+${CORE_RULES}
+
+Dù đang nhập vai, bạn vẫn CÓ THỂ và NÊN tạo :::vocab::: và :::widget::: khi phù hợp để giúp người học.
+${mistakeContext ? `\n⚠️ Lưu ý nhẹ: Người học đang yếu: ${mistakeContext}. Lồng ghép ôn tập tự nhiên vào nhập vai.` : ''}`;
           }
 
-          const result = await chat(chatHistory, systemPrompt);
+          const result = await chat(chatHistory, systemPrompt, user?.id);
           aiResponse = typeof result === 'string' ? result : (result?.content || "Sensei đã sẵn sàng!");
       }
 
@@ -226,6 +262,33 @@ export const useSenseiChat = () => {
         metadata: { ...aiMeta, source: 'Sensei Hub' } as any,
         created_at: new Date().toISOString()
       };
+
+      // ── Priority 1: Smart Chunking — summarize before indexing ──
+      if (!isGuest && user?.id) {
+        const RAG_COUNT_KEY = `sensei_rag_msg_count_${user.id}`;
+        const ragCount = parseInt(localStorage.getItem(RAG_COUNT_KEY) || '0') + 1;
+        localStorage.setItem(RAG_COUNT_KEY, ragCount.toString());
+
+        // Summarize → extract learning atom → embed clean text (not raw noise)
+        supabase.functions.invoke('sensei-rag', {
+          body: {
+            action: 'summarize_and_index',
+            user_id: user.id,
+            content: `User: ${content}\nSensei: ${aiResponse}`,
+            source_type: 'conversation',
+            metadata: { type, conversation_id: activeConversationId || 'new' }
+          }
+        }).catch(e => console.warn('RAG Smart Chunk failed:', e));
+
+        // ── Priority 2: User Knowledge Map — rebuild every 10 messages ──
+        if (ragCount % 10 === 0) {
+          supabase.functions.invoke('sensei-rag', {
+            body: { action: 'update_profile', user_id: user.id }
+          }).then(({ data }) => {
+            if (data?.profile) console.log('✅ Sensei Knowledge Profile updated.');
+          }).catch(e => console.warn('RAG Profile Update failed:', e));
+        }
+      }
 
       let finalMessages: SenseiMessage[] = [];
       setMessages(prev => {
@@ -316,7 +379,11 @@ export const useSenseiChat = () => {
     } else {
       await supabase.from('analysis_history').delete().eq('id', id);
     }
-    if (activeConversationId === id) setActiveConversationId(null);
+    if (activeConversationId === id) {
+      setActiveConversationIdState(null);
+      setPendingMeta(null);
+      setMessages([]);
+    }
     fetchConversations();
   };
 
@@ -341,6 +408,65 @@ export const useSenseiChat = () => {
     createNewConversation,
     pinConversation: togglePin,
     deleteConversation,
+    startProactiveSession: async () => {
+      if (isGuest) return;
+      setIsLoading(true);
+      try {
+        const { data: mistakes } = await supabase
+          .from('user_mistakes' as any)
+          .select('word, context')
+          .eq('user_id', user?.id)
+          .order('last_mistake_at', { ascending: false })
+          .limit(3);
+
+        if ((mistakes as any[]) && (mistakes as any[]).length > 0) {
+          const words = (mistakes as any[]).map(m => m.word).join('、');
+          const timeOfDay = getTimeOfDay();
+          const timeGreeting = {
+            morning: 'Buổi sáng tốt lành',
+            afternoon: 'Buổi chiều năng động',
+            evening: 'Buổi tối thư thái',
+            night: 'Đêm khuya chăm chỉ'
+          }[timeOfDay];
+
+          const proactivePrompt = `${timeGreeting}! Bạn vừa mở chat, Sensei đã chuẩn bị sẵn bài ôn tập cá nhân hóa dành cho bạn.
+
+Gần đây bạn có gặp khó khăn với: **${words}**.
+
+${CORE_RULES}
+
+Nhiệm vụ của bạn trong phiên này:
+1. Mở đầu bằng cách nhắc lại nhẹ nhàng và khích lệ về các điểm yếu trên.
+2. Ngay lập tức tạo một widget (Quiz HOẶC Fill-blank) về một trong những từ/cấu trúc đó.
+3. Kết thúc bằng câu hỏi gợi mở để người học tự phản tư.`;
+
+          createNewConversation(`Ôn tập cùng Sensei`, 'tutor', proactivePrompt);
+          await sendMessage("Chào Sensei, mình muốn ôn tập lại những gì mình còn yếu.", 'text');
+        } else {
+          createNewConversation();
+        }
+      } catch (e) {
+        createNewConversation();
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    logMistake: async (content: string, metadata?: any) => {
+      if (isGuest || !user?.id) return;
+      try {
+        await supabase.functions.invoke('sensei-rag', {
+          body: {
+            action: 'index',
+            user_id: user.id,
+            content: `Lỗi sai của người dùng: ${content}`,
+            source_type: 'mistake',
+            metadata: metadata || {}
+          }
+        });
+      } catch (e) {
+        console.warn('Failed to log mistake for RAG:', e);
+      }
+    },
     isGuest,
     guestMessageCount
   };

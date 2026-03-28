@@ -178,7 +178,18 @@ export const useFlashcardFolders = () => {
       setFolders(prev => prev.map(f => 
         f.id === folderId ? { ...f, words: [...f.words, fullWord] } : f
       ));
-      
+
+      // RAG Indexing: log vocabulary saved to notebook
+      supabase.functions.invoke('sensei-rag', {
+        body: {
+          action: 'index',
+          user_id: user.id,
+          content: `Người dùng đã lưu từ vựng vào sổ tay: "${word.word}" (${word.reading || ''}) — nghĩa: ${word.meaning}. ${word.jlpt_level ? `JLPT ${word.jlpt_level}.` : ''}`,
+          source_type: 'vocabulary',
+          metadata: { word: word.word, folder_id: folderId }
+        }
+      }).catch(() => {}); // fire-and-forget
+
       toast.success('Đã lưu từ vào danh mục');
       return fullWord;
     } catch (error) {

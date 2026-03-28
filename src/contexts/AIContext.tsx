@@ -6,7 +6,7 @@ interface AIContextType {
   isAnalyzing: boolean;
   isChatting: boolean;
   analyzeText: (content: string, mode?: string, customPrompt?: string) => Promise<any>;
-  chat: (messages: { role: string; content: string }[], systemPrompt: string) => Promise<any>;
+  chat: (messages: { role: string; content: string }[], systemPrompt: string, user_id?: string) => Promise<any>;
   checkGrammar: (text: string) => Promise<any>;
 }
 
@@ -49,13 +49,14 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   /**
    * General purpose chat (Roleplay, Tutor)
    */
-  const chat = useCallback(async (messages: { role: string; content: string }[], systemPrompt: string) => {
+  const chat = useCallback(async (messages: { role: string; content: string }[], systemPrompt: string, user_id?: string) => {
     setIsChatting(true);
     try {
       const { data, error } = await supabase.functions.invoke('japanese-chat', {
         body: {
           messages,
           systemPrompt,
+          user_id,
           engine: 'gemini'
         }
       });

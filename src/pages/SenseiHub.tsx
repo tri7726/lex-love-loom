@@ -5,7 +5,7 @@ import { SenseiInput } from '@/components/chat/SenseiChatHub/SenseiInput';
 import { useSenseiChat } from '@/components/chat/SenseiChatHub/useSenseiChat';
 import { toast } from "sonner";
 import { SenseiSidebar } from '@/components/chat/SenseiChatHub/SenseiSidebar';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useSearchParams } from 'react-router-dom';
@@ -13,6 +13,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { SenseiMode } from '@/components/chat/SenseiChatHub/types';
 import { BookOpen, Mic, Languages, MessageSquare } from 'lucide-react';
 import FallingPetals from '@/components/chat/SenseiChatHub/FallingPetals';
+import { useLearningPath } from '@/hooks/useLearningPath';
+import { SenseiLearningPathCard } from '@/components/chat/SenseiChatHub/SenseiLearningPath';
 
 export default function SenseiHub() {
   const { 
@@ -25,6 +27,8 @@ export default function SenseiHub() {
     setActiveConversationId,
     pinConversation,
     deleteConversation,
+    startProactiveSession,
+    logMistake,
     isGuest,
     guestMessageCount
   } = useSenseiChat();
@@ -34,6 +38,7 @@ export default function SenseiHub() {
   const [searchParams] = useSearchParams();
   const activeMode = (searchParams.get('mode') as SenseiMode) || 'tutor';
   const filteredConversations = conversations.filter(c => c.mode === activeMode);
+  const { path: learningPath, isGenerating: isPathGenerating, generatePath, clearPath } = useLearningPath();
 
   const getModeInfo = (mode: SenseiMode) => {
     switch (mode) {
@@ -147,7 +152,12 @@ export default function SenseiHub() {
                     {isGuest ? `Giới hạn: ${guestMessageCount}/5` : 'Pro Max Ultra Engaged'}
                   </span>
                </div>
-               <Button variant="ghost" size="icon" className="rounded-full hover:bg-sakura/10 text-sakura">
+               <Button 
+                variant="ghost" 
+                size="icon" 
+                className="rounded-full hover:bg-sakura/10 text-sakura"
+                onClick={startProactiveSession}
+               >
                   <Sparkles className="h-5 w-5" />
                </Button>
             </div>
@@ -160,28 +170,45 @@ export default function SenseiHub() {
                 conversation={activeConversation}
                 messages={messages}
                 isLoading={isLoading}
+                activeMode={activeMode}
                 onSaveWord={(word) => toast.success(`Đã lưu "${word}" vào kho báu tri thức 🌸`)}
+                onMistake={logMistake}
                 onSpeak={(text) => {
                   const utterance = new SpeechSynthesisUtterance(text);
                   utterance.lang = 'ja-JP';
-                  utterance.rate = 0.9; // More natural, 'Zen' pace
+                  utterance.rate = 0.9;
                   window.speechSynthesis.speak(utterance);
                 }}
               />
             </div>
           </div>
           
-          {/* Input - Floating Pill Style */}
-          <div className="px-4 pb-6 pt-2 shrink-0 flex justify-center bg-gradient-to-t from-white via-white/80 to-transparent">
+          {/* Input + Learning Path */}
+          <div className="px-4 pb-6 pt-2 shrink-0 flex flex-col items-center bg-gradient-to-t from-white via-white/80 to-transparent">
+
+            {/* RAG Learning Path — show when no active conversation */}
+            {!activeConversation && !isGuest && (
+              <SenseiLearningPathCard
+                path={learningPath}
+                isGenerating={isPathGenerating}
+                onSelectStep={(prompt) => {
+                  createNewConversation('Lộ trình học hôm nay', activeMode);
+                  setTimeout(() => sendMessage(prompt, 'text'), 100);
+                }}
+                onRefresh={() => { clearPath(); generatePath(); }}
+              />
+            )}
+
             <div className="w-full max-w-[80%] transform transition-all duration-500 hover:scale-[1.01]">
               <div className="relative group">
                 <div className="absolute -inset-1 bg-gradient-to-r from-sakura/10 via-sakura-light/20 to-sakura/10 rounded-[28px] blur-md opacity-25 group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
                 <div className="relative bg-white/70 backdrop-blur-2xl border border-border/40 rounded-[26px] shadow-soft p-1 overflow-hidden transition-all duration-500 group-hover:bg-white/90">
-                  <SenseiInput 
+                <SenseiInput 
                     onSend={(content, type, metadata) => sendMessage(content, type, metadata)}
                     isLoading={isLoading}
                     isGuest={isGuest}
                     guestMessageCount={guestMessageCount}
+                    activeMode={activeMode}
                   />
                 </div>
               </div>

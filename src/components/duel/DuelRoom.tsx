@@ -192,7 +192,7 @@ export const DuelRoom = ({ challenge, onClose }: DuelRoomProps) => {
         setQuestionIdx((i) => i + 1);
       }
     },
-    [questionIdx, questions.length, broadcastAnswer, duelState, userId, isChallenger, challenge]
+    [questionIdx, questions.length, broadcastAnswer, duelState, userId, isChallenger, challenge, awardXP, fire]
   );
 
   const myFinalScore = duelState.myScore;

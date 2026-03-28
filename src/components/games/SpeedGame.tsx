@@ -113,7 +113,7 @@ export const SpeedGame: React.FC<SpeedGameProps> = ({
         });
       }
     }, 600);
-  }, [currentIndex, currentQuestion, combo, timeLeft, showFeedback, questions.length, correctCount, onComplete, onUpdateMastery]);
+  }, [currentIndex, currentQuestion, combo, timeLeft, showFeedback, questions.length, correctCount, lives, onComplete, onUpdateMastery]);
 
   // Timer
   useEffect(() => {

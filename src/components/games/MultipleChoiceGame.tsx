@@ -79,7 +79,7 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
 
       return { word, options, correctIndex };
     });
-  }, [vocabulary, isReversed, subMode, gameKey]);
+  }, [vocabulary, isReversed, subMode]); // Removed gameKey as it's not used in the block
 
   const speak = useCallback((text: string) => {
     if ('speechSynthesis' in window) {
@@ -119,7 +119,30 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
     if (currentQuestion) {
       onUpdateMastery(currentQuestion.word.id, isCorrect);
     }
-  }, [showResult, currentQuestion, streak, maxStreak, showStreak, difficulty, onUpdateMastery]);
+  }, [showResult, currentQuestion, streak, maxStreak, showStreak, difficulty, onUpdateMastery, speak]);
+
+  const handleNext = useCallback(() => {
+    if (currentIndex + 1 >= questions.length) {
+      if (difficulty === 'infinite') {
+        setGameKey(prev => prev + 1);
+        setCurrentIndex(0);
+        setSelectedAnswer(null);
+        setShowResult(false);
+        setIsFlashActive(false);
+        setTimeLeft(getTimerForDifficulty(difficulty));
+      } else {
+        setGameComplete(true);
+        onComplete({
+          correct: correctCount + (selectedAnswer === currentQuestion?.correctIndex ? 1 : 0),
+          total: questions.length,
+        });
+      }
+    } else {
+      setCurrentIndex((prev) => prev + 1);
+      setSelectedAnswer(null);
+      setShowResult(false);
+    }
+  }, [currentIndex, questions.length, difficulty, correctCount, selectedAnswer, currentQuestion?.correctIndex, onComplete]);
 
   useEffect(() => {
     if (!difficulty || difficulty === 'peaceful' || gameComplete || showResult) return;
@@ -162,34 +185,13 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({
         return () => clearTimeout(autoNext);
       }
     }
-  }, [showResult, difficulty, selectedAnswer, currentQuestion]);
+  }, [showResult, difficulty, selectedAnswer, currentQuestion, handleNext]);
 
 
 
 
 
-  const handleNext = () => {
-    if (currentIndex + 1 >= questions.length) {
-      if (difficulty === 'infinite') {
-        setGameKey(prev => prev + 1);
-        setCurrentIndex(0);
-        setSelectedAnswer(null);
-        setShowResult(false);
-        setIsFlashActive(false);
-        setTimeLeft(getTimerForDifficulty(difficulty));
-      } else {
-        setGameComplete(true);
-        onComplete({
-          correct: correctCount + (selectedAnswer === currentQuestion?.correctIndex ? 1 : 0),
-          total: questions.length,
-        });
-      }
-    } else {
-      setCurrentIndex((prev) => prev + 1);
-      setSelectedAnswer(null);
-      setShowResult(false);
-    }
-  };
+
 
   const restartGame = () => {
     setCurrentIndex(0);

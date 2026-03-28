@@ -61,7 +61,13 @@ const lessonThemes: Record<number, string> = {
   50: 'Humble language (Kenjougo), speaking about oneself in business'
 };
 
-async function generateHyperVocab(lessonNumber: number, theme: string) {
+interface HyperVocabItem {
+  word: string;
+  reading: string;
+  meaning_vi: string;
+}
+
+async function generateHyperVocab(lessonNumber: number, theme: string): Promise<HyperVocabItem[]> {
   const prompt = `You are a master Japanese linguist building the ultimate vocabulary database. 
 The user wants a MASSIVE, deep vocabulary list for Minna no Nihongo Lesson ${lessonNumber} (Theme: ${theme}).
 
@@ -100,7 +106,7 @@ DO NOT output any markdown, explanations, or code blocks. Just the raw JSON arra
       text = text.replace(/^```(json)?\n?/, '').replace(/\n?```$/, '');
     }
     
-    return JSON.parse(text);
+    return JSON.parse(text) as HyperVocabItem[];
   } catch (err) {
     console.error(`Failed to generate for lesson ${lessonNumber}`, err);
     return [];

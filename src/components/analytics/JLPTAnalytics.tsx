@@ -10,10 +10,20 @@ import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
+interface SectionScore {
+  score: number;
+}
+
+interface SectionScores {
+  vocabulary_grammar?: SectionScore;
+  reading?: SectionScore;
+  listening?: SectionScore;
+}
+
 interface ExamResult {
   id: string;
   score: number;
-  section_scores: any; // Using any here to matches the JSON type from Supabase while allowing easy access
+  section_scores: SectionScores | null;
   passed: boolean;
   completed_at: string;
   created_at?: string;
@@ -51,9 +61,9 @@ export const JLPTAnalytics = () => {
         .order('completed_at', { ascending: true });
 
       if (results) {
-        const formatted = (results as any[]).map((r): FormattedData => {
+        const formatted = (results as unknown as ExamResult[]).map((r): FormattedData => {
           const timestamp = r.completed_at || r.created_at; 
-          const sectionScores = r.section_scores as any;
+          const sectionScores = r.section_scores;
           return {
             date: timestamp ? format(new Date(timestamp), 'dd/MM', { locale: vi }) : '—',
             fullDate: timestamp ? format(new Date(timestamp), 'PPP', { locale: vi }) : '—',

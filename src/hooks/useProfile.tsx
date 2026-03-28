@@ -128,7 +128,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const addXp = useCallback(async (amount: number) => {
     if (!user) return;
     try {
-      const { error } = await supabase.rpc('earn_xp', { 
+      const { error } = await supabase.rpc('earn_xp' as any, { 
         p_amount: amount, 
         p_source: 'Activity' 
       });

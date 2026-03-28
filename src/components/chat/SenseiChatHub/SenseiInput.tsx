@@ -1,11 +1,12 @@
 import React, { useState, useRef } from 'react';
-import { Send, Camera, Mic, Sparkles, Languages, Loader2 } from 'lucide-react';
+import { Send, Camera, Mic, MicOff, Sparkles, Languages, Loader2, BookOpen, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { SenseiMessageType } from './types';
+import { SenseiMessageType, SenseiMode } from './types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 
 interface SenseiInputProps {
   onSend: (content: string, type: SenseiMessageType, metadata?: any) => void;
@@ -14,6 +15,7 @@ interface SenseiInputProps {
   setIsAnalyzingImage?: (val: boolean) => void;
   isGuest?: boolean;
   guestMessageCount?: number;
+  activeMode?: SenseiMode;
 }
 
 export const SenseiInput: React.FC<SenseiInputProps> = ({ 
@@ -22,11 +24,19 @@ export const SenseiInput: React.FC<SenseiInputProps> = ({
   isAnalyzingImage = false, 
   setIsAnalyzingImage = () => {},
   isGuest = false,
-  guestMessageCount = 0
+  guestMessageCount = 0,
+  activeMode = 'tutor'
 }) => {
   const [text, setText] = useState('');
   const [mode, setMode] = useState<SenseiMessageType>('text');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Speech Recognition (Fix #2) ──
+  const { isListening, startListening, stopListening, isSupported: isSpeechSupported } 
+    = useSpeechRecognition({
+        lang: activeMode === 'speaking' ? 'ja-JP' : 'vi-VN',
+        onResult: (transcript) => setText(transcript),
+      });
 
   const isLimited = isGuest && guestMessageCount >= 5;
 
@@ -71,6 +81,7 @@ export const SenseiInput: React.FC<SenseiInputProps> = ({
 
   const handleSend = () => {
     if (!text.trim() || isLoading || isLimited) return;
+    if (isListening) stopListening();
     onSend(text, mode);
     setText('');
     setMode('text');
@@ -83,11 +94,57 @@ export const SenseiInput: React.FC<SenseiInputProps> = ({
     }
   };
 
-  const chips = [
-    { id: 'text', label: 'Chat', icon: Sparkles },
-    { id: 'analysis', label: 'Phân tích', icon: Sparkles },
-    { id: 'correction', label: 'Sửa lỗi', icon: Languages },
-  ];
+  const handleMicClick = () => {
+    if (!isSpeechSupported) {
+      toast.error("Trình duyệt của bạn chưa hỗ trợ nhận giọng nói.");
+      return;
+    }
+    if (isListening) {
+      stopListening();
+    } else {
+      setText('');
+      startListening();
+      toast.info(activeMode === 'speaking' ? "🎙️ Đang lắng nghe tiếng Nhật..." : "🎙️ Đang lắng nghe...");
+    }
+  };
+
+  // ── Mode-aware chips (Fix #4) ──
+  const getChips = (): { id: SenseiMessageType; label: string; icon: React.FC<{ className?: string }> }[] => {
+    switch (activeMode) {
+      case 'speaking':
+        return [
+          { id: 'text', label: 'Luyện nói', icon: Sparkles },
+          { id: 'correction', label: 'Sửa phát âm', icon: Languages },
+        ];
+      case 'analysis':
+        return [
+          { id: 'analysis', label: 'Phân tích', icon: Sparkles },
+          { id: 'correction', label: 'Sửa lỗi', icon: Languages },
+        ];
+      case 'roleplay':
+        return [
+          { id: 'text', label: 'Nhập vai', icon: MessageSquare },
+          { id: 'analysis', label: 'Hỏi Sensei', icon: BookOpen },
+        ];
+      default:
+        return [
+          { id: 'text', label: 'Chat', icon: Sparkles },
+          { id: 'analysis', label: 'Phân tích', icon: Sparkles },
+          { id: 'correction', label: 'Sửa lỗi', icon: Languages },
+        ];
+    }
+  };
+
+  const getPlaceholder = () => {
+    if (isListening) return "🎙️ Đang lắng nghe... hãy nói vào micro";
+    if (activeMode === 'speaking') return "Nhập hoặc nói câu tiếng Nhật để luyện tập...";
+    if (activeMode === 'roleplay') return "Nói điều gì đó trong nhân vật của bạn...";
+    if (mode === 'analysis') return "Phân tích mẫu câu...";
+    if (mode === 'correction') return "Kiểm tra ngữ pháp...";
+    return "Thổ lộ cùng Sensei...";
+  };
+
+  const chips = getChips();
 
   return (
     <div className="p-2 md:p-3 bg-transparent space-y-4">
@@ -155,11 +212,20 @@ export const SenseiInput: React.FC<SenseiInputProps> = ({
               >
                 {isAnalyzingImage ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" />}
               </Button>
+
+              {/* Fix #2: Live Mic Button */}
               <Button 
                 variant="ghost" size="icon" 
-                className="h-12 w-12 rounded-2xl text-slate-300 hover:text-sakura hover:bg-sakura/5 transition-all"
+                className={cn(
+                  "h-12 w-12 rounded-2xl transition-all",
+                  isListening 
+                    ? "text-red-500 bg-red-50 animate-pulse hover:bg-red-100" 
+                    : "text-slate-300 hover:text-sakura hover:bg-sakura/5"
+                )}
+                onClick={handleMicClick}
+                title={isListening ? "Nhấn để dừng nghe" : "Nhấn để nói"}
               >
-                <Mic className="h-6 w-6" />
+                {isListening ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
               </Button>
             </div>
 
@@ -167,15 +233,12 @@ export const SenseiInput: React.FC<SenseiInputProps> = ({
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={
-                mode === 'analysis' ? "Phân tích mẫu câu..." :
-                mode === 'correction' ? "Kiểm tra ngữ pháp..." :
-                "Thổ lộ cùng Sensei..."
-              }
+              placeholder={getPlaceholder()}
               className={cn(
                 "min-h-[100px] max-h-[250px] w-full pl-36 pr-16 py-6 rounded-[2.5rem] border-0 bg-white shadow-[0_15px_40px_-10px_rgba(0,0,0,0.03)] focus-visible:ring-sakura/5 resize-none font-serif text-lg transition-all placeholder:italic placeholder:text-slate-200",
                 mode === 'analysis' && "ring-1 ring-rose-50",
-                mode === 'correction' && "ring-1 ring-blue-50"
+                mode === 'correction' && "ring-1 ring-blue-50",
+                isListening && "ring-2 ring-red-200"
               )}
             />
 
@@ -199,7 +262,7 @@ export const SenseiInput: React.FC<SenseiInputProps> = ({
       
       {!isLimited && (
         <p className="text-center text-[9px] text-slate-200 font-black uppercase tracking-[0.5em] pb-2">
-          Đàm đạo tinh hoa
+          {isListening ? "🔴 Đang ghi âm — Nói thật tự nhiên" : "Đàm đạo tinh hoa"}
         </p>
       )}
     </div>

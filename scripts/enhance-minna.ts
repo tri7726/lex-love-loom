@@ -65,7 +65,13 @@ const lessonThemes: Record<number, string> = {
   50: 'Humble language (Kenjougo)'
 };
 
-async function generateExtraVocab(lessonNumber: number, theme: string) {
+interface VocabItem {
+  word: string;
+  reading: string;
+  meaning_vi: string;
+}
+
+async function generateExtraVocab(lessonNumber: number, theme: string): Promise<VocabItem[]> {
   const prompt = `You are a Japanese linguistics expert. Generate EXACTLY 20 extra, highly relevant "Reference Words" (参考語彙) and Expressions for Minna no Nihongo Lesson ${lessonNumber}.
 The theme of this lesson is: ${theme}.
 These words should NOT be the basic core vocabulary (like watashi, anata) but rather related vocabulary (e.g. if the lesson is about professions, provide 20 extra professions like architect, programmer, etc).
@@ -100,7 +106,7 @@ DO NOT output any markdown, explanations, or code blocks. Just the raw JSON arra
       text = text.replace(/^```(json)?\n?/, '').replace(/\n?```$/, '');
     }
     
-    const words = JSON.parse(text);
+    const words = JSON.parse(text) as VocabItem[];
     return words;
   } catch (err) {
     console.error(`Failed to generate for lesson ${lessonNumber}`, err);
