@@ -726,9 +726,7 @@ export type Database = {
           id: string
           level: string | null
           max_score: number | null
-          passed: boolean | null
           score: number
-          section_scores: Json | null
           time_taken: number | null
           user_id: string | null
         }
@@ -738,11 +736,9 @@ export type Database = {
           id?: string
           level?: string | null
           max_score?: number | null
-          passed?: boolean | null
           score: number
-          section_scores?: Json | null
           time_taken?: number | null
-          user_id: string | null
+          user_id?: string | null
         }
         Update: {
           completed_at?: string
@@ -750,9 +746,7 @@ export type Database = {
           id?: string
           level?: string | null
           max_score?: number | null
-          passed?: boolean | null
           score?: number
-          section_scores?: Json | null
           time_taken?: number | null
           user_id?: string | null
         }
@@ -1098,6 +1092,36 @@ export type Database = {
           },
         ]
       }
+      sensei_knowledge: {
+        Row: {
+          content: string
+          created_at: string | null
+          embedding: string | null
+          id: string
+          metadata: Json | null
+          source_type: string | null
+          user_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+          source_type?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+          source_type?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       speaking_lessons: {
         Row: {
           category: string | null
@@ -1382,6 +1406,36 @@ export type Database = {
         Update: {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_settings: {
+        Row: {
+          push_auth: string | null
+          push_enabled: boolean | null
+          push_endpoint: string | null
+          push_p256dh: string | null
+          push_reminder_time: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          push_auth?: string | null
+          push_enabled?: boolean | null
+          push_endpoint?: string | null
+          push_p256dh?: string | null
+          push_reminder_time?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          push_auth?: string | null
+          push_enabled?: boolean | null
+          push_endpoint?: string | null
+          push_p256dh?: string | null
+          push_reminder_time?: string | null
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: []
@@ -1885,10 +1939,7 @@ export type Database = {
     }
     Functions: {
       earn_xp: {
-        Args: {
-          p_amount: number
-          p_source: string
-        }
+        Args: { p_amount: number; p_source: string }
         Returns: undefined
       }
       get_due_flashcards_count: { Args: { user_uuid: string }; Returns: number }
@@ -1904,10 +1955,52 @@ export type Database = {
         }
         Returns: boolean
       }
-      record_activity: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
+      hybrid_match_sensei_knowledge: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+          query_text: string
+          target_user_id: string
+        }
+        Returns: {
+          content: string
+          metadata: Json
+          similarity: number
+          source_type: string
+        }[]
       }
+      match_sensei_knowledge:
+        | {
+            Args: {
+              match_count?: number
+              query_embedding: string
+              target_user_id: string
+            }
+            Returns: {
+              content: string
+              metadata: Json
+              similarity: number
+              source_type: string
+            }[]
+          }
+        | {
+            Args: {
+              match_count?: number
+              match_threshold?: number
+              query_embedding: string
+              target_user_id: string
+            }
+            Returns: {
+              content: string
+              metadata: Json
+              similarity: number
+              source_type: string
+            }[]
+          }
+      record_activity: { Args: never; Returns: undefined }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       update_kanji_progress: {
         Args: {
           p_kanji_id: string
