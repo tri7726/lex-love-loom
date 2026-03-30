@@ -49,6 +49,8 @@ const SenseiHub = React.lazy(() => import("./pages/SenseiHub"));
 const PvPBattle = React.lazy(() => import("./pages/PvPBattle").then(m => ({ default: m.PvPBattle })));
 const AdminExamManager = React.lazy(() => import("./pages/AdminExamManager").then(m => ({ default: m.AdminExamManager })));
 const AdminDashboard = React.lazy(() => import("./pages/AdminDashboard"));
+const QuickMode = React.lazy(() => import("./pages/QuickMode"));
+const CommunityDecks = React.lazy(() => import("./pages/CommunityDecks"));
 
 const queryClient = new QueryClient();
 
@@ -110,6 +112,9 @@ function App() {
                                 <Route path="/pvp/:challengeId" element={<PvPBattle />} />
                                 <Route path="/admin/exam-manager" element={<AdminExamManager />} />
                                 <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                                {/* ── New Learning Technique Routes ── */}
+                                <Route path="/quick" element={<QuickMode />} />
+                                <Route path="/community-decks" element={<CommunityDecks />} />
                               </Route>
                               <Route path="/quiz/story/:episodeId" element={<StoryModeFrame />} />
                               <Route path="*" element={<NotFound />} />

@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChatMessage } from './ChatMessage';
 import { SenseiMessage, SenseiConversation, SenseiMode } from './types';
@@ -98,14 +99,21 @@ export const SenseiChatFrame: React.FC<SenseiChatFrameProps> = ({
               onSpeak={onSpeak}
             />
           ))}
-          {isLoading && (
-            <div className="flex justify-start mb-6">
-               <div className="bg-white/80 dark:bg-slate-900/80 p-4 rounded-2xl rounded-tl-none border border-sakura/10 shadow-sm flex gap-2">
-                  <div className="h-2 w-2 bg-sakura rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <div className="h-2 w-2 bg-sakura rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <div className="h-2 w-2 bg-sakura rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+          {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
+            <motion.div 
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="flex justify-start mb-6 px-4"
+            >
+               <div className="bg-white/80 backdrop-blur-xl p-4 rounded-3xl rounded-tl-none border border-sakura/20 shadow-sm flex gap-1.5 items-center">
+                  <div className="flex gap-1">
+                    <div className="h-1.5 w-1.5 bg-sakura rounded-full animate-bounce [animation-delay:-0.3s]" />
+                    <div className="h-1.5 w-1.5 bg-sakura rounded-full animate-bounce [animation-delay:-0.15s]" />
+                    <div className="h-1.5 w-1.5 bg-sakura rounded-full animate-bounce" />
+                  </div>
+                  <span className="text-[10px] font-bold text-sakura/60 uppercase tracking-widest ml-2">Sensei đang nghĩ...</span>
                </div>
-            </div>
+            </motion.div>
           )}
         </div>
       </ScrollArea>

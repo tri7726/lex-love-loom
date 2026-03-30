@@ -10,7 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useTTS } from '@/hooks/useTTS';
 import { useProfile } from '@/hooks/useProfile';
 import { cn } from '@/lib/utils';
-import { useFlashcardFolders, VocabWord } from '@/hooks/useFlashcardFolders';
+import { useFlashcardFolders } from '@/hooks/useFlashcardFolders';
+import { VocabWord } from '@/types/vocabulary';
 
 interface SuggestedFlashcard {
   word: string;

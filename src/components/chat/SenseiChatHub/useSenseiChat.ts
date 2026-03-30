@@ -200,23 +200,53 @@ export const useSenseiChat = () => {
 
     try {
       let aiResponse = "";
-      let aiMeta = {};
+      
+      // Initialize assistant message for streaming
+      const assistantMsgId = generateId();
+      const initialAssistantMsg: SenseiMessage = {
+        id: assistantMsgId,
+        conversation_id: activeConversationId || 'new',
+        role: 'assistant',
+        content: "",
+        type,
+        metadata: { source: 'Sensei Hub' } as any,
+        created_at: new Date().toISOString()
+      };
 
-      // AI Logic (Identical for Guest and User)
-      if (type === 'analysis') {
-          const result = await analyzeText(content);
-          aiResponse = typeof result === 'string' ? result : (result?.analysis || JSON.stringify(result));
-      } else if (type === 'correction') {
-          const result = await checkGrammar(content);
-          aiResponse = typeof result === 'string' ? result : (result?.result || JSON.stringify(result));
+      if (type !== 'text') {
+        // Fallback for non-text types (analysis, correction) - streaming not yet implemented for these
+        let result;
+        if (type === 'analysis') {
+            result = await analyzeText(content);
+            aiResponse = typeof result === 'string' ? result : (result?.analysis || JSON.stringify(result));
+        } else if (type === 'correction') {
+            result = await checkGrammar(content);
+            aiResponse = typeof result === 'string' ? result : (result?.result || JSON.stringify(result));
+        }
+        
+        setMessages(prev => [...prev, { ...initialAssistantMsg, content: aiResponse }]);
       } else {
-          const chatHistory = currentMessages.map(m => ({ role: m.role, content: m.content }));
+          // Streaming implementation for text/chat
+          setMessages(prev => [...prev, initialAssistantMsg]);
+
+          const chatHistory = currentMessages.map(m => {
+            if (m.type === 'image' && m.metadata && (m.metadata as any).imageUrl) {
+              return {
+                role: m.role,
+                content: [
+                  { type: "text", text: m.content || "Analyze this image." },
+                  { type: "image_url", image_url: { url: (m.metadata as any).imageUrl } }
+                ]
+              };
+            }
+            return { role: m.role, content: m.content };
+          });
           
           let mistakeContext = "";
-          if (!isGuest) {
+          if (!isGuest && user?.id) {
             const { data: mistakes } = await (supabase as any)
               .from('user_mistakes')
-              .select('word')
+              .select('word, context')
               .eq('user_id', user.id)
               .order('last_mistake_at', { ascending: false })
               .limit(5);
@@ -240,36 +270,30 @@ export const useSenseiChat = () => {
           
           if (currentMode === 'roleplay' && customSystemPrompt) {
             systemPrompt = `Bạn là **Sensei Pro Max** trong chế độ nhập vai.
-
-🎭 **Nhập vai**: ${customSystemPrompt}
-
-${CORE_RULES}
-
-Dù đang nhập vai, bạn vẫn CÓ THỂ và NÊN tạo :::vocab::: và :::widget::: khi phù hợp để giúp người học.
+\n\n🎭 **Nhập vai**: ${customSystemPrompt}
+\n\n${CORE_RULES}
+\nDù đang nhập vai, bạn vẫn CÓ THỂ và NÊN tạo :::vocab::: và :::widget::: khi phù hợp để giúp người học.
 ${mistakeContext ? `\n⚠️ Lưu ý nhẹ: Người học đang yếu: ${mistakeContext}. Lồng ghép ôn tập tự nhiên vào nhập vai.` : ''}`;
           }
 
-          const result = await chat(chatHistory, systemPrompt, user?.id);
-          aiResponse = typeof result === 'string' ? result : (result?.content || "Sensei đã sẵn sàng!");
+          let accumulatedResponse = "";
+          await (useAI() as any).streamChat(chatHistory, systemPrompt, user?.id, (chunk: string) => {
+            accumulatedResponse += chunk;
+            setMessages(prev => prev.map(m => 
+              m.id === assistantMsgId ? { ...m, content: accumulatedResponse } : m
+            ));
+          });
+          aiResponse = accumulatedResponse;
       }
 
-      const aiMsg: SenseiMessage = {
-        id: generateId(),
-        conversation_id: activeConversationId || 'new',
-        role: 'assistant',
-        content: aiResponse,
-        type,
-        metadata: { ...aiMeta, source: 'Sensei Hub' } as any,
-        created_at: new Date().toISOString()
-      };
+      const finalMessages = [...currentMessages, { ...initialAssistantMsg, content: aiResponse }];
 
-      // ── Priority 1: Smart Chunking — summarize before indexing ──
+      // ── RAG Persistence Layer (Deferred until after stream) ──
       if (!isGuest && user?.id) {
         const RAG_COUNT_KEY = `sensei_rag_msg_count_${user.id}`;
         const ragCount = parseInt(localStorage.getItem(RAG_COUNT_KEY) || '0') + 1;
         localStorage.setItem(RAG_COUNT_KEY, ragCount.toString());
 
-        // Summarize → extract learning atom → embed clean text (not raw noise)
         supabase.functions.invoke('sensei-rag', {
           body: {
             action: 'summarize_and_index',
@@ -280,23 +304,14 @@ ${mistakeContext ? `\n⚠️ Lưu ý nhẹ: Người học đang yếu: ${mistak
           }
         }).catch(e => console.warn('RAG Smart Chunk failed:', e));
 
-        // ── Priority 2: User Knowledge Map — rebuild every 10 messages ──
         if (ragCount % 10 === 0) {
           supabase.functions.invoke('sensei-rag', {
             body: { action: 'update_profile', user_id: user.id }
-          }).then(({ data }) => {
-            if (data?.profile) console.log('✅ Sensei Knowledge Profile updated.');
           }).catch(e => console.warn('RAG Profile Update failed:', e));
         }
       }
 
-      let finalMessages: SenseiMessage[] = [];
-      setMessages(prev => {
-        finalMessages = [...prev, aiMsg];
-        return finalMessages;
-      });
-
-      // Persistence Layer
+      // Persistence Layer (Supabase / LocalStorage)
       if (isGuest) {
         const newCount = guestMessageCount + 1;
         setGuestMessageCount(newCount);
@@ -323,7 +338,6 @@ ${mistakeContext ? `\n⚠️ Lưu ý nhẹ: Người học đang yếu: ${mistak
           localStorage.setItem(`sensei_guest_messages_${activeConversationId}`, JSON.stringify(finalMessages));
         }
       } else {
-        // Authenticated Persistence (User)
         if (!activeConversationId) {
           const { data, error } = await supabase
             .from('analysis_history')
@@ -355,6 +369,7 @@ ${mistakeContext ? `\n⚠️ Lưu ý nhẹ: Người học đang yếu: ${mistak
         }
       }
     } catch (err) {
+      console.error("SendMessage error:", err);
       toast.error("Sensei đang bận, vui lòng thử lại sau!");
     } finally {
       setIsLoading(false);
@@ -413,14 +428,15 @@ ${mistakeContext ? `\n⚠️ Lưu ý nhẹ: Người học đang yếu: ${mistak
       setIsLoading(true);
       try {
         const { data: mistakes } = await supabase
-          .from('user_mistakes' as any)
-          .select('word, context')
+          .from('sensei_knowledge')
+          .select('content, metadata')
           .eq('user_id', user?.id)
-          .order('last_mistake_at', { ascending: false })
+          .eq('source_type', 'mistake')
+          .order('created_at', { ascending: false })
           .limit(3);
 
         if ((mistakes as any[]) && (mistakes as any[]).length > 0) {
-          const words = (mistakes as any[]).map(m => m.word).join('、');
+          const contents = (mistakes as any[]).map(m => m.content).join('、');
           const timeOfDay = getTimeOfDay();
           const timeGreeting = {
             morning: 'Buổi sáng tốt lành',
@@ -431,7 +447,7 @@ ${mistakeContext ? `\n⚠️ Lưu ý nhẹ: Người học đang yếu: ${mistak
 
           const proactivePrompt = `${timeGreeting}! Bạn vừa mở chat, Sensei đã chuẩn bị sẵn bài ôn tập cá nhân hóa dành cho bạn.
 
-Gần đây bạn có gặp khó khăn với: **${words}**.
+Gần đây bạn có một số nhầm lẫn: **${contents}**.
 
 ${CORE_RULES}
 

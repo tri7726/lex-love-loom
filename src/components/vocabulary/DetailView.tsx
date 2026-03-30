@@ -10,8 +10,7 @@ import { Flashcard } from './Flashcard';
 import { ReviewPanel } from './ReviewPanel';
 import { getLevelGradient, getLevelAccent } from './utils';
 import { TextbookSeries, JLPTLevel, Lesson, GameMode } from './types';
-import { VocabularyItem } from '@/types/vocabulary';
-import { VocabWord } from '@/hooks/useFlashcardFolders';
+import { VocabWord, VocabularyItem } from '@/types/vocabulary';
 import { MultipleChoiceGame } from '@/components/games/MultipleChoiceGame';
 import { SpeedGame } from '@/components/games/SpeedGame';
 import { ListeningGame } from '@/components/games/ListeningGame';
@@ -88,7 +87,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
       className="space-y-6"
     >
       <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={goBack} className="gap-1 text-muted-foreground hover:text-foreground">
+        <Button variant="ghost" size="sm" onClick={goBack} className="gap-2 text-sakura hover:bg-sakura-light/50 rounded-full font-bold">
           <ArrowLeft className="h-4 w-4" /> Quay lại
         </Button>
         <div className="flex items-center gap-2">
@@ -150,10 +149,10 @@ export const DetailView: React.FC<DetailViewProps> = ({
       />
 
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-bold text-lg">Thuật ngữ trong bài ({words.length})</h3>
-          <Badge variant="outline" className="text-xs">
-            {words.filter(w => isWordSaved(w.word)).length} đã lưu
+        <div className="flex items-center justify-between pb-2 border-b-2 border-sakura-light/30">
+          <h3 className="font-display font-black text-xl text-sumi">Thuật ngữ trong bài ({words.length})</h3>
+          <Badge className="bg-sakura-light text-sakura-dark border-0 font-bold px-3 py-0.5">
+            {words.filter(w => isWordSaved(w.word)).length} bookmark
           </Badge>
         </div>
         <div className="space-y-2">
@@ -170,8 +169,10 @@ export const DetailView: React.FC<DetailViewProps> = ({
             >
               <Card
                 className={cn(
-                  'notranslate group transition-all duration-300 hover:bg-slate-50/50 cursor-pointer border-slate-100 shadow-none hover:shadow-sm',
-                  flashcardIndex === idx ? 'bg-rose-50/50 border-rose-200 ring-4 ring-rose-50' : 'bg-white'
+                  'notranslate group transition-all duration-300 cursor-pointer shadow-none hover:shadow-md rounded-2xl overflow-hidden',
+                  flashcardIndex === idx 
+                    ? `border-2 ${accent.ring.replace('ring-', 'border-')} bg-white shadow-soft ring-4 ${accent.ring}` 
+                    : 'bg-white/60 hover:bg-white border-sakura-light/20 rotate-0'
                 )}
                 translate="no"
                 onClick={() => { setFlashcardIndex(idx); setIsFlipped(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
@@ -194,7 +195,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
                       <p className="text-sm text-muted-foreground font-jp">{word.reading}</p>
                     )}
                     {word.hanviet && (
-                      <p className="text-[11px] font-semibold text-amber-600 uppercase tracking-wide">{word.hanviet}</p>
+                      <p className="text-[11px] font-black text-gold-dark uppercase tracking-widest">{word.hanviet}</p>
                     )}
                     <p className="text-sm text-slate-700 font-medium">{word.meaning}</p>
                   </div>
@@ -217,7 +218,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
                         variant="ghost" size="icon" className="h-8 w-8"
                         onClick={(e) => { e.stopPropagation(); toggleSaved(word); }}
                       >
-                        <Star className={cn('h-4 w-4 transition-colors', isWordSaved(word.word) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground')} />
+                        <Star className={cn('h-5 w-5 transition-colors', isWordSaved(word.word) ? 'fill-gold text-gold stroke-gold-dark' : 'text-muted-foreground')} />
                       </Button>
                     </motion.div>
                   </div>

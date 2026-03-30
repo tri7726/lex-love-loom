@@ -5,8 +5,10 @@ export interface VocabWord {
   hanviet?: string | null;
   meaning: string;
   mastery_level?: number | null;
-  example?: string;
-  exampleMeaning?: string;
+  example_sentence?: string;
+  example_translation?: string;
+  jlpt_level?: string;
+  word_type?: string;
   created_at?: string;
 }
 

@@ -3,10 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, GraduationCap, BookOpen, Languages, TrendingUp, Plus, FolderOpen, Trash2, Zap } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { getLevelGradient } from './utils';
 import { TextbookSeries, JLPTLevel } from './types';
-import { CustomFolder, VocabWord } from '@/hooks/useFlashcardFolders';
+import { CustomFolder } from '@/hooks/useFlashcardFolders';
+import { VocabWord } from '@/types/vocabulary';
 import { textbookSeries } from './data';
 
 interface SeriesViewProps {
@@ -39,46 +41,48 @@ export const SeriesView: React.FC<SeriesViewProps> = ({
       className="space-y-10"
     >
       {/* Hero Header */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-rose-50 via-pink-50 to-white p-8 md:p-10 border border-rose-100">
+      <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-hero p-8 md:p-12 border border-sakura-light/50 shadow-soft">
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-16 -right-16 w-52 h-52 bg-rose-200/10 rounded-full blur-2xl" />
-          <div className="absolute -bottom-12 -left-12 w-40 h-40 bg-pink-200/10 rounded-full blur-2xl" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[200px] font-jp text-rose-300/[0.05] select-none">
+          <div className="absolute -top-16 -right-16 w-64 h-64 bg-sakura-light/40 rounded-full blur-3xl opacity-50" />
+          <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-gold-light/20 rounded-full blur-3xl opacity-30" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[240px] font-jp text-sakura-dark/[0.03] select-none pointer-events-none">
             語
           </div>
         </div>
-        <div className="relative z-10 flex items-start justify-between">
-          <div className="space-y-3">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
+          <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-rose-400" />
-              <span className="text-rose-400 text-sm font-medium">Premium Learning 🌸</span>
+              <div className="p-1.5 bg-sakura-light rounded-lg">
+                <Sparkles className="h-4 w-4 text-sakura" />
+              </div>
+              <span className="text-sakura text-sm font-bold tracking-wider uppercase">Premium Learning 🌸</span>
             </div>
-            <h1 className="text-4xl md:text-5xl font-display font-bold text-rose-800">
+            <h1 className="text-5xl md:text-6xl font-display font-bold text-sumi tracking-tight">
               Từ vựng
             </h1>
-            <p className="text-rose-400 max-w-md">
-              Học bản chất – không học vẹt. Hệ thống SRS giúp bạn nhớ lâu hơn, mỗi ngày một ít, thành công lớn.
+            <p className="text-muted-foreground max-w-md text-lg leading-relaxed">
+              Học bản chất – không học vẹt. Hệ thống <span className="text-sakura font-bold">SRS</span> giúp bạn nhớ lâu hơn, mỗi ngày một ít, thành công lớn.
             </p>
-            <div className="flex items-center gap-4 pt-2">
-              <div className="flex items-center gap-2 text-sm text-rose-500">
-                <BookOpen className="h-4 w-4" /> 2 bộ sách
+            <div className="flex items-center gap-6 pt-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-sumi/70">
+                <BookOpen className="h-4 w-4 text-sakura" /> 2 bộ sách
               </div>
-              <div className="flex items-center gap-2 text-sm text-rose-500">
-                <Languages className="h-4 w-4" /> 7 trình độ
+              <div className="flex items-center gap-2 text-sm font-medium text-sumi/70">
+                <Languages className="h-4 w-4 text-matcha" /> 7 trình độ
               </div>
-              <div className="flex items-center gap-2 text-sm text-rose-500">
-                <TrendingUp className="h-4 w-4" /> 11,500+ từ
+              <div className="flex items-center gap-2 text-sm font-medium text-sumi/70">
+                <TrendingUp className="h-4 w-4 text-gold" /> 11,500+ từ
               </div>
             </div>
           </div>
           <Button
             variant="outline"
-            size="sm"
-            className="gap-2 border-rose-200 text-rose-500 hover:bg-rose-100/60 bg-white/60 backdrop-blur-sm"
+            size="lg"
+            className="gap-2 border-sakura-light text-sakura hover:bg-sakura-light/60 bg-white/40 backdrop-blur-md rounded-2xl shadow-sm hover:shadow-md transition-all self-start md:self-center"
             onClick={() => setShowKanji(true)}
           >
-            <GraduationCap className="h-4 w-4" />
-            <span className="hidden sm:inline">Chế độ Kanji</span>
+            <GraduationCap className="h-5 w-5" />
+            <span className="font-bold">Chế độ Kanji</span>
           </Button>
         </div>
       </div>
@@ -103,10 +107,10 @@ export const SeriesView: React.FC<SeriesViewProps> = ({
               <div className="flex items-center gap-2">
                 <h2 className="text-xl font-bold">{series.name}</h2>
                 <span className={cn(
-                  'text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full',
+                  'text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full',
                   series.id === 'mina'
-                    ? 'bg-sky-100 text-sky-600 dark:bg-sky-900/40 dark:text-sky-400'
-                    : 'bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400'
+                    ? 'bg-indigo-jp/10 text-indigo-jp'
+                    : 'bg-sakura-light text-sakura'
                 )}>
                   {series.id === 'mina' ? '📖 Giáo trình' : '🎯 JLPT'}
                 </span>
@@ -175,32 +179,29 @@ export const SeriesView: React.FC<SeriesViewProps> = ({
         </motion.section>
       ))}
 
-      {/* Sổ tay của tôi */}
       <motion.section
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.35 }}
+        variants={{ hidden: { opacity: 0, y: 30 }, show: { opacity: 1, y: 0 } }}
         className="space-y-5"
       >
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 flex-1 px-4 py-3 rounded-2xl border bg-amber-50/70 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-800/40 min-w-0">
-            <span className="text-3xl">📝</span>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4 flex-1 px-5 py-4 rounded-[2rem] border bg-gold-light/10 border-gold-light/30 min-w-0 shadow-sm">
+            <div className="w-12 h-12 rounded-2xl bg-gold-light/30 flex items-center justify-center text-2xl shadow-inner">
+              📝
+            </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold">Sổ tay của tôi</h2>
-                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400">
-                  ✏️ Cá nhân
-                </span>
+                <h2 className="text-xl font-bold text-sumi">Sổ tay của tôi</h2>
+                <Badge className="bg-gold text-gold-foreground uppercase tracking-wider text-[9px] px-2 py-0">✏️ Cá nhân</Badge>
               </div>
-              <p className="text-sm text-muted-foreground">Tự tạo folder để học từ vựng riêng</p>
+              <p className="text-sm text-muted-foreground font-medium">Tự tạo folder để học từ vựng riêng</p>
             </div>
           </div>
           <Button
-            size="sm"
-            className="gap-2 bg-amber-500 hover:bg-amber-600 text-white shadow flex-shrink-0"
+            size="lg"
+            className="gap-2 bg-gold hover:bg-gold-light text-gold-foreground shadow-md hover:shadow-lg rounded-2xl flex-shrink-0 font-bold"
             onClick={() => setShowCreateDialog(true)}
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-5 w-5" />
             Tạo folder
           </Button>
         </div>

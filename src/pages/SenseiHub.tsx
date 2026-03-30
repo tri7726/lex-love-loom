@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, History, PanelLeftClose, PanelLeft } from 'lucide-react';
+import { Sparkles, History, PanelLeftClose, PanelLeft, HelpCircle } from 'lucide-react';
 import { SenseiChatFrame } from '@/components/chat/SenseiChatHub/SenseiChatFrame';
 import { SenseiInput } from '@/components/chat/SenseiChatHub/SenseiInput';
 import { useSenseiChat } from '@/components/chat/SenseiChatHub/useSenseiChat';
@@ -39,6 +39,7 @@ export default function SenseiHub() {
   const activeMode = (searchParams.get('mode') as SenseiMode) || 'tutor';
   const filteredConversations = conversations.filter(c => c.mode === activeMode);
   const { path: learningPath, isGenerating: isPathGenerating, generatePath, clearPath } = useLearningPath();
+  const [socraticMode, setSocraticMode] = useState(false);
 
   const getModeInfo = (mode: SenseiMode) => {
     switch (mode) {
@@ -155,6 +156,15 @@ export default function SenseiHub() {
                <Button 
                 variant="ghost" 
                 size="icon" 
+                className={cn("rounded-full transition-colors", socraticMode ? "bg-indigo-500/10 text-indigo-600" : "hover:bg-sakura/10 text-muted-foreground hover:text-indigo-500")}
+                onClick={() => { setSocraticMode(v => !v); toast.info(socraticMode ? 'Chế độ thám tử đã tắt' : '🔍 Chế độ Thám tử bật — Sensei sẽ hỏi ngược lại bạn!'); }}
+                title={socraticMode ? 'Tắt Socratic Mode' : 'Bật Socratic Mode — Sensei hỏi ngược'}
+               >
+                  <HelpCircle className="h-5 w-5" />
+               </Button>
+               <Button 
+                variant="ghost" 
+                size="icon" 
                 className="rounded-full hover:bg-sakura/10 text-sakura"
                 onClick={startProactiveSession}
                >
@@ -204,7 +214,13 @@ export default function SenseiHub() {
                 <div className="absolute -inset-1 bg-gradient-to-r from-sakura/10 via-sakura-light/20 to-sakura/10 rounded-[28px] blur-md opacity-25 group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
                 <div className="relative bg-white/70 backdrop-blur-2xl border border-border/40 rounded-[26px] shadow-soft p-1 overflow-hidden transition-all duration-500 group-hover:bg-white/90">
                 <SenseiInput 
-                    onSend={(content, type, metadata) => sendMessage(content, type, metadata)}
+                    onSend={(content, type, metadata) => sendMessage(
+                      socraticMode
+                        ? `[SOCRATIC_MODE] ${content}`
+                        : content,
+                      type,
+                      metadata
+                    )}
                     isLoading={isLoading}
                     isGuest={isGuest}
                     guestMessageCount={guestMessageCount}

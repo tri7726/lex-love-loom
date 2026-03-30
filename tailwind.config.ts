@@ -68,7 +68,11 @@ export default {
           light: "hsl(var(--sakura-light))",
           dark: "hsl(var(--sakura-dark))",
         },
-        crimson: "hsl(var(--crimson))",
+        crimson: {
+          DEFAULT: "hsl(var(--crimson))",
+          light: "hsl(var(--crimson-light))",
+          dark: "hsl(var(--crimson-dark))",
+        },
         gold: {
           DEFAULT: "hsl(var(--gold))",
           light: "hsl(var(--gold-light))",
@@ -77,11 +81,20 @@ export default {
         matcha: {
           DEFAULT: "hsl(var(--matcha))",
           light: "hsl(var(--matcha-light))",
+          dark: "hsl(var(--matcha-dark))",
         },
         indigo: {
-          jp: "hsl(var(--indigo-jp))",
+          jp: {
+            DEFAULT: "hsl(var(--indigo-jp))",
+            light: "hsl(var(--indigo-jp-light))",
+            dark: "hsl(var(--indigo-jp-dark))",
+          },
         },
-        sumi: "hsl(var(--sumi))",
+        sumi: {
+          DEFAULT: "hsl(var(--sumi))",
+          light: "hsl(var(--sumi-light))",
+          dark: "hsl(var(--sumi-dark))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

@@ -3,8 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, X, FileSpreadsheet, FileJson, Download, Eye, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { VocabWord } from '@/hooks/useFlashcardFolders';
-import * as XLSX from 'xlsx';
+import { VocabWord } from '@/types/vocabulary';
 
 export interface ImportVocabularyDialogProps {
   showImportDialog: boolean;
@@ -50,6 +49,7 @@ export const ImportVocabularyDialog: React.FC<ImportVocabularyDialogProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
     try {
+      const XLSX = await import('xlsx');
       const data = await file.arrayBuffer();
       const wb = XLSX.read(data);
       const ws = wb.Sheets[wb.SheetNames[0]];
@@ -80,6 +80,7 @@ export const ImportVocabularyDialog: React.FC<ImportVocabularyDialogProps> = ({
   };
 
   const downloadTemplate = async () => {
+    const XLSX = await import('xlsx');
     const data = [
       { word: '学校', reading: 'がっこう', hanviet: 'Học Hiệu', meaning: 'Trường học' },
       { word: '先生', reading: 'せんせい', hanviet: 'Tiên Sinh', meaning: 'Giáo viên' },

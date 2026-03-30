@@ -1,4 +1,4 @@
-import { VocabWord } from '@/hooks/useFlashcardFolders';
+import { VocabWord } from '@/types/vocabulary';
 
 export interface Lesson {
   id: string;

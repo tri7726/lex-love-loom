@@ -32,7 +32,8 @@ async function callGroq(prompt: string, text: string): Promise<string | null> {
       });
       if (res.ok) {
         const data = await res.json();
-        return data.choices?.[0]?.message?.content?.trim() || null;
+        if (!data.choices || data.choices.length === 0) return null;
+        return data.choices[0].message?.content?.trim() || null;
       }
     } catch (e) {
       console.error("Groq error, trying next key:", e);
@@ -310,7 +311,8 @@ Câu hỏi:`;
 
     return err(`Invalid action: ${action}`, 400);
   } catch (error) {
-    console.error("RAG function error:", error);
-    return err(error.message);
+    const errObj = error as Error;
+    console.error("RAG function error:", errObj);
+    return err(errObj.message || "Unknown error occurred");
   }
 });

@@ -40,7 +40,7 @@ export const LessonListView: React.FC<LessonListViewProps> = ({
       exit={{ opacity: 0, x: -40 }}
       className="space-y-6"
     >
-      <Button variant="ghost" size="sm" onClick={goBack} className="gap-1 text-muted-foreground hover:text-foreground">
+      <Button variant="ghost" size="sm" onClick={goBack} className="gap-2 text-sakura hover:bg-sakura-light/50 rounded-full font-bold">
         <ArrowLeft className="h-4 w-4" /> Quay lại
       </Button>
 
@@ -49,22 +49,22 @@ export const LessonListView: React.FC<LessonListViewProps> = ({
         <div className={cn('h-2 bg-gradient-to-r', grad)} />
         <CardContent className="p-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
-              <div className={cn('w-14 h-14 rounded-2xl bg-gradient-to-br flex items-center justify-center text-white text-2xl font-black shadow-lg', grad)}>
+            <div className="flex items-center gap-5">
+              <div className={cn('w-16 h-16 rounded-[1.25rem] bg-gradient-to-br flex items-center justify-center text-white text-3xl font-black shadow-elevated transition-transform hover:scale-105', grad)}>
                 {selectedLevel.level}
               </div>
               <div>
-                <h1 className="text-2xl font-bold">{selectedSeries.name}</h1>
-                <p className="text-muted-foreground">{selectedLevel.description}</p>
+                <h1 className="text-3xl font-display font-black text-sumi">{selectedSeries.name}</h1>
+                <p className="text-muted-foreground font-medium">{selectedLevel.description}</p>
               </div>
             </div>
 
             {/* Lesson Range Selector */}
             {selectedLevel.lessons.length > 3 && (
-              <div className="flex-1 max-w-sm space-y-3 bg-muted/30 p-4 rounded-2xl border border-muted-foreground/10">
+              <div className="flex-1 max-w-sm space-y-4 bg-cream/30 p-5 rounded-[2rem] border border-sakura-light/30 shadow-sm">
                 <div className="flex justify-between items-center">
-                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Chọn phạm vi học</Label>
-                  <Badge variant="secondary" className={cn("text-white border-0", grad)}>
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Phạm vi học tập</Label>
+                  <Badge className={cn("text-white border-0 font-black px-3 py-0.5", grad)}>
                     Bài {lessonRange[0]} - {lessonRange[1]}
                   </Badge>
                 </div>
@@ -77,11 +77,11 @@ export const LessonListView: React.FC<LessonListViewProps> = ({
                   onValueChange={(v) => setLessonRange(v as [number, number])}
                 />
                 <Button 
-                  size="sm" 
-                  className={cn("w-full text-xs font-bold text-white shadow-md hover:shadow-lg transition-all", grad)}
+                  size="lg" 
+                  className={cn("w-full text-xs font-black text-white shadow-soft hover:shadow-elevated transition-all rounded-xl uppercase tracking-widest", grad)}
                   onClick={handleStudyRange}
                 >
-                  Học {lessonRange[1] - lessonRange[0] + 1} bài đã chọn
+                  Bắt đầu học ngay
                 </Button>
               </div>
             )}
@@ -125,7 +125,7 @@ export const LessonListView: React.FC<LessonListViewProps> = ({
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="h-7 w-7 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-amber-500 hover:bg-amber-50"
+                    className="h-8 w-8 rounded-xl opacity-0 group-hover:opacity-100 transition-all text-gold hover:bg-gold-light/20"
                     title="Quick Quiz"
                     onClick={e => {
                       e.stopPropagation();

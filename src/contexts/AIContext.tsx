@@ -7,6 +7,7 @@ interface AIContextType {
   isChatting: boolean;
   analyzeText: (content: string, mode?: string, customPrompt?: string) => Promise<any>;
   chat: (messages: { role: string; content: string }[], systemPrompt: string, user_id?: string) => Promise<any>;
+  streamChat: (messages: { role: string; content: string }[], systemPrompt: string, user_id?: string, onChunk?: (chunk: string) => void) => Promise<void>;
   checkGrammar: (text: string) => Promise<any>;
 }
 
@@ -73,6 +74,75 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   }, []);
 
   /**
+   * Streaming chat for real-time response
+   */
+  const streamChat = useCallback(async (
+    messages: { role: string; content: string }[], 
+    systemPrompt: string, 
+    user_id?: string,
+    onChunk?: (chunk: string) => void
+  ) => {
+    setIsChatting(true);
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/japanese-chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+        },
+        body: JSON.stringify({
+          messages,
+          systemPrompt,
+          user_id,
+          engine: 'gemini'
+        }),
+      });
+
+      if (!response.ok) throw new Error('Network response was not ok');
+      if (!response.body) throw new Error('No response body');
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullContent = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const dataStr = line.slice(6).trim();
+            if (dataStr === '[DONE]') break;
+            
+            try {
+              const data = JSON.parse(dataStr);
+              const content = data.choices?.[0]?.delta?.content || "";
+              if (content) {
+                fullContent += content;
+                if (onChunk) onChunk(content);
+              }
+            } catch (e) {
+              // Not a JSON chunk or incomplete
+              console.warn("Error parsing chunk:", e);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('AI Stream Chat error:', err);
+      toast.error('Lỗi kết nối streaming với Sensei.');
+    } finally {
+      setIsChatting(false);
+    }
+  }, []);
+
+  /**
    * Specialized grammar check
    */
   const checkGrammar = useCallback(async (text: string) => {
@@ -102,6 +172,7 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       isChatting,
       analyzeText,
       chat,
+      streamChat,
       checkGrammar
     }}>
       {children}

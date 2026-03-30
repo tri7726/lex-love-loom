@@ -44,7 +44,7 @@ export const EditProfile = () => {
     if (profile) {
       setFormData({
         displayName: profile.display_name || '',
-        bio: (profile as Profile & { bio?: string }).bio || '',
+        bio: profile.bio || '',
         jlptLevel: profile.jlpt_level || 'N5'
       });
     }

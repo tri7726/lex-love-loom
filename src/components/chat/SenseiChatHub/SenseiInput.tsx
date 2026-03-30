@@ -29,6 +29,7 @@ export const SenseiInput: React.FC<SenseiInputProps> = ({
 }) => {
   const [text, setText] = useState('');
   const [mode, setMode] = useState<SenseiMessageType>('text');
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Speech Recognition (Fix #2) ──
@@ -45,46 +46,26 @@ export const SenseiInput: React.FC<SenseiInputProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setIsAnalyzingImage(true);
     const reader = new FileReader();
-    reader.onloadend = async () => {
-      const base64 = reader.result as string;
-      const base64Data = base64.split(',')[1];
-
-      try {
-        const { data, error } = await supabase.functions.invoke('japanese-analysis', {
-          body: {
-            image: base64Data,
-            isImageAnalysis: true,
-            isVip: true,
-          },
-        });
-
-        if (error) throw error;
-        
-        if (data.format === 'vision') {
-          onSend(
-            `Sensei, hãy phân tích vật thể này: ${data.result.object_name}`, 
-            'image', 
-            { visionResult: data.result, imageUrl: base64 }
-          );
-        }
-      } catch (err) {
-        console.error('OCR Error:', err);
-        toast.error("Sensei không thể nhìn rõ ảnh này, hãy thử lại nhé!");
-      } finally {
-        setIsAnalyzingImage(false);
-      }
+    reader.onloadend = () => {
+      setSelectedImage(reader.result as string);
     };
     reader.readAsDataURL(file);
   };
 
   const handleSend = () => {
-    if (!text.trim() || isLoading || isLimited) return;
+    if ((!text.trim() && !selectedImage) || isLoading || isLimited) return;
     if (isListening) stopListening();
-    onSend(text, mode);
+    
+    if (selectedImage) {
+      onSend(text, 'image', { imageUrl: selectedImage });
+    } else {
+      onSend(text, mode);
+    }
+    
     setText('');
     setMode('text');
+    setSelectedImage(null);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -203,6 +184,19 @@ export const SenseiInput: React.FC<SenseiInputProps> = ({
           </div>
         ) : (
           <>
+            {selectedImage && (
+              <div className="absolute left-6 bottom-24 z-10 animate-in fade-in slide-in-from-bottom-2">
+                <div className="relative group/img h-20 w-20 rounded-2xl overflow-hidden border-2 border-sakura shadow-lg">
+                  <img src={selectedImage} alt="Selected" className="h-full w-full object-cover" />
+                  <button 
+                    onClick={() => setSelectedImage(null)}
+                    className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 opacity-0 group-hover/img:opacity-100 transition-opacity"
+                  >
+                    <Loader2 className="h-3 w-3 rotate-45" />
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="absolute left-6 bottom-4 flex items-center gap-2 z-10">
               <Button 
                 variant="ghost" size="icon" 
@@ -213,7 +207,6 @@ export const SenseiInput: React.FC<SenseiInputProps> = ({
                 {isAnalyzingImage ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" />}
               </Button>
 
-              {/* Fix #2: Live Mic Button */}
               <Button 
                 variant="ghost" size="icon" 
                 className={cn(
@@ -245,7 +238,7 @@ export const SenseiInput: React.FC<SenseiInputProps> = ({
             <div className="absolute right-4 bottom-4 z-10">
               <Button
                 onClick={handleSend}
-                disabled={!text.trim() || isLoading}
+                disabled={(!text.trim() && !selectedImage) || isLoading}
                 className={cn(
                    "h-12 w-12 rounded-2xl shadow-xl transition-all hover:scale-105 active:scale-95 duration-300",
                    mode === 'analysis' ? "bg-rose-500 hover:bg-rose-600" :

@@ -12,6 +12,7 @@ export interface Profile {
   current_streak: number;
   longest_streak: number | null;
   jlpt_level: string | null;
+  bio: string | null;
   created_at: string;
   updated_at: string;
   last_activity_date: string | null;

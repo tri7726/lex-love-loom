@@ -9,7 +9,7 @@ const corsHeaders = {
 
 interface Message {
   role: "user" | "assistant";
-  content: string;
+  content: string | any[];
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -137,11 +137,25 @@ serve(async (req) => {
       Deno.env.get("GROQ_API_KEY_1"),
       Deno.env.get("GROQ_API_KEY_2"),
       Deno.env.get("GROQ_API_KEY_3"),
+      Deno.env.get("GROQ_API_KEY"),  // fallback: single key without number
     ].filter(Boolean);
+    
+    // Check if any message contains an image for model switching
+    const hasImage = messages.some((m: Message) => 
+      Array.isArray(m.content) && m.content.some((c: any) => c.type === 'image_url')
+    );
+    const model = hasImage ? "llama-3.2-11b-vision-preview" : "llama-3.3-70b-versatile";
 
-    if (apiKeys.length === 0) throw new Error("No Groq API keys configured.");
+    if (apiKeys.length === 0) {
+      // Graceful: return a message instead of crashing
+      console.error("CRITICAL: No Groq API keys configured!");
+      return new Response(
+        JSON.stringify({ role: "assistant", content: "⚠️ Sensei đang bảo trì hệ thống AI. Vui lòng thử lại sau ít phút!" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-    async function tryGroq(msgs: Message[], sysPrompt: string) {
+    async function streamGroq(msgs: Message[], sysPrompt: string) {
       for (const apiKey of apiKeys) {
         try {
           const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -151,15 +165,16 @@ serve(async (req) => {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: "llama-3.3-70b-versatile",
+              model: model,
               messages: [{ role: "system", content: sysPrompt }, ...msgs],
-              stream: false,
+              stream: true,
               temperature: 0.7,
               max_tokens: 1024,
             }),
           });
           if (response.ok) return response;
-          console.warn(`Groq key failed: ${response.status}`);
+          const errText = await response.text();
+          console.warn(`Groq key failed (${response.status}): ${errText.slice(0, 200)}`);
         } catch (e) {
           console.error("Groq fetch error:", e);
         }
@@ -167,23 +182,76 @@ serve(async (req) => {
       return null;
     }
 
-    const finalSystemPrompt = (systemPrompt || "Bạn là Sensei Pro Max.") + ragContextContent;
-    const groqRes = await tryGroq(messages, finalSystemPrompt);
+    const SOCRATIC_INSTRUCTION = `
+🔍 **CHẾ ĐỘ THÁM TỬ (Socratic Mode) — ĐƯỢC BẬT**
+Thay vì giải thích trực tiếp, hãy giúp người học TỰ KHÁM PHÁ câu trả lời bằng cách:
+1. Đặt câu hỏi gợi ý: "Em nghĩ tại sao...?", "Nếu so với X, thì Y có điểm gì khác?"
+2. Nếu người học trả lời đúng → xác nhận và khen ngợi
+3. Nếu trả lời sai → gợi ý thêm, không nói thẳng đáp án
+4. Nếu người học bỏ cuộc (nói "không biết", "chịu thua") → giải thích đầy đủ
+Hãy dùng phong cách hỏi thân thiện, không phán xét.`;
 
-    if (groqRes) {
-      const data = await groqRes.json();
-      return new Response(
-        JSON.stringify(data.choices?.[0]?.message || { content: "Sensei đang suy nghĩ..." }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    const isSocraticMode = lastUserMessage.startsWith('[SOCRATIC_MODE]');
+    const finalMessages = isSocraticMode
+      ? messages.map((m: Message) =>
+          m.role === 'user' && m.content.startsWith('[SOCRATIC_MODE]')
+            ? { ...m, content: m.content.replace('[SOCRATIC_MODE]', '').trim() }
+            : m
+        )
+      : messages;
+
+    const finalSystemPrompt = (systemPrompt || "Bạn là Sensei Pro Max.")
+      + ragContextContent
+      + (isSocraticMode ? SOCRATIC_INSTRUCTION : '');
+
+    const groqRes = await streamGroq(finalMessages, finalSystemPrompt);
+
+    if (groqRes && groqRes.body) {
+      // Create a direct pass-through stream for SSE
+      const { readable, writable } = new TransformStream();
+      const writer = writable.getWriter();
+      const reader = groqRes.body.getReader();
+      const encoder = new TextEncoder();
+      const decoder = new TextDecoder();
+
+      (async () => {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            // Just pass through the raw chunks from Groq (already in SSE format)
+            await writer.write(value);
+          }
+        } catch (e) {
+          console.error("Streaming error:", e);
+          const errorMsg = encoder.encode(`data: ${JSON.stringify({ error: "Stream interrupted" })}\n\n`);
+          await writer.write(errorMsg);
+        } finally {
+          await writer.close();
+        }
+      })();
+
+      return new Response(readable, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+        },
+      });
     }
 
-    throw new Error("All Groq API keys failed.");
+    // Fallback if no keys work
+    return new Response(
+      JSON.stringify({ role: "assistant", content: "Sensei tạm thời không thể trả lời. Có thể do giới hạn API. Hãy thử lại sau 1 phút nhé! 🌸" }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+
   } catch (error) {
-    console.error("Chat function error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error("Chat function CRITICAL error:", error);
+    return new Response(
+      JSON.stringify({ role: "assistant", content: "Có lỗi xảy ra với Sensei. Vui lòng thử lại! 🙏" }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+    );
   }
 });

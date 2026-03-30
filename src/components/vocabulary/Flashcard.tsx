@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, X, CheckCircle2, RotateCcw, Volume2, Shuffle, ArrowUpDown, Star, Sparkles, PenTool } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { VocabWord } from '@/hooks/useFlashcardFolders';
+import { VocabWord } from '@/types/vocabulary';
 import { JapaneseText } from '@/components/JapaneseText';
 import { useWritingLab } from '@/contexts/WritingLabContext';
 

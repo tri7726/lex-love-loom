@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { useFlashcardFolders, VocabWord } from '@/hooks/useFlashcardFolders';
+import { useFlashcardFolders } from '@/hooks/useFlashcardFolders';
+import { VocabWord } from '@/types/vocabulary';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 

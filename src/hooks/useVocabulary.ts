@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useWordHistory } from '@/hooks/useWordHistory';
-import { useFlashcardFolders, CustomFolder, VocabWord } from '@/hooks/useFlashcardFolders';
+import { useFlashcardFolders, CustomFolder } from '@/hooks/useFlashcardFolders';
+import { VocabWord } from '@/types/vocabulary';
 import { TextbookSeries, JLPTLevel, Lesson, ViewState, GameMode } from '@/components/vocabulary/types';
 
 export function useVocabulary() {

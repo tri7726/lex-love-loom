@@ -3,21 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
-/**
- * Common types shared across the application for Notebook/Flashcard functionality.
- */
-export interface VocabWord {
-  id: string;
-  word: string;
-  reading: string | null;
-  hanviet?: string | null;
-  meaning: string;
-  mastery_level?: number | null;
-  example_sentence?: string;
-  example_translation?: string;
-  jlpt_level?: string;
-  word_type?: string;
-}
+import { VocabWord } from '@/types/vocabulary';
 
 export interface CustomFolder {
   id: string;

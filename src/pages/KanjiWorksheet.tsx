@@ -13,8 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+
 import { getStrokeOrder } from '@/data/strokeOrder';
 
 /* ──────── Types ──────── */
@@ -422,14 +421,17 @@ export const KanjiWorksheet = () => {
     if(!ref.current||!list.length)return;
     setExporting(true);
     try{
-      toast({title:'⏳ Đang tải font...'});
+      const { jsPDF } = await import('jspdf');
+      const { default: html2canvas } = await import('html2canvas');
+
+      toast({title: '⏳ Đang tải font...'});
       await ensureFonts();
       const el=ref.current;
       el.style.cssText='position:fixed;top:-99999px;left:0;z-index:-1;display:block;';
       await new Promise(r=>setTimeout(r,800));
-      const cv=await html2canvas(el,{useCORS:true,allowTaint:false,backgroundColor:SHEET_THEMES[s.sheetTheme],logging:false,scale: 2,
-        onclone:(doc)=>{const l=doc.createElement('link');l.rel='stylesheet';l.href=NOTO_URL;doc.head.appendChild(l);}
-      } as Parameters<typeof html2canvas>[1]);
+      const cv=await (html2canvas as any)(el,{useCORS:true,allowTaint:false,backgroundColor:SHEET_THEMES[s.sheetTheme],logging:false,scale: 2,
+        onclone:(doc: Document)=>{const l=doc.createElement('link');l.rel='stylesheet';l.href=NOTO_URL;doc.head.appendChild(l);}
+      });
       el.style.cssText='';
       const pw=PAPER_WIDTHS[s.paperSize],ph=PAPER_HEIGHTS[s.paperSize];
       const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:[pw,ph]});

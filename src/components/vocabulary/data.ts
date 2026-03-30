@@ -1,7 +1,8 @@
 import { TextbookSeries, Lesson } from './types';
 import { MINNA_N5_VOCAB } from '@/data/minna-n5';
 import { MINNA_N4_VOCAB } from '@/data/minna-n4';
-import { CustomFolder, VocabWord } from '@/hooks/useFlashcardFolders';
+import { CustomFolder } from '@/hooks/useFlashcardFolders';
+import { VocabWord } from '@/types/vocabulary';
 
 export const sampleWords: VocabWord[] = [
   { id: 'sample-1', word: '学校', reading: 'がっこう', hanviet: 'Học Hiệu', meaning: 'Trường học', mastery_level: null },

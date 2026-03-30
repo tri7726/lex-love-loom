@@ -46,13 +46,20 @@
     --sakura-soft: 350 100% 95%;
     --sakura-dark: 350 80% 45%;
     --crimson: 350 85% 35%;
+    --crimson-light: 350 85% 95%;
+    --crimson-dark: 350 85% 20%;
     --gold: 38 95% 55%;
     --gold-light: 42 100% 75%;
     --cream: 35 60% 98%;
     --matcha: 155 40% 40%;
     --matcha-light: 155 50% 93%;
+    --matcha-dark: 155 40% 25%;
     --indigo-jp: 235 45% 30%;
+    --indigo-jp-light: 235 45% 93%;
+    --indigo-jp-dark: 235 45% 15%;
     --sumi: 240 15% 15%;
+    --sumi-light: 240 10% 93%;
+    --sumi-dark: 240 10% 5%;
 
     /* Premium Gradients */
     --gradient-sakura: linear-gradient(
@@ -128,13 +135,20 @@
     --sakura-soft: 345 30% 15%;
     --sakura-dark: 345 70% 55%;
     --crimson: 345 80% 45%;
+    --crimson-light: 345 40% 15%;
+    --crimson-dark: 345 80% 35%;
     --gold: 38 90% 50%;
     --gold-light: 42 60% 30%;
     --cream: 240 15% 8%;
     --matcha: 155 35% 35%;
     --matcha-light: 155 20% 15%;
+    --matcha-dark: 155 40% 20%;
     --indigo-jp: 235 50% 55%;
-    --sumi: 345 20% 95%;
+    --indigo-jp-light: 235 30% 15%;
+    --indigo-jp-dark: 235 50% 40%;
+    --sumi: 240 15% 95%;
+    --sumi-light: 240 15% 20%;
+    --sumi-dark: 240 15% 85%;
 
     --gradient-sakura: linear-gradient(
       135deg,
@@ -213,11 +227,13 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: "Outfit", "Noto Sans JP", system-ui, sans-serif;
+    font-family: "Outfit", "Noto Sans JP", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    text-rendering: optimizeLegibility;
   }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: "EB Garamond", "Noto Sans JP", serif;
+    letter-spacing: -0.01em;
   }
 
   .font-serif {
@@ -227,6 +243,10 @@
   .font-sans {
     font-family: "Outfit", sans-serif !important;
   }
+  
+  .font-jp {
+    font-family: "Noto Sans JP", "Hiragino Sans", "Meiryo", sans-serif !important;
+  }
 }
 
 @layer components {
@@ -235,37 +255,40 @@
     display: inline-flex;
     flex-direction: column-reverse; /* kanji trên, rt dưới */
     align-items: center;
-    vertical-align: top;
-    line-height: 1.4;
+    vertical-align: bottom;
+    line-height: 1.1;
+    margin: 0 0.1em;
   }
 
   ruby rt {
     display: block;
-    font-size: 0.55em;
-    line-height: 1.2;
+    font-size: 0.5em;
+    line-height: 1;
     text-align: center;
     color: hsl(var(--muted-foreground));
     font-family: "Noto Sans JP", sans-serif;
-    font-weight: 400;
+    font-weight: 500;
     user-select: none;
     white-space: nowrap;
+    opacity: 0.8;
   }
 
   /* Container bọc ruby text cần đủ line-height để rt không bị cắt */
   .reading-content,
   [class*="leading-"] ruby,
   .font-jp ruby {
-    vertical-align: top;
+    vertical-align: baseline;
   }
 
-  /* Japanese text styling - Optimized for speed and wrapping */
+  /* Japanese text styling - Optimized for legibility and wrapping */
   .jp-text {
-    font-family: "Noto Sans JP", sans-serif;
+    font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
     @apply tracking-wide;
-    text-rendering: optimizeSpeed;
-    line-break: relaxed;
+    text-rendering: optimizeLegibility;
+    line-break: strict;
     overflow-wrap: anywhere;
     word-break: normal;
+    line-height: 1.6;
   }
 
   .jp-text-lg {

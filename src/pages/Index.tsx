@@ -42,6 +42,7 @@ import { StreakBadge, AchievementBadge, achievements } from '@/components/Streak
 import { Leaderboard } from '@/components/Leaderboard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link, useNavigate } from 'react-router-dom';
+import { SenseiInsights } from '@/components/dashboard/SenseiInsights';
 import { useProfile } from '@/hooks/useProfile';
 import { useWordHistory } from '@/hooks/useWordHistory';
 import { useAuth } from '@/hooks/useAuth';
@@ -265,16 +266,54 @@ export const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <main className="container py-6 space-y-6">
+      <motion.main 
+        variants={{
+          hidden: { opacity: 0 },
+          show: {
+            opacity: 1,
+            transition: {
+              staggerChildren: 0.1
+            }
+          }
+        }}
+        initial="hidden"
+        animate="show"
+        className="container py-8 space-y-8"
+      >
         {/* Streak Reminder */}
-        <StreakReminderBanner />
+        <motion.div variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
+          <StreakReminderBanner />
+        </motion.div>
 
-        {/* Welcome Section */}
+        {/* ⚡ Quick 5 Banner */}
         <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="sakura-bg rounded-2xl p-6 md:p-8"
+          variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
+        >
+          <Link to="/quick">
+            <div className="relative overflow-hidden rounded-3xl p-5 flex items-center gap-5 cursor-pointer group shadow-soft hover:shadow-elevated transition-shadow"
+                 style={{ background: 'var(--gradient-sakura)' }}>
+              {/* BG decoration */}
+              <div className="absolute right-0 top-0 bottom-0 w-32 opacity-10 flex items-center justify-center">
+                <Zap className="h-24 w-24 text-white" />
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+                <Zap className="h-6 w-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="font-black text-white text-sm">Quick 5 ⚡</p>
+                <p className="text-white/80 text-[10px] font-medium">5 câu hỏi xen kẽ · ~3 phút · Nhận XP ngay</p>
+              </div>
+              <div className="flex items-center gap-1 bg-white/20 px-3 py-1.5 rounded-xl group-hover:bg-white/30 transition-colors flex-shrink-0">
+                <span className="text-white text-[10px] font-black uppercase tracking-wider">Bắt đầu</span>
+                <ArrowRight className="h-3 w-3 text-white" />
+              </div>
+            </div>
+          </Link>
+        </motion.section>
+
+        <motion.section
+          variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
+          className="sakura-bg rounded-[2.5rem] p-8 md:p-10 border border-sakura-light/50 shadow-card"
         >
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex-1">
@@ -290,8 +329,8 @@ export const Index = () => {
                   { level: 'N5', progress: userStats.jlptProgress.N5, color: 'bg-sakura' },
                   { level: 'N4', progress: userStats.jlptProgress.N4, color: 'bg-indigo-jp' },
                   { level: 'N3', progress: userStats.jlptProgress.N3 || 0, color: 'bg-matcha' },
-                  { level: 'N2', progress: 0, color: 'bg-red-500' },
-                  { level: 'N1', progress: 0, color: 'bg-slate-900' },
+                  { level: 'N2', progress: 0, color: 'bg-crimson' },
+                  { level: 'N1', progress: 0, color: 'bg-sumi/80' },
                 ].map((item) => (
                   <Link key={item.level} to={`/learning-path/${item.level.toLowerCase()}`} className="group block space-y-1">
                     <div className="flex justify-between text-[10px] items-end px-1 font-bold">
@@ -329,11 +368,18 @@ export const Index = () => {
           </div>
         </motion.section>
 
+        {/* Sensei Intelligence Insights */}
+        {user?.id && (
+          <motion.section
+            variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
+          >
+            <SenseiInsights userId={user.id} />
+          </motion.section>
+        )}
+
         {/* Word of the Day */}
         <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
+          variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
         >
           <Card className="border-2 border-gold/20 bg-gradient-to-br from-gold-light/10 to-transparent shadow-soft">
             <CardHeader className="pb-2">
@@ -370,8 +416,7 @@ export const Index = () => {
         {/* SRS Review Section */}
         {dueCards.length > 0 && (
           <motion.section
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
+            variants={{ hidden: { opacity: 0, x: -20 }, show: { opacity: 1, x: 0 } }}
             className="space-y-4"
           >
             <div className="flex items-center justify-between">
@@ -405,9 +450,8 @@ export const Index = () => {
         {/* AI Writing Recommendations */}
         {writingRecs.length > 0 && (
           <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-6 rounded-[2.5rem] bg-gradient-to-br from-indigo-jp/5 to-sakura-light/10 border-2 border-indigo-jp/20 shadow-soft"
+            variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
+            className="p-8 rounded-[3rem] bg-gradient-to-br from-indigo-jp/5 to-sakura-light/10 border-2 border-indigo-jp/20 shadow-soft"
           >
             <div className="flex items-center justify-between mb-6">
               <div className="space-y-1">
@@ -833,8 +877,7 @@ export const Index = () => {
             </CardContent>
           </Card>
         </motion.section>
-      </main>
-    </div>
+      </motion.main>
   );
 };
 
