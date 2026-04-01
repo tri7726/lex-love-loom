@@ -41,6 +41,9 @@ export const FlashcardSRS: React.FC<FlashcardSRSProps> = ({
   const [reviewedCount, setReviewedCount] = useState(0);
   const [showReading, setShowReading] = useState(false);
   const [aiTranslation, setAiTranslation] = useState<string | null>(null);
+  const [sessionRatings, setSessionRatings] = useState<Record<string, string>>({});
+  const [startTime] = useState(Date.now());
+  const [showSummary, setShowSummary] = useState(false);
   const { analyzeText, isAnalyzing } = useAI();
 
   const currentCard = flashcards[currentIndex];
