@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, Volume2, EyeOff, Eye, RotateCcw, Loader2 } from 'lucide-react';
+import { Sparkles, Volume2, EyeOff, Eye, RotateCcw, Loader2, Trophy, BarChart3, Clock } from 'lucide-react';
 import { calculateNextReview, getQualityFromAction, getIntervalText, getMasteryPercentage, getMasteryColor } from '@/lib/srs';
 import { useAI } from '@/contexts/AIContext';
 import { toast } from 'sonner';
@@ -41,6 +41,9 @@ export const FlashcardSRS: React.FC<FlashcardSRSProps> = ({
   const [reviewedCount, setReviewedCount] = useState(0);
   const [showReading, setShowReading] = useState(false);
   const [aiTranslation, setAiTranslation] = useState<string | null>(null);
+  const [sessionRatings, setSessionRatings] = useState<Record<string, string>>({});
+  const [startTime] = useState(Date.now());
+  const [showSummary, setShowSummary] = useState(false);
   const { analyzeText, isAnalyzing } = useAI();
 
   const currentCard = flashcards[currentIndex];
@@ -73,10 +76,12 @@ export const FlashcardSRS: React.FC<FlashcardSRSProps> = ({
       last_reviewed_at: new Date().toISOString(),
     });
 
+    setSessionRatings(prev => ({ ...prev, [currentCard.id]: action }));
     setReviewedCount(prev => prev + 1);
 
     if (isLastCard) {
-      setTimeout(() => onComplete(), 500);
+      setShowSummary(true);
+      setTimeout(() => onComplete(), 1000);
     } else {
       setCurrentIndex(prev => prev + 1);
     }
@@ -85,6 +90,25 @@ export const FlashcardSRS: React.FC<FlashcardSRSProps> = ({
   const handleFlip = () => {
     setIsFlipped(!isFlipped);
   };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (showSummary) return;
+      switch(e.key) {
+        case ' ':
+          e.preventDefault();
+          setIsFlipped(prev => !prev);
+          break;
+        case '1': if (isFlipped) handleRating('again'); break;
+        case '2': if (isFlipped) handleRating('hard'); break;
+        case '3': if (isFlipped) handleRating('good'); break;
+        case '4': if (isFlipped) handleRating('easy'); break;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFlipped, currentCard, showSummary]);
 
   const speak = (text: string) => {
     if ('speechSynthesis' in window) {
@@ -361,8 +385,59 @@ export const FlashcardSRS: React.FC<FlashcardSRSProps> = ({
         </motion.div>
       )}
 
+      {/* Session Summary */}
+      {showSummary && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+        >
+          <Card className="w-full max-w-md mx-4 border-2 border-primary/20 shadow-elevated">
+            <CardContent className="p-8 text-center space-y-6">
+              <div className="h-16 w-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+                <Trophy className="h-8 w-8 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold mb-2">Phiên ôn tập hoàn thành! 🎉</h3>
+                <p className="text-muted-foreground text-sm">
+                  Bạn đã ôn {flashcards.length} thẻ trong {Math.round((Date.now() - startTime) / 60000)} phút
+                </p>
+              </div>
+              <div className="grid grid-cols-4 gap-3 text-center">
+                {[
+                  { label: 'Again', count: Object.values(sessionRatings).filter(r => r === 'again').length, color: 'text-destructive' },
+                  { label: 'Hard', count: Object.values(sessionRatings).filter(r => r === 'hard').length, color: 'text-orange-500' },
+                  { label: 'Good', count: Object.values(sessionRatings).filter(r => r === 'good').length, color: 'text-green-500' },
+                  { label: 'Easy', count: Object.values(sessionRatings).filter(r => r === 'easy').length, color: 'text-blue-500' },
+                ].map(stat => (
+                  <div key={stat.label}>
+                    <p className={`text-2xl font-bold ${stat.color}`}>{stat.count}</p>
+                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-3">
+                <Button 
+                  variant="outline" 
+                  className="flex-1 gap-2" 
+                  onClick={() => { setShowSummary(false); restartReview(); setSessionRatings({}); }}
+                >
+                  <RotateCcw className="h-4 w-4" /> Ôn lại
+                </Button>
+                <Button className="flex-1" onClick={() => { setShowSummary(false); onComplete(); }}>
+                  Hoàn thành
+                </Button>
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                💡 Phím tắt: Space = lật thẻ · 1-4 = đánh giá
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
       {/* Restart Button (when completed) */}
-      {reviewedCount === flashcards.length && (
+      {reviewedCount === flashcards.length && !showSummary && (
         <div className="text-center">
           <Button onClick={restartReview} className="gap-2">
             <RotateCcw className="h-4 w-4" />

@@ -7,6 +7,10 @@ export interface VocabWord {
   mastery_level?: number | null;
   example_sentence?: string;
   example_translation?: string;
+  /** Shorthand alias used in local data files */
+  example?: string;
+  /** Shorthand alias used in local data files */
+  exampleMeaning?: string;
   jlpt_level?: string;
   word_type?: string;
   created_at?: string;

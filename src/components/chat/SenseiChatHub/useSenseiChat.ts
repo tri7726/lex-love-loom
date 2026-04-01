@@ -277,12 +277,69 @@ ${mistakeContext ? `\n⚠️ Lưu ý nhẹ: Người học đang yếu: ${mistak
           }
 
           let accumulatedResponse = "";
-          await (useAI() as any).streamChat(chatHistory, systemPrompt, user?.id, (chunk: string) => {
-            accumulatedResponse += chunk;
-            setMessages(prev => prev.map(m => 
-              m.id === assistantMsgId ? { ...m, content: accumulatedResponse } : m
-            ));
+          
+          // Stream using direct fetch (hooks can't be called inside callbacks)
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+          
+          const streamResponse = await fetch(`${supabaseUrl}/functions/v1/japanese-chat`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseKey}`,
+            },
+            body: JSON.stringify({
+              messages: [{ role: 'system', content: systemPrompt }, ...chatHistory],
+              systemPrompt,
+              user_id: user?.id,
+              engine: 'gemini',
+              stream: true
+            }),
           });
+
+          if (!streamResponse.ok) {
+            const errText = await streamResponse.text();
+            throw new Error(`Stream error: ${streamResponse.status} - ${errText}`);
+          }
+
+          if (!streamResponse.body) throw new Error('No response body');
+
+          const reader = streamResponse.body.getReader();
+          const decoder = new TextDecoder();
+          let textBuffer = "";
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            textBuffer += decoder.decode(value, { stream: true });
+
+            let newlineIndex: number;
+            while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+              let line = textBuffer.slice(0, newlineIndex);
+              textBuffer = textBuffer.slice(newlineIndex + 1);
+
+              if (line.endsWith("\r")) line = line.slice(0, -1);
+              if (line.startsWith(":") || line.trim() === "") continue;
+              if (!line.startsWith("data: ")) continue;
+
+              const jsonStr = line.slice(6).trim();
+              if (jsonStr === "[DONE]") break;
+
+              try {
+                const parsed = JSON.parse(jsonStr);
+                const content = parsed.choices?.[0]?.delta?.content;
+                if (content) {
+                  accumulatedResponse += content;
+                  setMessages(prev => prev.map(m => 
+                    m.id === assistantMsgId ? { ...m, content: accumulatedResponse } : m
+                  ));
+                }
+              } catch {
+                textBuffer = line + "\n" + textBuffer;
+                break;
+              }
+            }
+          }
           aiResponse = accumulatedResponse;
       }
 
