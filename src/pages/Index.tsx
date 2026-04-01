@@ -77,9 +77,8 @@ const getWordOfTheDay = () => {
     word: word.word,
     furigana: word.reading || '',
     meaning: word.meaning,
-    // For now, most words don't have examples in the data
-    example: word.example || null,
-    exampleMeaning: word.exampleMeaning || null,
+    example: word.example_sentence || null,
+    exampleMeaning: word.example_translation || null,
   };
 };
 
