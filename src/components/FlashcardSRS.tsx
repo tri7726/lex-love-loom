@@ -76,10 +76,12 @@ export const FlashcardSRS: React.FC<FlashcardSRSProps> = ({
       last_reviewed_at: new Date().toISOString(),
     });
 
+    setSessionRatings(prev => ({ ...prev, [currentCard.id]: action }));
     setReviewedCount(prev => prev + 1);
 
     if (isLastCard) {
-      setTimeout(() => onComplete(), 500);
+      setShowSummary(true);
+      setTimeout(() => onComplete(), 1000);
     } else {
       setCurrentIndex(prev => prev + 1);
     }
@@ -88,6 +90,25 @@ export const FlashcardSRS: React.FC<FlashcardSRSProps> = ({
   const handleFlip = () => {
     setIsFlipped(!isFlipped);
   };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (showSummary) return;
+      switch(e.key) {
+        case ' ':
+          e.preventDefault();
+          setIsFlipped(prev => !prev);
+          break;
+        case '1': if (isFlipped) handleRating('again'); break;
+        case '2': if (isFlipped) handleRating('hard'); break;
+        case '3': if (isFlipped) handleRating('good'); break;
+        case '4': if (isFlipped) handleRating('easy'); break;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFlipped, currentCard, showSummary]);
 
   const speak = (text: string) => {
     if ('speechSynthesis' in window) {
