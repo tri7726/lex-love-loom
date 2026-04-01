@@ -385,8 +385,59 @@ export const FlashcardSRS: React.FC<FlashcardSRSProps> = ({
         </motion.div>
       )}
 
+      {/* Session Summary */}
+      {showSummary && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+        >
+          <Card className="w-full max-w-md mx-4 border-2 border-primary/20 shadow-elevated">
+            <CardContent className="p-8 text-center space-y-6">
+              <div className="h-16 w-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+                <Trophy className="h-8 w-8 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold mb-2">Phiên ôn tập hoàn thành! 🎉</h3>
+                <p className="text-muted-foreground text-sm">
+                  Bạn đã ôn {flashcards.length} thẻ trong {Math.round((Date.now() - startTime) / 60000)} phút
+                </p>
+              </div>
+              <div className="grid grid-cols-4 gap-3 text-center">
+                {[
+                  { label: 'Again', count: Object.values(sessionRatings).filter(r => r === 'again').length, color: 'text-destructive' },
+                  { label: 'Hard', count: Object.values(sessionRatings).filter(r => r === 'hard').length, color: 'text-orange-500' },
+                  { label: 'Good', count: Object.values(sessionRatings).filter(r => r === 'good').length, color: 'text-green-500' },
+                  { label: 'Easy', count: Object.values(sessionRatings).filter(r => r === 'easy').length, color: 'text-blue-500' },
+                ].map(stat => (
+                  <div key={stat.label}>
+                    <p className={`text-2xl font-bold ${stat.color}`}>{stat.count}</p>
+                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-3">
+                <Button 
+                  variant="outline" 
+                  className="flex-1 gap-2" 
+                  onClick={() => { setShowSummary(false); restartReview(); setSessionRatings({}); }}
+                >
+                  <RotateCcw className="h-4 w-4" /> Ôn lại
+                </Button>
+                <Button className="flex-1" onClick={() => { setShowSummary(false); onComplete(); }}>
+                  Hoàn thành
+                </Button>
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                💡 Phím tắt: Space = lật thẻ · 1-4 = đánh giá
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
       {/* Restart Button (when completed) */}
-      {reviewedCount === flashcards.length && (
+      {reviewedCount === flashcards.length && !showSummary && (
         <div className="text-center">
           <Button onClick={restartReview} className="gap-2">
             <RotateCcw className="h-4 w-4" />
