@@ -77,8 +77,8 @@ const getWordOfTheDay = () => {
     word: word.word,
     furigana: word.reading || '',
     meaning: word.meaning,
-    example: word.example_sentence || null,
-    exampleMeaning: word.example_translation || null,
+    example: word.example || word.example_sentence || null,
+    exampleMeaning: word.exampleMeaning || word.example_translation || null,
   };
 };
 
