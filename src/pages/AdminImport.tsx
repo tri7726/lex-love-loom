@@ -58,7 +58,7 @@ export function AdminImport() {
 
       setProgress(90);
 
-      const data = await response.json() as Kanjidic2Result & { error?: string };
+      const data = await response.json();
 
       if (!response.ok) {
         throw new Error(data.error || "Import failed");

@@ -535,6 +535,8 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
 
   return (
     <div className="h-[100dvh] flex flex-col bg-background overflow-hidden overscroll-none">
+      <Navigation />
+
       {/* Global Tab Navigation (Desktop Header Style) */}
       <div className="bg-background border-b z-40">
         <VideoLearningTabs

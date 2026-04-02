@@ -4,8 +4,7 @@ import { ConfettiContext, ConfettiContextType } from '../components/ConfettiProv
 export const useConfetti = (): ConfettiContextType => {
   const context = useContext(ConfettiContext);
   if (context === undefined) {
-    console.warn('useConfetti must be used within a ConfettiProvider. Falling back to no-op.');
-    return { fire: () => {} };
+    throw new Error('useConfetti must be used within a ConfettiProvider');
   }
   return context;
 };

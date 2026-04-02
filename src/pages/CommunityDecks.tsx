@@ -132,8 +132,9 @@ export default function CommunityDecks() {
   });
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="container py-10 space-y-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-pink-50/20 pb-24">
+      <Navigation />
+      <div className="container max-w-5xl py-8 space-y-8">
 
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
@@ -251,10 +252,10 @@ export default function CommunityDecks() {
             </Button>
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
-};
+}
 
 // Demo data for when DB query fails
 const DEMO_DECKS: PublicDeck[] = [

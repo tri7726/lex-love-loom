@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Sparkles, History, PanelLeftClose, PanelLeft, HelpCircle } from 'lucide-react';
 import { SenseiChatFrame } from '@/components/chat/SenseiChatHub/SenseiChatFrame';
 import { SenseiInput } from '@/components/chat/SenseiChatHub/SenseiInput';
@@ -15,8 +15,6 @@ import { BookOpen, Mic, Languages, MessageSquare } from 'lucide-react';
 import FallingPetals from '@/components/chat/SenseiChatHub/FallingPetals';
 import { useLearningPath } from '@/hooks/useLearningPath';
 import { SenseiLearningPathCard } from '@/components/chat/SenseiChatHub/SenseiLearningPath';
-import { useEvolvedSkills, EvolvedSkill } from '@/hooks/useEvolvedSkills';
-import { EvolvedSkillSection } from '@/components/chat/SenseiChatHub/EvolvedSkillSection';
 
 export default function SenseiHub() {
   const { 
@@ -41,33 +39,8 @@ export default function SenseiHub() {
   const activeMode = (searchParams.get('mode') as SenseiMode) || 'tutor';
   const filteredConversations = conversations.filter(c => c.mode === activeMode);
   const { path: learningPath, isGenerating: isPathGenerating, generatePath, clearPath } = useLearningPath();
-  const { skills: evoSkills, isLoading: isSkillsLoading, isGenerating: isSkillsGenerating, generateSkills, markSkillAsMastered } = useEvolvedSkills();
   const [socraticMode, setSocraticMode] = useState(false);
-  const [masteringSkillId, setMasteringSkillId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const handleMastery = async (e: any) => {
-      const skillId = e.detail?.skillId;
-      if (skillId) {
-        setMasteringSkillId(skillId);
-        const xpAwarded = await markSkillAsMastered(skillId);
-        setMasteringSkillId(null);
-        if (xpAwarded && xpAwarded > 0) {
-          toast.success(`🎉 Tinh thông kỹ năng! Chúc mừng bạn được cộng ${xpAwarded} XP!`, { duration: 5000 });
-        }
-      }
-    };
-    document.addEventListener('evoskill_mastered', handleMastery);
-    return () => document.removeEventListener('evoskill_mastered', handleMastery);
-  }, [markSkillAsMastered]);
-
-  const handleStartChallenge = (skill: EvolvedSkill) => {
-    const promptContext = `Bây giờ chúng ta sẽ vào phần Thử thách Kỹ năng: "${skill.title}".\nNội dung thử thách: ${skill.description}.\nTừ vựng mục tiêu (nếu có): ${skill.challenge_data?.target_words?.join(', ') || 'Không có'}.\nHãy lập tức đưa ra 1-2 câu hỏi/bài tập dựa trên nội dung này để học viên thực hành. Điều quan trọng: NẾU VÀ CHỈ NẾU học viên trả lời ĐÚNG và THỂ HIỆN SỰ HIỂU BÀI, bạn bắt buộc phải thêm CHÍNH XÁC chuỗi ký tự sau vào BẤT KỲ ĐÂU trong câu trả lời của bạn: :::mastered_skill:${skill.id}:::`;
-    
-    createNewConversation(`Thử Thách: ${skill.title}`, activeMode, promptContext);
-    const initialMessage = skill.challenge_data?.suggested_prompt || "Sensei ơi, mình sẵn sàng cho thử thách rồi!";
-    setTimeout(() => sendMessage(initialMessage, 'text'), 200);
-  };
   const getModeInfo = (mode: SenseiMode) => {
     switch (mode) {
       case 'roleplay':
@@ -225,18 +198,7 @@ export default function SenseiHub() {
 
             {/* RAG Learning Path — show when no active conversation */}
             {!activeConversation && !isGuest && (
-              <>
-                <EvolvedSkillSection 
-                  skills={evoSkills}
-                  isLoading={isSkillsLoading}
-                  isGenerating={isSkillsGenerating}
-                  generateSkills={generateSkills}
-                  masteringSkillId={masteringSkillId}
-                  onStartChallenge={handleStartChallenge}
-                />
-                
-                <SenseiLearningPathCard
-
+              <SenseiLearningPathCard
                 path={learningPath}
                 isGenerating={isPathGenerating}
                 onSelectStep={(prompt) => {
@@ -245,7 +207,6 @@ export default function SenseiHub() {
                 }}
                 onRefresh={() => { clearPath(); generatePath(); }}
               />
-              </>
             )}
 
             <div className="w-full max-w-[80%] transform transition-all duration-500 hover:scale-[1.01]">

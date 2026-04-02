@@ -343,19 +343,7 @@ ${mistakeContext ? `\n⚠️ Lưu ý nhẹ: Người học đang yếu: ${mistak
           aiResponse = accumulatedResponse;
       }
 
-      // ── Mảng xử lý EvoSkill Mastery ──
-      const masteryMatch = aiResponse.match(/:::mastered_skill:([a-zA-Z0-9-]+):::/);
-      if (masteryMatch) {
-          const skillId = masteryMatch[1];
-          aiResponse = aiResponse.replace(masteryMatch[0], ''); // Clean up tag
-          // Dispatch custom event to notify hooks
-          document.dispatchEvent(new CustomEvent('evoskill_mastered', { detail: { skillId } }));
-      }
-
       const finalMessages = [...currentMessages, { ...initialAssistantMsg, content: aiResponse }];
-      
-      // Update the latest message to reflect cleaned `aiResponse` in the UI stream State as well.
-      setMessages(prev => prev.map(m => m.id === initialAssistantMsg.id ? { ...m, content: aiResponse } : m));
 
       // ── RAG Persistence Layer (Deferred until after stream) ──
       if (!isGuest && user?.id) {

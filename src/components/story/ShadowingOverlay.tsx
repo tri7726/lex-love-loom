@@ -29,11 +29,9 @@ export const ShadowingOverlay = ({ targetText, jpText, onClose, onComplete }: Sh
       recognitionRef.current.interimResults = true;
 
       recognitionRef.current.onresult = (event: any) => {
-        let currentTranscript = '';
-        for (let i = 0; i < event.results.length; i++) {
-          currentTranscript += event.results[i][0].transcript;
-        }
-        setTranscript(currentTranscript);
+        const current = event.resultIndex;
+        const result = event.results[current][0].transcript;
+        setTranscript(result);
       };
 
       recognitionRef.current.onend = () => {

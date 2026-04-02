@@ -109,7 +109,7 @@ export const KanjiReview: React.FC<KanjiReviewProps> = ({ onBack }) => {
             .limit(1000);
 
           if (!error && data && data.length > 0) {
-            finalData = (data as any[]).map((k, index: number) => {
+            finalData = data.map((k, index: number) => {
               let level = 'N5';
               if (k.jlpt) level = `N${k.jlpt}`;
               else if (k.grade === 1 || k.grade === 2) level = 'N5';
@@ -414,7 +414,7 @@ export const KanjiReview: React.FC<KanjiReviewProps> = ({ onBack }) => {
                                     </div>
                                     <h4 className="text-xl font-bold text-sumi">
                                       {level === 'SPECIAL' 
-                                        ? (CUSTOM_COLLECTIONS[unitNum - 1]?.name?.replace(/[\ud83c\udf1f\ud83c\udf38]/g, '') || 'Bộ sưu tập chọn lọc') 
+                                        ? (CUSTOM_COLLECTIONS[unitNum - 1]?.name?.replace(/[\u{1F31F}\u{1F338}]/gu, '') || 'Bộ sưu tập chọn lọc') 
                                         : `Chinh phục Kanji Hàng đầu - Unit ${unitId}`}
                                     </h4>
                                   </div>
