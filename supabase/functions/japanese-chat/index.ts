@@ -49,15 +49,23 @@ function classifyQuery(message: string): 'simple' | 'complex' {
 // CRAG: Validate that retrieved context is confident enough
 // to inject. Prevents hallucination from low-relevance context.
 // ══════════════════════════════════════════════════════════════
-function hasConfidentContext(context: Record<string, unknown>[]): boolean {
+interface RAGContext {
+  content: string;
+  source_type: string;
+  metadata: Record<string, unknown>;
+  similarity?: number;
+}
+
+function hasConfidentContext(context: RAGContext[]): boolean {
   if (!context || context.length === 0) return false;
 
   // Profile entries are ALWAYS injected (they're user identity, not topic-match)
-  const hasProfile = context.some((c) => c.source_type === 'profile');
+  const hasProfile = context.some((c: RAGContext) => c.source_type === 'profile');
   if (hasProfile) return true;
 
   // For non-profile entries, require at least one result with similarity >= 0.58
-  const maxSimilarity = Math.max(...context.map((c) => c.similarity ?? 0));
+  const similarities = context.map((c: RAGContext) => c.similarity ?? 0);
+  const maxSimilarity = similarities.length > 0 ? Math.max(...similarities) : 0;
   const isConfident = maxSimilarity >= 0.58;
 
   if (!isConfident) {
