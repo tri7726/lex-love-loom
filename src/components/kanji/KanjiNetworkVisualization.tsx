@@ -13,6 +13,8 @@ interface NetworkNode extends d3.SimulationNodeDatum {
   isCurrent?: boolean;
   x?: number;
   y?: number;
+  fx?: number | null;
+  fy?: number | null;
 }
 
 interface NetworkLink extends d3.SimulationLinkDatum<NetworkNode> {

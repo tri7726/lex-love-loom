@@ -153,7 +153,7 @@ export const useEvolvedSkills = () => {
         user_id: user.id,
         amount: skill.xp_reward,
         source: 'evolved_skill',
-        description: `Hoàn thành thử thách: ${skill.title}`
+        metadata: { description: `Hoàn thành thử thách: ${skill.title}` }
       });
 
       // Optimistic update

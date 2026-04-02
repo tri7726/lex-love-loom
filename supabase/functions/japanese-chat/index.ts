@@ -109,11 +109,11 @@ serve(async (req: Request) => {
           const { context } = await ragRes.json();
 
           // ── CRAG: Only inject if context is confident enough ──
-          if (hasConfidentContext(context)) {
-            const profileEntry = context.find((c) => c.source_type === 'profile');
-            const learningHistory = context
-              .filter((c) => c.source_type !== 'profile' && (c.similarity ?? 0) >= 0.52)
-              .slice(0, 4); // max 4 relevant entries
+          if (hasConfidentContext(context as RAGContext[])) {
+            const profileEntry = (context as RAGContext[]).find((c: RAGContext) => c.source_type === 'profile');
+            const learningHistory = (context as RAGContext[])
+              .filter((c: RAGContext) => c.source_type !== 'profile' && (c.similarity ?? 0) >= 0.52)
+              .slice(0, 4);
 
             if (profileEntry) {
               ragContextContent += `\n\n👤 **Hồ sơ kiến thức của người học:**\n${profileEntry.content}`;
@@ -123,7 +123,7 @@ serve(async (req: Request) => {
               ragContextContent +=
                 `\n\n📖 **Lịch sử học liên quan (độ tương đồng cao):**\n` +
                 learningHistory
-                  .map((c) => `• [${c.source_type}] ${c.content}`)
+                  .map((c: RAGContext) => `• [${c.source_type}] ${c.content}`)
                   .join("\n");
             }
 

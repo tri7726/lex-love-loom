@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 
 export const EvolvedSkillsSection = () => {
-  const { activeSkills, isGenerating, generateNewSkill } = useEvolvedSkills();
+  const { skills: activeSkills, isGenerating, generateSkills: generateNewSkill } = useEvolvedSkills();
   const navigate = useNavigate();
 
   const handleStartSkill = (skill: EvolvedSkill) => {
