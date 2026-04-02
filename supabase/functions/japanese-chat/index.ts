@@ -1,4 +1,4 @@
-// @ts-nocheck
+// Supabase Edge Function: Japanese Chat
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -9,7 +9,7 @@ const corsHeaders = {
 
 interface Message {
   role: "user" | "assistant";
-  content: string | any[];
+  content: string | Record<string, unknown>[];
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -49,7 +49,7 @@ function classifyQuery(message: string): 'simple' | 'complex' {
 // CRAG: Validate that retrieved context is confident enough
 // to inject. Prevents hallucination from low-relevance context.
 // ══════════════════════════════════════════════════════════════
-function hasConfidentContext(context: any[]): boolean {
+function hasConfidentContext(context: Record<string, unknown>[]): boolean {
   if (!context || context.length === 0) return false;
 
   // Profile entries are ALWAYS injected (they're user identity, not topic-match)
@@ -66,7 +66,7 @@ function hasConfidentContext(context: any[]): boolean {
   return isConfident;
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -78,10 +78,10 @@ serve(async (req) => {
     let ragContextContent = "";
 
     // ── ADAPTIVE RAG: Decide whether to retrieve ─────────────────
-    const queryClass = classifyQuery(lastUserMessage);
+    const queryClass = classifyQuery(typeof lastUserMessage === 'string' ? lastUserMessage : "");
     const shouldRetrieve = user_id && queryClass === 'complex';
 
-    console.log(`Query class: ${queryClass} | Retrieve: ${shouldRetrieve} | Msg: "${lastUserMessage.slice(0, 40)}"`);
+    console.log(`Query class: ${queryClass} | Retrieve: ${shouldRetrieve} | Msg: "${typeof lastUserMessage === 'string' ? lastUserMessage.slice(0, 40) : 'complex content'}"`);
 
     if (shouldRetrieve) {
       try {
@@ -142,7 +142,7 @@ serve(async (req) => {
     
     // Check if any message contains an image for model switching
     const hasImage = messages.some((m: Message) => 
-      Array.isArray(m.content) && m.content.some((c: any) => c.type === 'image_url')
+      Array.isArray(m.content) && m.content.some((c: Record<string, unknown>) => c.type === 'image_url')
     );
     const model = hasImage ? "llama-3.2-11b-vision-preview" : "llama-3.3-70b-versatile";
 
@@ -194,7 +194,7 @@ Hãy dùng phong cách hỏi thân thiện, không phán xét.`;
     const isSocraticMode = lastUserMessage.startsWith('[SOCRATIC_MODE]');
     const finalMessages = isSocraticMode
       ? messages.map((m: Message) =>
-          m.role === 'user' && m.content.startsWith('[SOCRATIC_MODE]')
+          m.role === 'user' && typeof m.content === 'string' && m.content.startsWith('[SOCRATIC_MODE]')
             ? { ...m, content: m.content.replace('[SOCRATIC_MODE]', '').trim() }
             : m
         )

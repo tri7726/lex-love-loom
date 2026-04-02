@@ -34,7 +34,7 @@ interface VocabularyItem {
   meaning: string;
 }
 
-const renderTextWithFurigana = (text: string, vocabulary: VocabularyItem[] | unknown[], show: boolean) => {
+const renderTextWithFurigana = (text: string, vocabulary: VocabularyItem[] | Record<string, unknown>[], show: boolean) => {
   if (!show || !vocabulary || vocabulary.length === 0) return text;
     const vocab = [...(vocabulary as VocabularyItem[])].sort((a, b) => (b.word?.length || 0) - (a.word?.length || 0));
   let parts: Array<{ text: string, furigana?: string }> = [{ text }];
@@ -196,7 +196,7 @@ export const DictationMode: React.FC<DictationModeProps> = ({
       const xp = segmentScore >= 90 ? 15 : segmentScore >= 70 ? 8 : 3;
       setXpEarned(xp);
 
-      // Save to user_video_progress
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase as any).from('user_video_progress').upsert({
         user_id: user.id,
         segment_id: currentSegment.id,

@@ -2,6 +2,8 @@ import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { useConfetti } from '@/hooks/useConfetti';
+import { getLevelInfo } from '@/lib/leveling';
 
 export type XPSource = 'quiz' | 'flashcard' | 'duel_win' | 'duel_loss' | 'duel_draw' | 'reading' | 'speaking' | 'streak_bonus' | 'achievement';
 
@@ -23,6 +25,7 @@ export const XP_REWARDS: Record<XPSource, number> = {
  */
 export const useXP = () => {
   const { user } = useAuth();
+  const confetti = useConfetti();
 
   const awardXP = useCallback(async (
     source: XPSource,
@@ -57,11 +60,21 @@ export const useXP = () => {
         .update({ total_xp: newXP })
         .eq('user_id', user.id);
 
+      // Level Up Logic
+      const oldLevel = getLevelInfo(profile?.total_xp ?? 0).level;
+      const newLevel = getLevelInfo(newXP).level;
+      
+      if (newLevel > oldLevel) {
+        // Trigger generic app event for Level Up Modal
+        window.dispatchEvent(new CustomEvent('level-up', { detail: { level: newLevel, totalXp: newXP } }));
+        setTimeout(() => confetti.fire('school'), 500);
+      }
+
       return newXP;
     } catch (err) {
       console.error('awardXP error:', err);
     }
-  }, [user]);
+  }, [user, confetti]);
 
   /**
    * Update streak — call once per day on any activity.
@@ -106,13 +119,14 @@ export const useXP = () => {
 
       if (newStreak > 1) {
         toast.success(`🔥 Streak ${newStreak} ngày! +${XP_REWARDS.streak_bonus} XP`);
+        if (newStreak % 5 === 0) confetti.fire('success');
       }
 
       return newStreak;
     } catch (err) {
       console.error('updateStreak error:', err);
     }
-  }, [user, awardXP]);
+  }, [user, awardXP, confetti]);
 
   return { awardXP, updateStreak };
 };

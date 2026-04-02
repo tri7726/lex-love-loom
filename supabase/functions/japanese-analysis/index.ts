@@ -194,7 +194,6 @@ function extractJSON(text: string) {
   }
 }
 
-// @ts-expect-error Deno serve type
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -238,15 +237,15 @@ serve(async (req: Request) => {
     if (apiKeys.length === 0) throw new Error("No Groq API keys are configured.");
 
     // Helper to call Groq with rotation
-    async function fetchGroqWithRotation(model: string, system: string, user: string | any[], json = true, history: Array<{ role: string; content: string }> = []) {
+    async function fetchGroqWithRotation(model: string, system: string, user: string | Record<string, unknown>[], json = true, history: Array<{ role: string; content: string }> = []) {
       let lastError = null;
       for (const apiKey of apiKeys) {
         try {
-          const messages = [{ role: "system", content: system }];
+          const messages: Array<{ role: string; content: any }> = [{ role: "system", content: system }];
           if (history && history.length > 0) {
             history.forEach(m => messages.push({ role: m.role, content: m.content }));
           }
-          messages.push({ role: "user", content: Array.isArray(user) ? user as any : user });
+          messages.push({ role: "user", content: Array.isArray(user) ? user as Record<string, unknown>[] : user });
 
           const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
