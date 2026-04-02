@@ -81,7 +81,7 @@ serve(async (req: Request) => {
 
   try {
     const { messages, systemPrompt, user_id } = await req.json();
-    const lastUserMessage = messages.slice().reverse().find((m) => m.role === 'user')?.content ?? '';
+    const lastUserMessage = messages.slice().reverse().find((m: Message) => m.role === 'user')?.content ?? '';
 
     let ragContextContent = "";
 
