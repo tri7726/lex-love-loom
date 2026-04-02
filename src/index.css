@@ -3,8 +3,13 @@
 @import "tailwindcss";
 
 @theme {
+  /* Layout: Center containers by default */
+  --container-center: true;
+  --container-padding: 2rem;
+  --container-max-width-7xl: 80rem;
+
   /* Japanese-inspired color palette */
-  --color-background: hsl(30 40% 98%);
+  --color-background: hsl(35 50% 98%);
   --color-foreground: hsl(0 0% 15%);
 
   --color-card: hsl(30 30% 99%);
@@ -47,7 +52,7 @@
   --color-crimson-dark: hsl(350 85% 20%);
   --color-gold: hsl(38 95% 55%);
   --color-gold-light: hsl(42 100% 75%);
-  --color-cream: hsl(35 60% 98%);
+  --color-cream: hsl(35 50% 95%);
   --color-matcha: hsl(155 40% 40%);
   --color-matcha-light: hsl(155 50% 93%);
   --color-matcha-dark: hsl(155 40% 25%);
@@ -58,7 +63,7 @@
   --color-sumi-light: hsl(240 10% 93%);
   --color-sumi-dark: hsl(240 10% 5%);
 
-  /* Premium Gradients */
+  /* Background Image Gradients - Fixed for Tailwind 4 */
   --background-image-gradient-sakura: linear-gradient(135deg, hsl(345 85% 65%), hsl(355 90% 75%), hsl(335 80% 70%));
   --background-image-gradient-sakura-soft: linear-gradient(135deg, hsl(345 100% 97%), hsl(345 100% 92%));
   --background-image-gradient-sakura-intense: linear-gradient(135deg, hsl(345 85% 55%), hsl(330 90% 45%));
@@ -66,12 +71,22 @@
   --background-image-gradient-matcha: linear-gradient(135deg, hsl(155 40% 40%), hsl(145 45% 55%));
   --background-image-gradient-hero: linear-gradient(180deg, hsl(35 60% 98%), hsl(345 100% 97%));
 
+  /* Custom timing */
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+  --animate-fade-in: fade-in 0.5s ease-out;
+  --animate-slide-in-right: slide-in-right 0.4s ease-out;
+  --animate-scale-in: scale-in 0.3s ease-out;
+  --animate-bounce-soft: bounce-soft 2s ease-in-out infinite;
+  --animate-pulse: pulse 2s ease-in-out infinite;
+  --animate-shake: shake 0.2s ease-in-out 0s 2;
+
   /* Shadows */
   --shadow-soft: 0 10px 40px -10px hsl(345 85% 65% / 0.2);
   --shadow-card: 0 4px 24px -2px hsl(345 20% 40% / 0.06);
   --shadow-elevated: 0 20px 50px -12px hsl(345 85% 65% / 0.25);
 
-  /* Font Families for Tailwind 4 */
+  /* Font Families */
   --font-sans: "Outfit", "Noto Sans JP", sans-serif;
   --font-serif: "EB Garamond", serif;
   --font-jp: "Noto Sans JP", "Hiragino Sans", "Meiryo", sans-serif;
@@ -123,7 +138,7 @@
     --crimson-dark: 350 85% 20%;
     --gold: 38 95% 55%;
     --gold-light: 42 100% 75%;
-    --cream: 35 60% 98%;
+    --cream: 35 50% 95%;
     --matcha: 155 40% 40%;
     --matcha-light: 155 50% 93%;
     --matcha-dark: 155 40% 25%;
@@ -134,32 +149,14 @@
     --sumi-light: 240 10% 93%;
     --sumi-dark: 240 10% 5%;
 
-    /* Premium Gradients */
-    --gradient-sakura: linear-gradient(
-      135deg,
-      hsl(345 85% 65%) 0%,
-      hsl(355 90% 75%) 50%,
-      hsl(335 80% 70%) 100%
-    );
-    --gradient-sakura-soft: linear-gradient(
-      135deg,
-      hsl(345 100% 97%) 0%,
-      hsl(345 100% 92%) 100%
-    );
-    --gradient-sakura-intense: linear-gradient(
-      135deg,
-      hsl(345 85% 55%) 0%,
-      hsl(330 90% 45%) 100%
-    );
+    /* Gradients as CSS vars for compatibility */
+    --gradient-sakura: linear-gradient(135deg, hsl(345 85% 65%), hsl(355 90% 75%), hsl(335 80% 70%));
+    --gradient-sakura-soft: linear-gradient(135deg, hsl(345 100% 97%), hsl(345 100% 92%));
+    --gradient-sakura-intense: linear-gradient(135deg, hsl(345 85% 55%), hsl(330 90% 45%));
     --gradient-gold: linear-gradient(135deg, hsl(38 95% 55%), hsl(45 100% 70%));
-    --gradient-matcha: linear-gradient(
-      135deg,
-      hsl(155 40% 40%),
-      hsl(145 45% 55%)
-    );
+    --gradient-matcha: linear-gradient(135deg, hsl(155 40% 40%), hsl(145 45% 55%));
     --gradient-hero: linear-gradient(180deg, hsl(35 60% 98%) 0%, hsl(345 100% 97%) 100%);
 
-    /* Shadows */
     --shadow-soft: 0 10px 40px -10px hsl(345 85% 65% / 0.2);
     --shadow-card: 0 4px 24px -2px hsl(345 20% 40% / 0.06);
     --shadow-elevated: 0 20px 50px -12px hsl(345 85% 65% / 0.25);
@@ -223,27 +220,11 @@
     --sumi-light: 240 15% 20%;
     --sumi-dark: 240 15% 85%;
 
-    --gradient-sakura: linear-gradient(
-      135deg,
-      hsl(345 75% 55%),
-      hsl(330 65% 45%)
-    );
-    --gradient-sakura-soft: linear-gradient(
-      135deg,
-      hsl(345 40% 20%),
-      hsl(345 30% 12%)
-    );
-    --gradient-sakura-intense: linear-gradient(
-      135deg,
-      hsl(345 80% 60%),
-      hsl(320 85% 50%)
-    );
+    --gradient-sakura: linear-gradient(135deg, hsl(345 75% 55%), hsl(330 65% 45%));
+    --gradient-sakura-soft: linear-gradient(135deg, hsl(345 40% 20%), hsl(345 30% 12%));
+    --gradient-sakura-intense: linear-gradient(135deg, hsl(345 80% 60%), hsl(320 85% 50%));
     --gradient-gold: linear-gradient(135deg, hsl(38 90% 45%), hsl(45 85% 55%));
-    --gradient-matcha: linear-gradient(
-      135deg,
-      hsl(155 35% 30%),
-      hsl(145 30% 40%)
-    );
+    --gradient-matcha: linear-gradient(135deg, hsl(155 35% 30%), hsl(145 30% 40%));
     --gradient-hero: linear-gradient(180deg, hsl(240 15% 6%) 0%, hsl(345 40% 10%) 100%);
 
     --shadow-soft: 0 10px 40px -10px hsl(0 0% 0% / 0.6);

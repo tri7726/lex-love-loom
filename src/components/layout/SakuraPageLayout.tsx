@@ -14,7 +14,7 @@ export const SakuraPageLayout: React.FC<SakuraPageLayoutProps> = ({
   showPetals = true 
 }) => {
   return (
-    <div className={`relative min-h-[calc(100vh-4rem)] bg-cream/30 dark:bg-sumi/5 overflow-hidden ${className}`}>
+    <div className={`relative min-h-[calc(100vh-4rem)] bg-cream dark:bg-sumi/5 overflow-hidden ${className}`}>
       {showPetals && <FallingPetals />}
       
       {/* Decorative background layers */}

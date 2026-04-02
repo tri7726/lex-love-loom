@@ -289,7 +289,8 @@ export const Index = () => {
         }}
         initial="hidden"
         animate="show"
-        className="container py-8 space-y-8"
+        animate="show"
+        className="container max-w-7xl mx-auto py-8 space-y-10"
       >
         {/* Streak Reminder */}
         <motion.div variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
@@ -652,8 +653,8 @@ export const Index = () => {
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="border-2 border-primary/10 bg-card/40 backdrop-blur-sm overflow-hidden flex flex-col transition-all hover:bg-card/60">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card className="lg:col-span-2 border-2 border-primary/10 bg-card/40 backdrop-blur-sm overflow-hidden flex flex-col transition-all hover:bg-card/60">
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Users className="h-5 w-5 text-primary" />
@@ -717,21 +718,16 @@ export const Index = () => {
         </section>
 
         {/* Main Content Grid */}
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Daily Practice - Takes 2 columns */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="lg:col-span-2 space-y-6"
-          >
+          <div className="lg:col-span-2 space-y-6">
             <DailyPractice
               tasks={dynamicTasks}
               onStartTask={handleStartTask}
               totalXpToday={0}
               dailyGoal={100}
             />
-          </motion.div>
+          </div>
 
           {/* Sidebar */}
           <motion.div

@@ -1,7 +1,13 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Layers, BookOpen, Brain, Mic, Trophy } from 'lucide-react';
+import { Layers } from 'lucide-react';
+import { 
+  Tooltip, 
+  TooltipContent, 
+  TooltipProvider, 
+  TooltipTrigger 
+} from '@/components/ui/tooltip';
 
 interface SkillData {
   skill: string;
@@ -23,74 +29,92 @@ const mockData: SkillData[] = [
 ];
 
 const getColorClass = (value: number) => {
-  if (value === 0) return 'bg-muted/10';
-  if (value < 20) return 'bg-primary/20';
-  if (value < 50) return 'bg-primary/40';
-  if (value < 80) return 'bg-primary/70';
-  return 'bg-primary';
+  if (value === 0) return 'bg-muted/20 dark:bg-slate-800/20';
+  if (value < 20) return 'bg-sakura-light/40 dark:bg-sakura-dark/20 text-sakura-dark/40';
+  if (value < 50) return 'bg-sakura/30 dark:bg-sakura-dark/40 text-sakura-dark';
+  if (value < 80) return 'bg-sakura/60 dark:bg-sakura-dark/70 text-white';
+  return 'bg-sakura text-white';
 };
 
 export const SkillHeatmap: React.FC = () => {
   const levels = ['N5', 'N4', 'N3', 'N2', 'N1'] as const;
 
   return (
-    <Card className="shadow-card border-primary/10 overflow-hidden bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
-      <CardHeader className="pb-4">
-        <CardTitle className="text-xl flex items-center gap-2">
-          <Layers className="h-5 w-5 text-primary" />
-          Bản đồ năng lực (Skill Heatmap)
-        </CardTitle>
-        <CardDescription>
-          Trực quan hóa mức độ ưu thế của bạn theo từng cấp độ và kỹ năng.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-6 gap-2 mb-2">
-          <div className="text-xs font-bold text-muted-foreground pt-4">Kỹ năng</div>
-          {levels.map(lvl => (
-            <div key={lvl} className="text-center text-xs font-bold text-muted-foreground pt-4">
-              {lvl}
+    <TooltipProvider>
+      <Card className="shadow-card border-2 border-sakura/20 overflow-hidden bg-sakura-light/30 backdrop-blur-md">
+        <CardHeader className="pb-4 border-b border-sakura/10">
+          <CardTitle className="text-xl flex items-center gap-2 font-display text-sakura-dark">
+            <Layers className="h-5 w-5" />
+            Bản đồ năng lực (Skill Heatmap)
+          </CardTitle>
+          <CardDescription className="text-xs text-sakura-dark/60 font-medium">
+            Trực quan hóa mức độ ưu thế của bạn theo từng cấp độ và kỹ năng.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-6">
+          {/* Header row with perfect alignment */}
+          <div className="grid grid-cols-[80px_1fr] md:grid-cols-[100px_1fr] gap-3 mb-4">
+            <div className="text-[10px] font-black text-sakura-dark/40 uppercase tracking-widest flex items-center">
+              Kỹ năng
             </div>
-          ))}
-        </div>
-
-        <div className="space-y-3">
-          {mockData.map((row, i) => (
-            <motion.div 
-              key={row.skill} 
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.1 }}
-              className="grid grid-cols-6 gap-2 items-center"
-            >
-              <div className="text-sm font-medium">{row.skill}</div>
+            <div className="grid grid-cols-5 gap-2">
               {levels.map(lvl => (
-                <div 
-                  key={lvl}
-                  className={`aspect-square rounded-md ${getColorClass(row.levels[lvl])} transition-all hover:scale-110 hover:shadow-soft flex items-center justify-center group relative`}
-                >
-                  <span className="opacity-0 group-hover:opacity-100 text-[10px] font-bold text-white transition-opacity">
-                    {row.levels[lvl]}%
-                  </span>
-                  {/* Tooltip emulation */}
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 pointer-events-none z-50 whitespace-nowrap">
-                    {row.skill} ({lvl}): {row.levels[lvl]}%
-                  </div>
+                <div key={lvl} className="text-center text-[10px] font-black text-sakura-dark/60 uppercase tracking-wider">
+                  {lvl}
                 </div>
               ))}
-            </motion.div>
-          ))}
-        </div>
+            </div>
+          </div>
 
-        <div className="mt-6 flex items-center justify-end gap-3 px-2">
-          <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Mức độ:</span>
-          <div className="flex gap-1 items-center">
-            {[0, 20, 50, 80, 100].map((v, i) => (
-              <div key={i} className={`w-3 h-3 rounded-[2px] ${getColorClass(v === 100 ? 90 : v)}`} />
+          <div className="space-y-3">
+            {mockData.map((row, i) => (
+              <motion.div 
+                key={row.skill} 
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.05 }}
+                className="grid grid-cols-[80px_1fr] md:grid-cols-[100px_1fr] gap-3 items-center"
+              >
+                <div className="text-xs font-bold text-sakura-dark truncate">
+                  {row.skill}
+                </div>
+                <div className="grid grid-cols-5 gap-2">
+                  {levels.map(lvl => (
+                    <Tooltip key={lvl}>
+                      <TooltipTrigger asChild>
+                        <motion.div 
+                          whileHover={{ scale: 1.1 }}
+                          className={`aspect-square rounded-lg ${getColorClass(row.levels[lvl])} transition-all shadow-sm flex items-center justify-center cursor-help border border-white/40`}
+                        >
+                          {row.levels[lvl] > 0 && (
+                            <span className="text-[8px] md:text-[9px] font-bold opacity-90">
+                              {row.levels[lvl]}%
+                            </span>
+                          )}
+                        </motion.div>
+                      </TooltipTrigger>
+                      <TooltipContent className="bg-sakura text-white border-white/20 shadow-elevated">
+                        <p className="font-bold text-xs">{row.skill} ({lvl})</p>
+                        <div className="h-px bg-white/20 my-1" />
+                        <p className="text-[10px] font-medium">Tiến độ: {row.levels[lvl]}%</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
+                </div>
+              </motion.div>
             ))}
           </div>
-        </div>
-      </CardContent>
-    </Card>
+
+          <div className="mt-8 flex items-center justify-end gap-3 px-1">
+            <span className="text-[9px] text-sakura-dark/40 uppercase font-black tracking-widest">Mức độ:</span>
+            <div className="flex gap-1.5 items-center">
+              {[0, 20, 50, 80, 100].map((v, i) => (
+                <div key={i} className={`w-3.5 h-3.5 rounded-sm ${getColorClass(v === 100 ? 90 : v)} border border-white/20 shadow-sm`} />
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </TooltipProvider>
   );
 };
