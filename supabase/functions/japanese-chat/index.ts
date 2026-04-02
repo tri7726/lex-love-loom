@@ -49,15 +49,23 @@ function classifyQuery(message: string): 'simple' | 'complex' {
 // CRAG: Validate that retrieved context is confident enough
 // to inject. Prevents hallucination from low-relevance context.
 // ══════════════════════════════════════════════════════════════
-function hasConfidentContext(context: Record<string, unknown>[]): boolean {
+interface RAGContext {
+  content: string;
+  source_type: string;
+  metadata: Record<string, unknown>;
+  similarity?: number;
+}
+
+function hasConfidentContext(context: RAGContext[]): boolean {
   if (!context || context.length === 0) return false;
 
   // Profile entries are ALWAYS injected (they're user identity, not topic-match)
-  const hasProfile = context.some((c) => c.source_type === 'profile');
+  const hasProfile = context.some((c: RAGContext) => c.source_type === 'profile');
   if (hasProfile) return true;
 
   // For non-profile entries, require at least one result with similarity >= 0.58
-  const maxSimilarity = Math.max(...context.map((c) => c.similarity ?? 0));
+  const similarities = context.map((c: RAGContext) => c.similarity ?? 0);
+  const maxSimilarity = similarities.length > 0 ? Math.max(...similarities) : 0;
   const isConfident = maxSimilarity >= 0.58;
 
   if (!isConfident) {
@@ -73,7 +81,7 @@ serve(async (req: Request) => {
 
   try {
     const { messages, systemPrompt, user_id } = await req.json();
-    const lastUserMessage = messages.slice().reverse().find((m) => m.role === 'user')?.content ?? '';
+    const lastUserMessage = messages.slice().reverse().find((m: Message) => m.role === 'user')?.content ?? '';
 
     let ragContextContent = "";
 
@@ -101,11 +109,11 @@ serve(async (req: Request) => {
           const { context } = await ragRes.json();
 
           // ── CRAG: Only inject if context is confident enough ──
-          if (hasConfidentContext(context)) {
-            const profileEntry = context.find((c) => c.source_type === 'profile');
-            const learningHistory = context
-              .filter((c) => c.source_type !== 'profile' && (c.similarity ?? 0) >= 0.52)
-              .slice(0, 4); // max 4 relevant entries
+          if (hasConfidentContext(context as RAGContext[])) {
+            const profileEntry = (context as RAGContext[]).find((c: RAGContext) => c.source_type === 'profile');
+            const learningHistory = (context as RAGContext[])
+              .filter((c: RAGContext) => c.source_type !== 'profile' && (c.similarity ?? 0) >= 0.52)
+              .slice(0, 4);
 
             if (profileEntry) {
               ragContextContent += `\n\n👤 **Hồ sơ kiến thức của người học:**\n${profileEntry.content}`;
@@ -115,7 +123,7 @@ serve(async (req: Request) => {
               ragContextContent +=
                 `\n\n📖 **Lịch sử học liên quan (độ tương đồng cao):**\n` +
                 learningHistory
-                  .map((c) => `• [${c.source_type}] ${c.content}`)
+                  .map((c: RAGContext) => `• [${c.source_type}] ${c.content}`)
                   .join("\n");
             }
 
