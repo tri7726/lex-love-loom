@@ -280,6 +280,38 @@ export type Database = {
           },
         ]
       }
+      daily_quest_progress: {
+        Row: {
+          is_claimed: boolean | null
+          is_completed: boolean | null
+          quest_date: string
+          quest_id: string
+          user_id: string
+        }
+        Insert: {
+          is_claimed?: boolean | null
+          is_completed?: boolean | null
+          quest_date?: string
+          quest_id: string
+          user_id: string
+        }
+        Update: {
+          is_claimed?: boolean | null
+          is_completed?: boolean | null
+          quest_date?: string
+          quest_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_quest_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       flashcards: {
         Row: {
           audio_url: string | null
@@ -1360,6 +1392,53 @@ export type Database = {
             referencedRelation: "kanji"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      user_evolved_skills: {
+        Row: {
+          challenge_data: Json
+          created_at: string | null
+          description: string | null
+          expires_at: string | null
+          id: string
+          status: string
+          title: string
+          type: string
+          user_id: string
+          xp_reward: number | null
+        }
+        Insert: {
+          challenge_data?: Json
+          created_at?: string | null
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          status?: string
+          title: string
+          type: string
+          user_id: string
+          xp_reward?: number | null
+        }
+        Update: {
+          challenge_data?: Json
+          created_at?: string | null
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          status?: string
+          title?: string
+          type?: string
+          user_id?: string
+          xp_reward?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_evolved_skills_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
         ]
       }
       user_mistakes: {

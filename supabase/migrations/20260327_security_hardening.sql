@@ -80,6 +80,7 @@ CREATE TABLE IF NOT EXISTS public.user_settings (
 -- Enable RLS on user_settings
 ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can manage own settings" ON public.user_settings;
 CREATE POLICY "Users can manage own settings" ON public.user_settings
     FOR ALL USING (auth.uid() = user_id);
 
@@ -92,6 +93,7 @@ CREATE POLICY "Users can manage own settings" ON public.user_settings
 DROP POLICY IF EXISTS "Users can update own profile." ON public.profiles;
 
 -- Allow updating non-sensitive fields
+DROP POLICY IF EXISTS "Users can update non-sensitive profile fields" ON public.profiles;
 CREATE POLICY "Users can update non-sensitive profile fields" ON public.profiles
     FOR UPDATE 
     USING (auth.uid() = user_id)
@@ -107,7 +109,7 @@ CREATE POLICY "Users can update non-sensitive profile fields" ON public.profiles
 
 -- 4. Privacy: Hide sensitive push notification tokens from public SELECT
 DROP POLICY IF EXISTS "Public profiles are viewable by everyone." ON public.profiles;
-
+DROP POLICY IF EXISTS "Public profile view" ON public.profiles;
 CREATE POLICY "Public profile view" ON public.profiles
     FOR SELECT 
     USING (TRUE);

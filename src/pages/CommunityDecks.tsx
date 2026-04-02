@@ -50,34 +50,29 @@ export default function CommunityDecks() {
   const loadDecks = async () => {
     setLoading(true);
     try {
-      const { data, error } = await (supabase as any)
-        .from('flashcard_folders')
-        .select(`
-          id, name, description, clone_count,
-          profiles!inner(display_name),
-          flashcards(count)
-        `)
-        .eq('is_public', true)
-        .order('clone_count', { ascending: false })
-        .limit(24);
+      const { data, error } = await (supabase as any).rpc('get_community_decks');
 
       if (error) throw error;
 
-      const formatted: PublicDeck[] = (data || []).map((d: any) => ({
-        id: d.id,
-        name: d.name,
-        description: d.description,
-        card_count: d.flashcards?.[0]?.count ?? 0,
-        clone_count: d.clone_count ?? 0,
-        owner_name: d.profiles?.display_name ?? 'Ẩn danh',
-        jlpt_level: d.name.match(/N[1-5]/)?.[0],
-        tags: [],
-        created_at: d.created_at,
-      }));
-
-      setDecks(formatted);
+      if (data && data.length > 0) {
+        const formatted: PublicDeck[] = data.map((d: any) => ({
+          id: d.id,
+          name: d.name,
+          description: d.description,
+          card_count: Number(d.card_count) || 0,
+          clone_count: d.clone_count ?? 0,
+          owner_name: d.owner_name ?? 'Ẩn danh',
+          jlpt_level: d.name.match(/N[1-5]/)?.[0],
+          tags: [],
+          created_at: d.created_at,
+        }));
+        setDecks(formatted);
+      } else {
+        setDecks(DEMO_DECKS);
+      }
     } catch (e) {
-      // Use demo data if DB query fails
+      console.warn('Failed to load community decks, using demo data', e);
+      // Use demo data if DB query fails or RPC not applied yet
       setDecks(DEMO_DECKS);
     } finally {
       setLoading(false);
@@ -89,36 +84,18 @@ export default function CommunityDecks() {
     setCloning(deck.id);
 
     try {
-      // 1. Get all flashcards in the source folder
-      const { data: cards } = await (supabase as any)
-        .from('flashcards')
-        .select('word, reading, meaning, example_sentence, jlpt_level')
-        .eq('folder_id', deck.id);
+      const { error } = await (supabase as any).rpc('clone_public_deck', {
+        p_folder_id: deck.id
+      });
 
-      // 2. Create new folder for current user
-      const { data: newFolder, error: folderErr } = await (supabase as any)
-        .from('flashcard_folders')
-        .insert({ name: `${deck.name} (clone)`, user_id: user.id, is_public: false })
-        .select('id').single();
-
-      if (folderErr) throw folderErr;
-
-      // 3. Clone cards into new folder
-      if (cards && cards.length > 0) {
-        await (supabase as any).from('flashcards').insert(
-          cards.map((c: any) => ({ ...c, id: undefined, user_id: user.id, folder_id: newFolder.id }))
-        );
-      }
-
-      // 4. Increment clone_count
-      await (supabase as any)
-        .from('flashcard_folders')
-        .update({ clone_count: (deck.clone_count ?? 0) + 1 })
-        .eq('id', deck.id);
+      if (error) throw error;
 
       toast.success(`✅ Đã clone "${deck.name}" — Kiểm tra Folder Manager!`);
+      // Reload decks to update clone count
+      loadDecks();
     } catch (e) {
-      toast.error('Clone thất bại. Thử lại nhé!');
+      toast.error('Clone thất bại. Thử tải lại trang nhé!');
+      console.error("Clone error:", e);
     } finally {
       setCloning(null);
     }

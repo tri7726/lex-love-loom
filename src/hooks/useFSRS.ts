@@ -13,6 +13,7 @@
 import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { offlineSync } from '@/lib/offlineSync';
 
 // FSRS-4 constants (tuned defaults)
 const w = [0.4, 0.6, 2.4, 5.8, 4.93, 0.94, 0.86, 0.01, 1.49, 0.14, 0.94, 2.18, 0.05, 0.34, 1.26, 0.29, 2.61];
@@ -58,15 +59,15 @@ export type FSRSRating = 1 | 2 | 3 | 4; // Again | Hard | Good | Easy
 export const useFSRS = () => {
   const { user } = useAuth();
 
-  const reviewCard = useCallback(async (flashcardId: string, rating: FSRSRating) => {
+  const reviewCard = useCallback(async (flashcardId: string, rating: FSRSRating, providedCard?: any) => {
     if (!user) return;
 
-    // Fetch current state
-    const { data: card } = await (supabase as any)
+    // Use provided data or fetch current state
+    const card = providedCard || (await (supabase as any)
       .from('flashcards')
       .select('fsrs_difficulty, fsrs_stability, fsrs_state, interval, repetitions')
       .eq('id', flashcardId)
-      .single();
+      .single()).data;
 
     if (!card) return;
 
@@ -91,36 +92,55 @@ export const useFSRS = () => {
     const nextReview = new Date(now);
     nextReview.setDate(nextReview.getDate() + interval);
 
-    await (supabase as any)
-      .from('flashcards')
-      .update({
-        fsrs_difficulty: d,
-        fsrs_stability: s,
-        fsrs_state: newState,
-        interval,
-        repetitions: (card.repetitions ?? 0) + 1,
-        next_review_date: nextReview.toISOString(),
-        last_reviewed_at: now.toISOString(),
-        // Keep ease_factor compatible for old SM2 queries
-        ease_factor: Math.max(1.3, 1.3 + (d - 5) * 0.05),
-      })
-      .eq('id', flashcardId);
+    const updateFields = {
+      fsrs_difficulty: d,
+      fsrs_stability: s,
+      fsrs_state: newState,
+      interval,
+      repetitions: (card.repetitions ?? 0) + 1,
+      next_review_date: nextReview.toISOString(),
+      last_reviewed_at: now.toISOString(),
+      ease_factor: Math.max(1.3, 1.3 + (d - 5) * 0.05),
+    };
 
-    // RAG log
-    const label = ['Again', 'Hard', 'Good', 'Easy'][rating - 1];
-    const { data: wordData } = await (supabase as any)
-      .from('flashcards').select('word, meaning').eq('id', flashcardId).single();
+    // Check if online
+    if (navigator.onLine) {
+      try {
+        await (supabase as any)
+          .from('flashcards')
+          .update(updateFields)
+          .eq('id', flashcardId);
 
-    if (wordData?.word) {
-      supabase.functions.invoke('sensei-rag', {
-        body: {
-          action: 'index',
-          user_id: user.id,
-          content: `FSRS Review: "${wordData.word}" rated ${label}. Stability: ${s.toFixed(2)} days. Next review: ${interval} days.`,
-          source_type: 'flashcard',
-          metadata: { flashcard_id: flashcardId, rating, stability: s, interval }
-        }
-      }).catch(() => {});
+        // Try RAG log (don't block if it fails)
+        const label = ['Again', 'Hard', 'Good', 'Easy'][rating - 1];
+        supabase.functions.invoke('sensei-rag', {
+          body: {
+            action: 'index',
+            user_id: user.id,
+            content: `FSRS Review: rated ${label}. Stability: ${s.toFixed(2)} days.`,
+            source_type: 'flashcard',
+            metadata: { flashcard_id: flashcardId, rating, stability: s, interval }
+          }
+        }).catch(() => {});
+      } catch (e) {
+        // Fallback to offline queue if update fails
+        await offlineSync.queueReview({
+          type: 'REVIEW',
+          flashcardId,
+          rating,
+          timestamp: now.toISOString(),
+          data: updateFields
+        });
+      }
+    } else {
+      // Offline mode
+      await offlineSync.queueReview({
+        type: 'REVIEW',
+        flashcardId,
+        rating,
+        timestamp: now.toISOString(),
+        data: updateFields
+      });
     }
 
     return { interval, nextReview, stability: s, difficulty: d };
@@ -142,8 +162,8 @@ export const useFSRS = () => {
   const syncQuizResult = useCallback(async (word: string, isCorrect: boolean) => {
     if (!user) return;
     const { data: card } = await (supabase as any)
-      .from('flashcards').select('id').eq('user_id', user.id).eq('word', word).limit(1).maybeSingle();
-    if (card) return reviewCard(card.id, isCorrect ? 3 : 1);
+      .from('flashcards').select('id, fsrs_difficulty, fsrs_stability, fsrs_state, interval, repetitions').eq('user_id', user.id).eq('word', word).limit(1).maybeSingle();
+    if (card) return reviewCard(card.id, isCorrect ? 3 : 1, card);
   }, [user, reviewCard]);
 
   const syncLabResult = useCallback(async (kanji: string, score: number) => {
@@ -153,9 +173,35 @@ export const useFSRS = () => {
     else if (score >= 50) rating = 2;
     if (!user) return;
     const { data: card } = await (supabase as any)
-      .from('flashcards').select('id').eq('user_id', user.id).eq('word', kanji).limit(1).maybeSingle();
-    if (card) return reviewCard(card.id, rating);
+      .from('flashcards').select('id, fsrs_difficulty, fsrs_stability, fsrs_state, interval, repetitions').eq('user_id', user.id).eq('word', kanji).limit(1).maybeSingle();
+    if (card) return reviewCard(card.id, rating, card);
   }, [user, reviewCard]);
 
-  return { reviewCard, updateFlashcardSRS, syncQuizResult, syncLabResult, qualityToRating };
+  /** Sync all queued actions */
+  const flushSyncQueue = useCallback(async () => {
+    const queue = await offlineSync.getQueue();
+    if (queue.length === 0) return 0;
+
+    let syncedCount = 0;
+    for (const action of queue) {
+      try {
+        if (action.type === 'REVIEW') {
+           const { error } = await (supabase as any)
+            .from('flashcards')
+            .update(action.data)
+            .eq('id', action.flashcardId);
+          
+          if (!error) {
+            await offlineSync.clearQueueItem(action.id!);
+            syncedCount++;
+          }
+        }
+      } catch (e) {
+        console.error('Failed to sync item:', e);
+      }
+    }
+    return syncedCount;
+  }, []);
+
+  return { reviewCard, updateFlashcardSRS, syncQuizResult, syncLabResult, qualityToRating, flushSyncQueue };
 };

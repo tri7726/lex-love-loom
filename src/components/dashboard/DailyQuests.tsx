@@ -38,6 +38,7 @@ export const DailyQuests = () => {
   const navigate = useNavigate();
   const [quests, setQuests] = useState<Quest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isClaimed, setIsClaimed] = useState(false);
   const [claimingReward, setClaimingReward] = useState(false);
 
   const fetchQuestProgress = useCallback(async () => {
@@ -50,8 +51,8 @@ export const DailyQuests = () => {
     try {
       const today = new Date().toISOString().split('T')[0];
       
-      // Fetch today's activity in parallel
-      const [flashcardsRes, chatRes, readingRes, pronunciationRes] = await Promise.all([
+      // Fetch today's activity and claim status in parallel
+      const [flashcardsRes, chatRes, readingRes, pronunciationRes, claimRes] = await Promise.all([
         supabase
           .from('flashcards')
           .select('id', { count: 'exact', head: true })
@@ -73,14 +74,23 @@ export const DailyQuests = () => {
           .select('id', { count: 'exact', head: true })
           .eq('user_id', user.id)
           .gte('created_at', `${today}T00:00:00`),
+        supabase
+          .from('daily_quest_progress')
+          .select('is_claimed')
+          .eq('user_id', user.id)
+          .eq('quest_date', today)
+          .eq('quest_id', 'daily_chest')
+          .maybeSingle()
       ]);
 
       const reviewedCards = flashcardsRes.count || 0;
       const chatSessions = chatRes.count || 0;
       const readingMins = readingRes.data?.reading_minutes || 0;
       const speakingSessions = pronunciationRes.count || 0;
+      const claimedForToday = claimRes.data?.is_claimed || false;
 
       setQuests(getDefaultQuests(reviewedCards, chatSessions, readingMins, speakingSessions));
+      setIsClaimed(claimedForToday);
     } catch (err) {
       console.error('Error fetching quest progress:', err);
       setQuests(getDefaultQuests(0, 0, 0, 0));
@@ -154,13 +164,28 @@ export const DailyQuests = () => {
   const allDone = completedCount === totalCount && totalCount > 0;
 
   const handleClaimReward = async () => {
-    if (!user || !allDone) return;
+    if (!user || !allDone || isClaimed) return;
     setClaimingReward(true);
     try {
+      const today = new Date().toISOString().split('T')[0];
       const totalReward = quests.reduce((sum, q) => sum + q.reward, 0);
+      
+      // 1. Earn XP
       await supabase.rpc('earn_xp', { p_amount: totalReward, p_source: 'daily_quests' });
+      
+      // 2. Persist claim status
+      await supabase.from('daily_quest_progress').upsert({
+        user_id: user.id,
+        quest_date: today,
+        quest_id: 'daily_chest',
+        is_completed: true,
+        is_claimed: true
+      });
+
+      setIsClaimed(true);
       toast.success(`🎁 Nhận ${totalReward} XP từ nhiệm vụ hàng ngày!`);
-    } catch {
+    } catch (err) {
+      console.error('Claim error:', err);
       toast.error('Không thể nhận thưởng. Thử lại sau!');
     } finally {
       setClaimingReward(false);
@@ -232,14 +257,18 @@ export const DailyQuests = () => {
             )}
           </motion.div>
         ))}
-        {allDone && (
+        {(allDone || isClaimed) && (
           <Button 
-            className="w-full rounded-xl bg-gold hover:bg-gold/90 text-gold-foreground font-bold shadow-lg gap-2 mt-2"
+            className={cn(
+              "w-full rounded-xl font-bold shadow-lg gap-2 mt-2",
+              isClaimed ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-gold hover:bg-gold/90 text-gold-foreground"
+            )}
             onClick={handleClaimReward}
-            disabled={claimingReward}
+            disabled={claimingReward || isClaimed}
           >
-            {claimingReward ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trophy className="h-4 w-4" />}
-            Nhận thưởng rương báu
+            {claimingReward ? <Loader2 className="h-4 w-4 animate-spin" /> : 
+             isClaimed ? <CheckCircle2 className="h-4 w-4" /> : <Trophy className="h-4 w-4" />}
+            {isClaimed ? "Đã nhận thưởng" : "Nhận thưởng rương báu"}
           </Button>
         )}
       </CardContent>

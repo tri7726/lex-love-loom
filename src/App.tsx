@@ -39,6 +39,8 @@ const KanjiDetail = React.lazy(() => import("./pages/KanjiDetail").then(m => ({ 
 const KanjiWorksheet = React.lazy(() => import("./pages/KanjiWorksheet").then(m => ({ default: m.KanjiWorksheet })));
 const UnitContent = React.lazy(() => import("./pages/UnitContent").then(m => ({ default: m.UnitContent })));
 const ModuleManager = React.lazy(() => import("./pages/ModuleManager").then(m => ({ default: m.ModuleManager })));
+const SquadDetail = React.lazy(() => import("./pages/SquadDetail"));
+
 
 // Pages with mixed export styles (standardized below)
 const AdminImport = React.lazy(() => import("./pages/AdminImport").then(m => ({ default: m.AdminImport })));
@@ -51,6 +53,7 @@ const SenseiHub = React.lazy(() => import("./pages/SenseiHub"));
 const PvPBattle = React.lazy(() => import("./pages/PvPBattle"));
 const AdminDashboard = React.lazy(() => import("./pages/AdminDashboard"));
 const QuickMode = React.lazy(() => import("./pages/QuickMode"));
+const SRSReview = React.lazy(() => import("./pages/SRSReview"));
 const CommunityDecks = React.lazy(() => import("./pages/CommunityDecks"));
 
 const queryClient = new QueryClient();
@@ -98,6 +101,8 @@ const App = () => (
                             <Route path="/messages" element={<Messages />} />
                             <Route path="/messages/:userId" element={<Messages />} />
                             <Route path="/squads" element={<Squads />} />
+                            <Route path="/squads/:squadId" element={<SquadDetail />} />
+
                             <Route path="/jlpt" element={<JLPTPortal />} />
                             <Route path="/jlpt/:level" element={<JLPTLevelDetail />} />
                             <Route path="/mock-tests" element={<MockTestCenter />} />
@@ -115,6 +120,7 @@ const App = () => (
                             <Route path="/admin/exam-manager" element={<AdminExamManager />} />
                             <Route path="/admin" element={<AdminDashboard />} />
                             <Route path="/community-decks" element={<CommunityDecks />} />
+                            <Route path="/review" element={<SRSReview />} />
                             <Route path="*" element={<NotFound />} />
                           </Route>
                         </Routes>

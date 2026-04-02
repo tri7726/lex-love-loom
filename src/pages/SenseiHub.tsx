@@ -37,13 +37,27 @@ export default function SenseiHub() {
 
   const isMobile = useIsMobile();
   const [showSidebar, setShowSidebar] = useState(!isMobile);
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const activeMode = (searchParams.get('mode') as SenseiMode) || 'tutor';
+  const initQuery = searchParams.get('q');
   const filteredConversations = conversations.filter(c => c.mode === activeMode);
   const { path: learningPath, isGenerating: isPathGenerating, generatePath, clearPath } = useLearningPath();
   const { skills: evoSkills, isLoading: isSkillsLoading, isGenerating: isSkillsGenerating, generateSkills, markSkillAsMastered } = useEvolvedSkills();
   const [socraticMode, setSocraticMode] = useState(false);
   const [masteringSkillId, setMasteringSkillId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initQuery) {
+      setTimeout(() => {
+        createNewConversation('Giải thích ngữ pháp', activeMode);
+        setTimeout(() => {
+          sendMessage(initQuery, 'text');
+          searchParams.delete('q');
+          setSearchParams(searchParams);
+        }, 300);
+      }, 100);
+    }
+  }, [initQuery, activeMode, createNewConversation, sendMessage, searchParams, setSearchParams]);
 
   useEffect(() => {
     const handleMastery = async (e: any) => {

@@ -10,8 +10,10 @@ import {
   UserPlus, 
   Loader2, 
   X,
-  LogOut
+  LogOut,
+  ArrowRight
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { SakuraSkeleton } from '@/components/ui/SakuraSkeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -148,50 +150,20 @@ export const Squads = () => {
         }
       }
 
-      // Fetch Top Performers (Global for the week)
-      const fetchTop = async () => {
-        const now = new Date();
-        const day = now.getDay();
-        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-        const lastMonday = new Date(now.setDate(diff));
-        lastMonday.setHours(0, 0, 0, 0);
+        // Fetch Global Squad Leaderboard
+        const { data: topSquads } = await (supabase as any)
+          .from('study_squads')
+          .select('name, weekly_xp')
+          .order('weekly_xp', { ascending: false })
+          .limit(3);
 
-        const { data: events } = await (supabase as any)
-          .from('xp_events')
-          .select('user_id, amount')
-          .gte('created_at', lastMonday.toISOString());
-
-        const xpMap: Record<string, number> = {};
-        (events || []).forEach((e: any) => xpMap[e.user_id] = (xpMap[e.user_id] || 0) + e.amount);
-
-        const sortedUsers = Object.entries(xpMap)
-          .sort(([, a], [, b]) => b - a)
-          .slice(0, 3);
-
-        const userIds = sortedUsers.map(([id]) => id);
-        if (userIds.length > 0) {
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('user_id, display_name')
-            .in('user_id', userIds);
-          
-          const tops = sortedUsers.map(([id, xp]) => {
-            const p = profiles?.find(prof => prof.user_id === id);
-            return {
-              name: p?.display_name || 'Người học',
-              xp,
-              squad: 'Thành viên'
-            };
-          });
-          setTopPerformers(tops);
-        } else {
-          setTopPerformers([
-            { name: 'Đang cập nhật...', xp: 0, squad: '-' },
-          ]);
+        if (topSquads) {
+          setTopPerformers(topSquads.map(s => ({
+            name: s.name,
+            xp: s.weekly_xp || 0,
+            squad: 'Biệt đội'
+          })));
         }
-      };
-      
-      fetchTop();
 
     } catch (err: any) {
       console.error('Error fetching squads:', err);
@@ -413,12 +385,14 @@ export const Squads = () => {
                       <CardFooter className="p-5 mt-auto">
                         {squad.is_member ? (
                           <div className="flex gap-2 w-full">
-                            <Button variant="outline" className="flex-1 gap-2 rounded-xl bg-primary/5 text-primary border-primary/20 cursor-default">
-                              <Shield className="h-4 w-4" /> Đã tham gia
-                            </Button>
+                            <Link to={`/squads/${squad.id}`} className="flex-[2]">
+                                <Button className="w-full gap-2 rounded-xl bg-primary shadow-sakura">
+                                <Shield className="h-4 w-4" /> Vào Hub
+                                </Button>
+                            </Link>
                             <Button 
                               variant="ghost" 
-                              className="px-3 rounded-xl hover:bg-red-50 text-red-400 hover:text-red-500 transition-colors"
+                              className="flex-1 px-3 rounded-xl hover:bg-red-50 text-red-400 hover:text-red-500 transition-colors"
                               onClick={() => handleLeave(squad.id)}
                             >
                               <LogOut className="h-4 w-4" />

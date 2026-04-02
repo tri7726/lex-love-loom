@@ -14,6 +14,7 @@ import {
   Globe,
   Heart,
   Filter,
+  CheckCircle,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -51,6 +52,8 @@ interface VideoSource {
   thumbnail_url: string | null;
   jlpt_level: string;
   processed: boolean;
+  total_segments?: number;
+  completed_segments?: number;
 }
 
 interface SubtitleEntry {
@@ -114,20 +117,44 @@ export const VideoLearning = () => {
 
   const fetchVideos = useCallback(async () => {
     try {
-      // Sử dụng view video_sources_public để ẩn trường created_by (bảo mật)
-      const { data, error } = await supabase
+      const { data: sources, error: sourcesError } = await supabase
         .from('video_sources_public')
         .select('id, youtube_id, title, description, duration, thumbnail_url, jlpt_level, processed, created_at, updated_at')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setVideos(data || []);
+      if (sourcesError) throw sourcesError;
+      
+      // Fetch segment counts and user progress for each video
+      const { data: segments, error: segmentsError } = await supabase
+        .from('video_segments')
+        .select('id, video_id');
+      
+      if (segmentsError) throw segmentsError;
+
+      const { data: progress, error: progressError } = await supabase
+        .from('user_video_progress')
+        .select('segment_id, status')
+        .eq('user_id', user?.id)
+        .eq('status', 'mastered');
+      
+      if (progressError) throw progressError;
+
+      const masteredIds = new Set(progress?.map(p => p.segment_id) || []);
+      
+      const enrichedVideos = (sources || []).map(v => {
+        const videoSegments = (segments || []).filter(s => s.video_id === v.id);
+        const total = videoSegments.length;
+        const completed = videoSegments.filter(s => masteredIds.has(s.id)).length;
+        return { ...v, total_segments: total, completed_segments: completed };
+      });
+
+      setVideos(enrichedVideos);
     } catch (error) {
       console.error('Error fetching videos:', error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   const fetchFavorites = useCallback(async () => {
     if (!user) return;
@@ -427,16 +454,26 @@ export const VideoLearning = () => {
     return (
       <DictationPlayer
         video={selectedVideo}
-        onBack={() => setSelectedVideo(null)}
+        onBack={() => {
+          setSelectedVideo(null);
+          fetchVideos(); // Refresh progress when returning
+        }}
       />
     );
   }
+
+  // Calculate overall stats
+  const totalSegments = videos.reduce((acc, v) => acc + (v.total_segments || 0), 0);
+  const completedSegments = videos.reduce((acc, v) => acc + (v.completed_segments || 0), 0);
+  const overallProgress = totalSegments > 0 ? Math.round((completedSegments / totalSegments) * 100) : 0;
+  const masteredVideos = videos.filter(v => v.total_segments > 0 && v.total_segments === v.completed_segments).length;
+
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
       <main className="container py-6 space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
             <h1 className="text-3xl font-display font-bold flex items-center gap-2">
               <PlayCircle className="h-8 w-8 text-sakura" />
@@ -447,190 +484,237 @@ export const VideoLearning = () => {
             </p>
           </div>
 
-          <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                Thêm Video
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Thêm Video Mới</DialogTitle>
-                <DialogDescription>
-                  Lấy phụ đề tự động từ YouTube hoặc dán phụ đề SRT thủ công
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="space-y-4">
-                {/* Thumbnail Preview */}
-                {previewThumbnail && (
-                  <div className="rounded-lg overflow-hidden border bg-muted/30">
-                    <img 
-                      src={previewThumbnail} 
-                      alt="Video thumbnail" 
-                      className="w-full aspect-video object-cover"
-                    />
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <Label htmlFor="video-url">Link YouTube</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="video-url"
-                      placeholder="https://youtube.com/watch?v=..."
-                      value={newVideoUrl}
-                      onChange={(e) => setNewVideoUrl(e.target.value)}
-                      className="flex-1"
-                    />
-                    <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-                      <SelectTrigger className="w-24 shrink-0">
-                        <Globe className="h-4 w-4 mr-1" />
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ja">🇯🇵 日本語</SelectItem>
-                        <SelectItem value="en">🇬🇧 English</SelectItem>
-                        <SelectItem value="auto">🌐 Auto</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      variant="outline"
-                      onClick={handleFetchCaptions}
-                      disabled={fetchingCaptions || !newVideoUrl}
-                      className="gap-1 shrink-0"
-                    >
-                      {fetchingCaptions ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Download className="h-4 w-4" />
-                      )}
-                      Lấy CC
-                    </Button>
-                  </div>
-                  {captionLanguage && (
-                    <Badge variant="secondary" className="gap-1">
-                      <Sparkles className="h-3 w-3" />
-                      Phụ đề: {captionLanguage}
-                    </Badge>
+          <div className="flex items-center gap-3">
+            <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="gap-2 rounded-xl border-sakura/20 text-sakura hover:bg-sakura/5">
+                  <Plus className="h-4 w-4" />
+                  Thêm video
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Thêm Video Mới</DialogTitle>
+                  <DialogDescription>
+                    Lấy phụ đề tự động từ YouTube hoặc dán phụ đề SRT thủ công
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="space-y-4">
+                  {/* Thumbnail Preview */}
+                  {previewThumbnail && (
+                    <div className="rounded-lg overflow-hidden border bg-muted/30">
+                      <img 
+                        src={previewThumbnail} 
+                        alt="Video thumbnail" 
+                        className="w-full aspect-video object-cover"
+                      />
+                    </div>
                   )}
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="video-title">Tiêu đề</Label>
-                  <Input
-                    id="video-title"
-                    placeholder="Ví dụ: N5 Listening Practice #1"
-                    value={newVideoTitle}
-                    onChange={(e) => setNewVideoTitle(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Trình độ JLPT</Label>
-                  <Select value={newVideoLevel} onValueChange={setNewVideoLevel}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Chọn trình độ" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {['N5', 'N4', 'N3', 'N2', 'N1'].map(level => (
-                        <SelectItem key={level} value={level}>{level}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="subtitles">Phụ đề (SRT)</Label>
-                    {newVideoSubtitles && (
-                      <Badge variant="outline" className="text-xs">
-                        {parseSubtitles(newVideoSubtitles).length} đoạn
+                  <div className="space-y-2">
+                    <Label htmlFor="video-url">Link YouTube</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="video-url"
+                        placeholder="https://youtube.com/watch?v=..."
+                        value={newVideoUrl}
+                        onChange={(e) => setNewVideoUrl(e.target.value)}
+                        className="flex-1"
+                      />
+                      <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+                        <SelectTrigger className="w-24 shrink-0">
+                          <Globe className="h-4 w-4 mr-1" />
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ja">🇯🇵 日本語</SelectItem>
+                          <SelectItem value="en">🇬🇧 English</SelectItem>
+                          <SelectItem value="auto">🌐 Auto</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="outline"
+                        onClick={handleFetchCaptions}
+                        disabled={fetchingCaptions || !newVideoUrl}
+                        className="gap-1 shrink-0"
+                      >
+                        {fetchingCaptions ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Download className="h-4 w-4" />
+                        )}
+                        Lấy CC
+                      </Button>
+                    </div>
+                    {captionLanguage && (
+                      <Badge variant="secondary" className="gap-1">
+                        <Sparkles className="h-3 w-3" />
+                        Phụ đề: {captionLanguage}
                       </Badge>
                     )}
                   </div>
-                  <Textarea
-                    id="subtitles"
-                    placeholder={`1
+
+                  <div className="space-y-2">
+                    <Label htmlFor="video-title">Tiêu đề</Label>
+                    <Input
+                      id="video-title"
+                      placeholder="Ví dụ: N5 Listening Practice #1"
+                      value={newVideoTitle}
+                      onChange={(e) => setNewVideoTitle(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Trình độ JLPT</Label>
+                    <Select value={newVideoLevel} onValueChange={setNewVideoLevel}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Chọn trình độ" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {['N5', 'N4', 'N3', 'N2', 'N1'].map(level => (
+                          <SelectItem key={level} value={level}>{level}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="subtitles">Phụ đề (SRT)</Label>
+                      {newVideoSubtitles && (
+                        <Badge variant="outline" className="text-xs">
+                          {parseSubtitles(newVideoSubtitles).length} đoạn
+                        </Badge>
+                      )}
+                    </div>
+                    <Textarea
+                      id="subtitles"
+                      placeholder={`1
 00:00:01,000 --> 00:00:05,000
 こんにちは
 
 2
 00:00:06,000 --> 00:00:10,000
 私は田中です`}
-                    rows={8}
-                    value={newVideoSubtitles}
-                    onChange={(e) => setNewVideoSubtitles(e.target.value)}
-                    className="font-mono text-sm"
-                  />
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      accept=".srt,.vtt,.txt"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (event) => {
-                            const content = event.target?.result as string;
-                            setNewVideoSubtitles(content);
-                            toast({
-                              title: 'File đã tải',
-                              description: `Đã tải ${file.name}`,
-                            });
-                          };
-                          reader.readAsText(file);
-                        }
-                        e.target.value = '';
-                      }}
+                      rows={8}
+                      value={newVideoSubtitles}
+                      onChange={(e) => setNewVideoSubtitles(e.target.value)}
+                      className="font-mono text-sm"
                     />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs gap-1"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <Upload className="h-3 w-3" />
-                      Tải file SRT
-                    </Button>
-                    <span className="text-muted-foreground">hoặc</span>
-                    {newVideoUrl && extractYouTubeId(newVideoUrl) && (
-                      <a 
-                        href={`https://downsub.com/?url=https://www.youtube.com/watch?v=${extractYouTubeId(newVideoUrl)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sakura hover:underline flex items-center gap-1"
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        accept=".srt,.vtt,.txt"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              const content = event.target?.result as string;
+                              setNewVideoSubtitles(content);
+                              toast({
+                                title: 'File đã tải',
+                                description: `Đã tải ${file.name}`,
+                              });
+                            };
+                            reader.readAsText(file);
+                          }
+                          e.target.value = '';
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs gap-1"
+                        onClick={() => fileInputRef.current?.click()}
                       >
-                        Tải từ DownSub <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
+                        <Upload className="h-3 w-3" />
+                        Tải file SRT
+                      </Button>
+                      <span className="text-muted-foreground">hoặc</span>
+                      {newVideoUrl && extractYouTubeId(newVideoUrl) && (
+                        <a 
+                          href={`https://downsub.com/?url=https://www.youtube.com/watch?v=${extractYouTubeId(newVideoUrl)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sakura hover:underline flex items-center gap-1"
+                        >
+                          Tải từ DownSub <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                <Button
-                  className="w-full gap-2"
-                  onClick={handleAddVideo}
-                  disabled={processing || !newVideoSubtitles}
-                >
-                  {processing ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Đang xử lý với AI...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4" />
-                      Thêm & Xử lý Video
-                    </>
-                  )}
-                </Button>
+                  <Button
+                    className="w-full gap-2"
+                    onClick={handleAddVideo}
+                    disabled={processing || !newVideoSubtitles}
+                  >
+                    {processing ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Đang xử lý với AI...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4" />
+                        Thêm & Xử lý Video
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+
+        {/* Overall Stats Hub */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="bg-gradient-to-br from-sakura/5 to-white border-sakura/10 overflow-hidden relative group">
+            <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:scale-110 transition-transform">
+              <Sparkles className="h-12 w-12 text-sakura" />
+            </div>
+            <CardContent className="pt-6">
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Tổng tiến độ</p>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-sakura">{overallProgress}%</span>
+                <span className="text-xs text-muted-foreground font-medium">hoàn thành</span>
               </div>
-            </DialogContent>
-          </Dialog>
+              <div className="mt-3 h-1.5 w-full bg-sakura/10 rounded-full overflow-hidden">
+                <div className="h-full bg-sakura" style={{ width: `${overallProgress}%` }} />
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="border-border/40 overflow-hidden relative group">
+            <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:scale-110 transition-transform">
+              <CheckCircle className="h-12 w-12 text-green-500" />
+            </div>
+            <CardContent className="pt-6">
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Video chinh phục</p>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-foreground">{masteredVideos}</span>
+                <span className="text-xs text-muted-foreground font-medium">/ {videos.length} video</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/40 overflow-hidden relative group">
+            <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:scale-110 transition-transform">
+              <Heart className="h-12 w-12 text-red-400" />
+            </div>
+            <CardContent className="pt-6">
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Yêu thích</p>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-foreground">{favoriteIds.size}</span>
+                <span className="text-xs text-muted-foreground font-medium">video đã lưu</span>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Filters */}
@@ -736,11 +820,30 @@ export const VideoLearning = () => {
                   </div>
                   <CardContent className="p-4">
                     <h3 className="font-semibold line-clamp-2">{video.title}</h3>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="px-2 py-0.5 rounded text-xs bg-sakura/10 text-sakura">
-                        {video.jlpt_level}
-                      </span>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                    <div className="flex items-center justify-between mt-3">
+                      <div className="flex flex-col gap-1.5 flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-sakura/10 text-sakura uppercase">
+                            {video.jlpt_level}
+                          </span>
+                          <span className="text-[10px] font-black text-muted-foreground uppercase">
+                            {video.completed_segments}/{video.total_segments} đoạn
+                          </span>
+                        </div>
+                        <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-sakura transition-all duration-1000" 
+                            style={{ width: `${(video.completed_segments || 0) / (video.total_segments || 1) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                      <div className="ml-4 h-8 w-8 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-sakura/10 transition-colors">
+                        {video.total_segments > 0 && video.total_segments === video.completed_segments ? (
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-sakura transition-colors" />
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

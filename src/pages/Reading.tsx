@@ -116,6 +116,7 @@ export const Reading = () => {
   const { profile } = useProfile();
   const { mode: globalFuriganaMode, userLevel } = useFurigana();
   const [passages, setPassages] = useState<ReadingPassage[]>([]);
+  const [recommendedPassages, setRecommendedPassages] = useState<{passage_id: string, match_percentage: number}[]>([]);
   const [selectedPassage, setSelectedPassage] = useState<ReadingPassage | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchParams] = useSearchParams();
@@ -131,6 +132,7 @@ export const Reading = () => {
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [wordData, setWordData] = useState<WordData | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
+  const [userVocabStatus, setUserVocabStatus] = useState<Record<string, {status: string, steps: number}>>({});
   
   // Analysis state
   const [showAnalysis, setShowAnalysis] = useState(false);
@@ -279,6 +281,22 @@ export const Reading = () => {
       });
 
       setPassages(sorted);
+
+      // Fetch recommended reading
+      if (user?.id) {
+        try {
+          const { data: recData } = await supabase.rpc('get_recommended_reading', {
+            p_user_id: user.id,
+            p_limit: 3
+          });
+          if (recData) {
+            setRecommendedPassages(recData);
+          }
+        } catch (e) {
+          console.warn('Could not fetch recommended passages:', e);
+        }
+      }
+
     } catch (error: unknown) {
       console.error('Error fetching passages:', error);
       toast.error('Không thể tải bài đọc');
@@ -290,6 +308,40 @@ export const Reading = () => {
   useEffect(() => {
     fetchPassages();
   }, [fetchPassages]);
+
+  // Fetch user flashcard status for the vocabulary of the selected passage
+  useEffect(() => {
+    const fetchVocabStatus = async () => {
+      if (!user || !selectedPassage) return;
+      const vocabList = selectedPassage.vocabulary_list || selectedPassage.preloaded_vocabulary || [];
+      if (vocabList.length === 0) return;
+      
+      const wordsToLookFor = vocabList.map(v => v.word).filter(Boolean);
+      if (wordsToLookFor.length === 0) return;
+
+      try {
+        const { data } = await supabase
+          .from('flashcards')
+          .select('word, repetitions')
+          .eq('user_id', user.id)
+          .in('word', wordsToLookFor);
+        
+        if (data) {
+          const statusMap: Record<string, {status: string, steps: number}> = {};
+          data.forEach(fc => {
+            statusMap[fc.word] = {
+              status: fc.repetitions >= 4 ? 'mastered' : 'learning',
+              steps: fc.repetitions
+            };
+          });
+          setUserVocabStatus(statusMap);
+        }
+      } catch(e) {
+        console.warn("Failed to fetch flashcard status", e);
+      }
+    };
+    fetchVocabStatus();
+  }, [selectedPassage, user]);
 
   // Handle auto-selection and URL parameter for specific passage
   useEffect(() => {
@@ -696,6 +748,39 @@ export const Reading = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Passage List */}
           <div className="lg:col-span-1 space-y-3">
+            {recommendedPassages.length > 0 && (
+              <div className="mb-6 space-y-3">
+                <h2 className="font-semibold text-lg flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-yellow-500" /> Gợi ý theo Flashcard
+                </h2>
+                <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
+                  {recommendedPassages.map((rec) => {
+                    const passage = passages.find(p => p.id === rec.passage_id);
+                    if (!passage) return null;
+                    return (
+                      <Card 
+                        key={rec.passage_id} 
+                        className={cn(
+                          "min-w-[200px] shrink-0 cursor-pointer transition-all hover:border-yellow-400 bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20",
+                          selectedPassage?.id === rec.passage_id && "ring-2 ring-yellow-400"
+                        )}
+                        onClick={() => {
+                          setSelectedPassage(passage);
+                          setWordData(null);
+                          setSelectedWord(null);
+                        }}
+                      >
+                        <CardContent className="p-4 space-y-2">
+                          <p className="font-jp font-bold text-slate-800 dark:text-slate-200 line-clamp-1">{passage.title}</p>
+                          <Badge variant="outline" className="bg-white dark:bg-slate-900 border-yellow-300 text-yellow-700">Khớp {Math.round(rec.match_percentage)}% từ vựng</Badge>
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             <h2 className="font-semibold text-lg">Danh sách bài đọc</h2>
             
             {/* Filters */}
@@ -915,21 +1000,34 @@ export const Reading = () => {
                     {/* Vocabulary List */}
                     {selectedPassage.vocabulary_list && selectedPassage.vocabulary_list.length > 0 && (
                       <div className="mt-6">
-                        <h3 className="font-semibold mb-3 flex items-center gap-2">
-                          Từ vựng trong bài
-                          <Badge variant="outline" className="text-xs">
-                            <Zap className="h-3 w-3 mr-1" /> Click = tra từ tức thì
-                          </Badge>
+                        <h3 className="font-semibold mb-3 flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex items-center gap-2">
+                            Từ vựng trong bài
+                            <Badge variant="outline" className="text-xs">
+                              <Zap className="h-3 w-3 mr-1" /> Click = tra từ tức thì
+                            </Badge>
+                          </div>
+                          <div className="flex gap-3 text-xs font-normal bg-background/50 px-3 py-1.5 rounded-full border">
+                            <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div> Đang học</span>
+                            <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></div> Đã thuộc</span>
+                            <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-slate-300"></div> Mới</span>
+                          </div>
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {selectedPassage.vocabulary_list.map((vocab, idx) => (
+                          {selectedPassage.vocabulary_list.map((vocab, idx) => {
+                            const vStatus = userVocabStatus[vocab.word];
+                            const statusBorder = vStatus ? (vStatus.status === 'mastered' ? 'border-green-400/50 bg-green-50/30' : 'border-blue-400/50 bg-blue-50/30') : 'border-slate-200/50';
+                            const dotColor = vStatus ? (vStatus.status === 'mastered' ? 'bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.8)]' : 'bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.8)]') : 'bg-slate-300';
+                            
+                            return (
                             <motion.div
                               key={idx}
                               whileHover={{ scale: 1.02 }}
-                              className="notranslate p-4 rounded-2xl bg-sakura-light/20 border border-sakura-light/20 cursor-pointer hover:bg-white dark:hover:bg-slate-900 hover:shadow-md transition-all group shadow-sm overflow-hidden"
+                              className={`notranslate p-4 rounded-2xl border cursor-pointer hover:shadow-md transition-all group shadow-sm overflow-hidden relative ${statusBorder}`}
                               translate="no"
                               onClick={() => lookupWord(vocab.word)}
                             >
+                              <div className={`absolute top-3 right-3 w-2 h-2 rounded-full ${dotColor}`} />
                               <div className="flex items-baseline gap-2 mb-1">
                                 <span 
                                   className="font-jp font-bold text-lg text-slate-800 dark:text-slate-200 group-hover:text-sakura transition-colors"
@@ -941,7 +1039,8 @@ export const Reading = () => {
                               </div>
                               <p className="text-sm text-slate-600 dark:text-slate-400 font-medium leading-relaxed">{vocab.meaning}</p>
                             </motion.div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}

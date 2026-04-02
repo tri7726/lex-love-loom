@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -22,6 +24,8 @@ interface Folder {
   parent_id: string | null;
   module_id: string | null;
   order_index: number;
+  is_public?: boolean;
+  clone_count?: number;
   children?: Folder[];
 }
 
@@ -65,12 +69,17 @@ const FolderNode: React.FC<{
           {folder.icon}
         </div>
         
-        <div className="flex-1 min-w-0">
-          <p className="font-medium truncate">{folder.name}</p>
-          {folder.description && (
-            <p className="text-xs text-muted-foreground truncate">
-              {folder.description}
-            </p>
+        <div className="flex-1 min-w-0 flex items-center gap-2">
+          <div>
+            <p className="font-medium truncate">{folder.name}</p>
+            {folder.description && (
+              <p className="text-xs text-muted-foreground truncate">
+                {folder.description}
+              </p>
+            )}
+          </div>
+          {folder.is_public && (
+            <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-500 border-blue-200">Public</Badge>
           )}
         </div>
         
@@ -135,6 +144,7 @@ export const FolderManager = () => {
     icon: '📁',
     color: '#10b981',
     parent_id: null as string | null,
+    is_public: false,
   });
 
   const fetchFolders = useCallback(async () => {
@@ -206,6 +216,7 @@ export const FolderManager = () => {
             icon: formData.icon,
             color: formData.color,
             parent_id: formData.parent_id,
+            is_public: formData.is_public,
           })
           .eq('id', editingFolder.id);
 
@@ -223,6 +234,7 @@ export const FolderManager = () => {
             icon: formData.icon,
             color: formData.color,
             parent_id: parentIdForNew || formData.parent_id,
+            is_public: formData.is_public,
             order_index: 0,
           });
 
@@ -276,6 +288,7 @@ export const FolderManager = () => {
       icon: folder.icon,
       color: folder.color,
       parent_id: folder.parent_id,
+      is_public: folder.is_public || false,
     });
     setIsDialogOpen(true);
   };
@@ -296,6 +309,7 @@ export const FolderManager = () => {
       icon: '📁',
       color: '#10b981',
       parent_id: null,
+      is_public: false,
     });
   };
 
@@ -394,6 +408,19 @@ export const FolderManager = () => {
                         />
                       ))}
                     </div>
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded-lg bg-slate-50 dark:bg-slate-900 mt-4">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="is-public" className="text-base font-semibold">🌐 Chia sẻ cộng đồng</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Cho phép người khác trên Lex Love Loom clone bộ thẻ này để học từ vựng.
+                      </p>
+                    </div>
+                    <Switch
+                      id="is-public"
+                      checked={formData.is_public}
+                      onCheckedChange={(checked) => setFormData({ ...formData, is_public: checked })}
+                    />
                   </div>
                 </div>
                 <div className="flex justify-end gap-2 mt-4">

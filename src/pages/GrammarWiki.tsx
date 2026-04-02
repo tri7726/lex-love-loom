@@ -154,27 +154,38 @@ export const GrammarWiki = () => {
                               progress={mastery[point.title]?.progress || 0} 
                             />
                           </div>
-                          <CardTitle className="text-2xl font-bold font-jp text-primary flex items-center justify-between">
-                            {point.title}
-                            <div className="flex gap-1">
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="h-8 w-8 rounded-full hover:bg-sakura/10 hover:text-sakura"
-                                  onClick={() => setSelectedPracticePoint(point)}
-                                >
-                                  <Brain className="h-4 w-4" />
-                                </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="h-8 w-8 rounded-full hover:bg-sakura/10 hover:text-sakura"
-                                  onClick={() => handleCopy(point.title)}
-                                >
-                                  <Copy className="h-4 w-4" />
-                                </Button>
-                            </div>
-                          </CardTitle>
+                            <CardTitle className="text-2xl font-bold font-jp text-primary flex items-center justify-between">
+                              {point.title}
+                              <div className="flex gap-1">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-8 w-8 rounded-full hover:bg-sakura/10 hover:text-sakura"
+                                    onClick={() => setSelectedPracticePoint(point)}
+                                    title="Luyện bài tập Quiz"
+                                  >
+                                    <Brain className="h-4 w-4" />
+                                  </Button>
+                                  <Link to={`/sensei?mode=analysis&q=${encodeURIComponent(`Hãy giải thích chuyên sâu và cùng tôi luyện tập mẫu câu ngữ pháp: ${point.title}`)}`}>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-8 w-8 rounded-full hover:bg-indigo-500/10 hover:text-indigo-500"
+                                      title="Hỏi AI Sensei về ngữ pháp này"
+                                    >
+                                      <Sparkles className="h-4 w-4" />
+                                    </Button>
+                                  </Link>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-8 w-8 rounded-full hover:bg-sakura/10 hover:text-sakura"
+                                    onClick={() => handleCopy(point.title)}
+                                  >
+                                    <Copy className="h-4 w-4" />
+                                  </Button>
+                              </div>
+                            </CardTitle>
                         </CardHeader>
                         <CardContent className="pt-4 space-y-4">
                           <div className="bg-background border-2 border-primary/5 p-4 rounded-2xl space-y-3">
@@ -213,14 +224,24 @@ export const GrammarWiki = () => {
                             </div>
                           </div>
                           
-                          <Button 
-                            variant="outline" 
-                            className="w-full rounded-xl border-sakura/20 text-sakura hover:bg-sakura hover:text-white transition-all gap-2 font-bold h-11"
-                            onClick={() => setSelectedPracticePoint(point)}
-                          >
-                            <PlayCircle className="h-4 w-4" />
-                            Luyện tập cùng AI
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              className="flex-1 rounded-xl border-sakura/20 text-sakura hover:bg-sakura hover:text-white transition-all gap-2 font-bold h-11"
+                              onClick={() => setSelectedPracticePoint(point)}
+                            >
+                              <PlayCircle className="h-4 w-4" />
+                              Luyện tập ngay
+                            </Button>
+                            <Link to={`/sensei?mode=analysis&q=${encodeURIComponent(`Hãy giải thích chuyên sâu và cùng tôi luyện tập mẫu câu ngữ pháp: ${point.title}`)}`} className="flex-1">
+                              <Button 
+                                className="w-full rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white transition-all gap-2 font-bold h-11 shadow-sm"
+                              >
+                                <Brain className="h-4 w-4" />
+                                Hỏi Sensei
+                              </Button>
+                            </Link>
+                          </div>
                         </CardContent>
                       </Card>
                     </motion.div>

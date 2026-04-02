@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
@@ -10,6 +11,12 @@ export interface EvolvedSkill {
   type: 'vocabulary' | 'grammar' | 'pronunciation';
   status: 'discovered' | 'in_progress' | 'mastered';
   challenge_data: {
+    questions?: Array<{
+      question: string;
+      options: string[];
+      correct_answer: string;
+      explanation: string;
+    }>;
     target_words?: string[];
     context?: string;
     suggested_prompt?: string;
@@ -17,8 +24,6 @@ export interface EvolvedSkill {
   xp_reward: number;
   expires_at: string;
 }
-
-const STORAGE_KEY = 'evolved_skills';
 
 export const useEvolvedSkills = () => {
   const { user } = useAuth();
@@ -30,15 +35,16 @@ export const useEvolvedSkills = () => {
     if (!user?.id) return;
     setIsLoading(true);
     try {
-      const stored = localStorage.getItem(`${STORAGE_KEY}_${user.id}`);
-      if (stored) {
-        const parsed: EvolvedSkill[] = JSON.parse(stored);
-        const active = parsed.filter(
-          s => (s.status === 'discovered' || s.status === 'in_progress') &&
-               new Date(s.expires_at) > new Date()
-        );
-        setSkills(active);
-      }
+      const { data, error } = await supabase
+        .from('user_evolved_skills')
+        .select('*')
+        .eq('user_id', user.id)
+        .in('status', ['discovered', 'in_progress'])
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setSkills(data as any as EvolvedSkill[]);
     } catch (e) {
       console.error('Lỗi khi lấy Evolved Skills:', e);
     } finally {
@@ -50,50 +56,20 @@ export const useEvolvedSkills = () => {
     fetchSkills();
   }, [fetchSkills]);
 
-  const saveSkills = (userId: string, updatedSkills: EvolvedSkill[]) => {
-    localStorage.setItem(`${STORAGE_KEY}_${userId}`, JSON.stringify(updatedSkills));
-  };
-
   const generateSkills = async () => {
     if (!user?.id || isGenerating) return;
     setIsGenerating(true);
     try {
-      // Generate sample skills based on common learning patterns
-      const sampleSkills: EvolvedSkill[] = [
-        {
-          id: crypto.randomUUID(),
-          user_id: user.id,
-          title: '助詞マスター: は vs が',
-          description: 'Luyện phân biệt cách dùng は và が trong ngữ cảnh thực tế',
-          type: 'grammar',
-          status: 'discovered',
-          challenge_data: {
-            target_words: ['は', 'が'],
-            suggested_prompt: 'Hãy giải thích sự khác biệt giữa は và が với các ví dụ thực tế',
-          },
-          xp_reward: 75,
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        },
-        {
-          id: crypto.randomUUID(),
-          user_id: user.id,
-          title: 'Từ vựng N5 nâng cao',
-          description: 'Ôn lại các từ vựng hay nhầm lẫn trong N5',
-          type: 'vocabulary',
-          status: 'discovered',
-          challenge_data: {
-            target_words: ['食べる', '飲む', '見る', '聞く'],
-            suggested_prompt: 'Cho tôi quiz về các động từ cơ bản trong N5',
-          },
-          xp_reward: 50,
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        },
-      ];
+      const { data, error } = await supabase.functions.invoke('evolve-skills', {
+        body: { user_id: user.id }
+      });
 
-      const updated = [...sampleSkills, ...skills];
-      setSkills(updated);
-      saveSkills(user.id, updated);
-      toast.success(`Sensei vừa tạo ${sampleSkills.length} thử thách mới cho bạn! 🌟`);
+      if (error) throw error;
+      
+      if (data) {
+        setSkills(prev => [data as EvolvedSkill, ...prev]);
+        toast.success(`Sensei vừa tạo thử thách mới cho bạn! 🌟`);
+      }
     } catch (e) {
       console.error('Lỗi tạo skills:', e);
       toast.error("Không thể tạo thử thách lúc này. Thử lại sau nhé!");
@@ -108,11 +84,25 @@ export const useEvolvedSkills = () => {
       const skill = skills.find(s => s.id === skillId);
       if (!skill) return;
 
-      const updated = skills.map(s => s.id === skillId ? { ...s, status: 'mastered' as const } : s);
-      saveSkills(user.id, updated);
-      setSkills(updated.filter(s => s.status !== 'mastered'));
+      // 1. Update status in DB
+      const { error: updateError } = await supabase
+        .from('user_evolved_skills')
+        .update({ status: 'mastered' })
+        .eq('id', skillId);
 
-      return skill.xp_reward;
+      if (updateError) throw updateError;
+
+      // 2. Award XP via RPC
+      const xpAmount = skill.xp_reward || 50;
+      await supabase.rpc('earn_xp', { 
+        p_amount: xpAmount, 
+        p_source: 'evolved_skill' 
+      });
+
+      // Optimistic UI update
+      setSkills(prev => prev.filter(s => s.id !== skillId));
+
+      return xpAmount;
     } catch (e) {
       console.error('Lỗi hoàn thành skill:', e);
       return 0;

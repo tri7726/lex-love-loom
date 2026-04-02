@@ -95,6 +95,7 @@ export const Index = () => {
   const { history, isLoading: historyLoading } = useWordHistory();
   const [leaderboard, setLeaderboard] = React.useState<{ rank: number; userId: string; username: string; xp: number; streak: number; avatar?: string; isCurrentUser: boolean }[]>([]);
   const [leaderboardLoading, setLeaderboardLoading] = React.useState(true);
+  const [dueCount, setDueCount] = useState(0);
   const [dueCards, setDueCards] = useState<any[]>([]);
   const [loadingDue, setLoadingDue] = useState(false);
   const [writingRecs, setWritingRecs] = useState<any[]>([]);
@@ -103,6 +104,14 @@ export const Index = () => {
   const fetchDueCards = useCallback(async () => {
     if (!user) return;
     setLoadingDue(true);
+    
+    // 1. Get total due count
+    const { data: countData } = await supabase.rpc('get_due_flashcards_count', { 
+      user_uuid: user.id 
+    });
+    setDueCount(countData || 0);
+
+    // 2. Get a few cards for preview
     const { data } = await (supabase as any)
       .from('flashcards')
       .select('id, word, reading, meaning')
@@ -197,17 +206,17 @@ export const Index = () => {
   const dynamicTasks = useMemo(() => {
     const tasks = [];
     
-    if (dueCards.length > 0) {
+    if (dueCount > 0) {
       tasks.push({
         id: 'srs-review',
         type: 'vocabulary' as const,
         title: 'Ôn tập định kỳ',
-        description: `${dueCards.length} từ vựng cần ôn tập ngay`,
+        description: `${dueCount} thẻ vựng đang chờ bạn ôn tập`,
         progress: 0,
-        total: dueCards.length,
-        xp: dueCards.length * 10,
+        total: dueCount,
+        xp: Math.min(dueCount * 5, 200),
         completed: false,
-        estimatedTime: Math.ceil(dueCards.length * 0.5),
+        estimatedTime: Math.ceil(dueCount * 0.2),
       });
     }
 
@@ -246,7 +255,7 @@ export const Index = () => {
   const handleStartTask = (taskId: string) => {
     switch (taskId) {
       case 'srs-review':
-        navigate('/vocabulary');
+        navigate('/review');
         break;
       case 'kanji-writing':
         if (writingRecs.length > 0) openWritingLab(writingRecs[0].word);
@@ -447,11 +456,11 @@ export const Index = () => {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-black flex items-center gap-2">
                 <Brain className="h-5 w-5 text-sakura" />
-                Cần ôn tập ngay ({dueCards.length})
+                Thẻ tới hạn ({dueCount})
               </h2>
-              <Link to="/vocabulary">
+              <Link to="/review">
                 <Button variant="ghost" size="sm" className="text-sakura font-bold text-xs uppercase tracking-widest gap-1">
-                  Ôn tập tất cả <ChevronRight className="h-4 w-4" />
+                  Bắt đầu Ôn ngay <ChevronRight className="h-4 w-4" />
                 </Button>
               </Link>
             </div>
