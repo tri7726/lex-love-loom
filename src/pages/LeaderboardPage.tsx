@@ -34,14 +34,20 @@ const LeaderboardPage = () => {
   }, [user]);
 
   return (
-    <SakuraPageLayout title="Bảng xếp hạng" subtitle="Top người học chăm chỉ nhất">
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="animate-spin h-8 w-8 border-4 border-sakura border-t-transparent rounded-full" />
-        </div>
-      ) : (
-        <Leaderboard entries={entries} title="Bảng xếp hạng XP" />
-      )}
+    <SakuraPageLayout>
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <h1 className="text-3xl font-black mb-2 bg-gradient-to-r from-sakura-dark to-indigo-jp bg-clip-text text-transparent">
+          Bảng xếp hạng
+        </h1>
+        <p className="text-muted-foreground mb-6">Top người học chăm chỉ nhất</p>
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <div className="animate-spin h-8 w-8 border-4 border-sakura border-t-transparent rounded-full" />
+          </div>
+        ) : (
+          <Leaderboard entries={entries} title="Bảng xếp hạng XP" />
+        )}
+      </div>
     </SakuraPageLayout>
   );
 };
