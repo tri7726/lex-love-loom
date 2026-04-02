@@ -130,7 +130,7 @@ export const VideoMode: React.FC<VideoModeProps> = ({
             
             {/* Translation */}
             {showTranslation && currentSegment.vietnamese_text && (
-              <p className="text-muted-foreground text-lg italic border-t pt-3 border-border/40">
+              <p className="text-muted-foreground text-lg border-t pt-4 border-border/40 font-sans">
                 {currentSegment.vietnamese_text}
               </p>
             )}

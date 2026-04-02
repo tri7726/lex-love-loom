@@ -23,8 +23,9 @@ import { Progress } from '@/components/ui/progress';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { useSpeechToText } from '@/hooks/useSpeechToText';
+import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { analyzePronunciation, PronunciationScore } from '@/components/PronunciationAnalysis';
+import { supabase } from '@/integrations/supabase/client';
 import { VoiceHub } from '@/components/chat/VoiceHub';
 import { Sparkles } from 'lucide-react';
 
@@ -34,7 +35,7 @@ interface VocabularyItem {
   meaning: string;
 }
 
-const renderTextWithFurigana = (text: string, vocabulary: VocabularyItem[] | unknown[], show: boolean) => {
+const renderTextWithFurigana = (text: string, vocabulary: VocabularyItem[] | Record<string, unknown>[], show: boolean) => {
   if (!show || !vocabulary || vocabulary.length === 0) return text;
   
   const vocab = [...(vocabulary as VocabularyItem[])].sort((a, b) => (b.word?.length || 0) - (a.word?.length || 0));
@@ -116,20 +117,38 @@ export const SpeakingMode: React.FC<SpeakingModeProps> = ({
 
   const currentSegment = segments[currentIndex];
 
-  // Speech to text hook
-  const {
-    isListening,
-    transcript,
-    startListening,
-    stopListening,
-    resetTranscript,
-    isSupported,
-    error: sttError,
-  } = useSpeechToText({
-    lang: 'ja-JP',
-    continuous: false,
-    interimResults: true,
-  });
+  const { isRecording: isListening, startRecording, stopRecording, getAudioData, error: recordingError } = useAudioRecorder();
+  const [transcript, setTranscript] = useState('');
+  const [sttError, setSttError] = useState<string | null>(null);
+
+  // Audio Visualizer Animation Loop
+  const [audioBars, setAudioBars] = useState<number[]>(new Array(10).fill(10));
+  const animationFrameRef = React.useRef<number>(0);
+
+  useEffect(() => {
+    if (isListening) {
+      const updateVisualizer = () => {
+        const data = getAudioData();
+        if (data) {
+          // sample ~10 bars
+          const step = Math.floor(data.length / 10);
+          const newBars = [];
+          for (let i = 0; i < 10; i++) {
+            const sum = data.slice(i * step, (i + 1) * step).reduce((a, b) => a + b, 0);
+            const avg = sum / step;
+            newBars.push(Math.max(10, avg * 0.8)); // min height 10px
+          }
+          setAudioBars(newBars);
+        }
+        animationFrameRef.current = requestAnimationFrame(updateVisualizer);
+      };
+      updateVisualizer();
+    } else {
+      setAudioBars(new Array(10).fill(10));
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    return () => cancelAnimationFrame(animationFrameRef.current);
+  }, [isListening, getAudioData]);
 
   // Track previous index to detect changes
   const prevIndexRef = React.useRef(currentIndex);
@@ -141,45 +160,68 @@ export const SpeakingMode: React.FC<SpeakingModeProps> = ({
       setHasStartedRecording(false);
       setPronunciationScore(null);
       setHideText(false);
-      resetTranscript();
+      setTranscript('');
+      setSttError(null);
+      // Reset video volume if moving away
+      window.dispatchEvent(new CustomEvent('duck-video-volume', { detail: { isDucked: false } }));
       prevIndexRef.current = currentIndex;
     }
-  }, [currentIndex, resetTranscript]);
-
-  // Handle check pronunciation
-  const handleCheckPronunciation = useCallback(() => {
-    if (!currentSegment || !transcript.trim()) return;
-
-    setIsAnalyzing(true);
-
-    // Simulate slight delay for analysis feel
-    setTimeout(() => {
-      const score = analyzePronunciation(currentSegment.japanese_text, transcript);
-      setPronunciationScore(score);
-      setHasChecked(true);
-      setIsAnalyzing(false);
-
-      // Save score
-      setSpeakingScores(prev => new Map(prev).set(currentIndex, score.overall));
-      onComplete(score.overall);
-    }, 500);
-  }, [currentSegment, transcript, currentIndex, onComplete]);
-
-  // Auto check when speech recognition ends - only if user started recording for this segment
-  useEffect(() => {
-    if (!isListening && transcript.trim() && !hasChecked && hasStartedRecording && currentSegment) {
-      handleCheckPronunciation();
-    }
-  }, [isListening, transcript, hasChecked, hasStartedRecording, currentSegment, handleCheckPronunciation]);
+  }, [currentIndex]);
 
   // Handle record button
-  const handleRecord = () => {
+  const handleRecord = async () => {
     if (isListening) {
-      stopListening();
+      try {
+        setIsAnalyzing(true);
+        // Restore volume
+        window.dispatchEvent(new CustomEvent('duck-video-volume', { detail: { isDucked: false } }));
+        const audioBlob = await stopRecording();
+        if (!audioBlob) {
+           setIsAnalyzing(false);
+           return;
+        }
+
+        // Send to Whisper AI Edge Function
+        const formData = new FormData();
+        formData.append('file', audioBlob, 'recording.webm');
+
+        const { data, error } = await supabase.functions.invoke('analyze-speech', {
+          body: formData,
+        });
+
+        if (error) throw error;
+        if (!data || !data.success) throw new Error(data?.error || "Lỗi khi nhận diện giọng nói");
+
+        const finalTranscript = data.transcript;
+        setTranscript(finalTranscript);
+
+        // Grade the pronunciation
+        const score = analyzePronunciation(currentSegment!.japanese_text, finalTranscript);
+        setPronunciationScore(score);
+        setHasChecked(true);
+        setSpeakingScores(prev => new Map(prev).set(currentIndex, score.overall));
+        onComplete(score.overall);
+
+      } catch (err: unknown) {
+         console.error("AI Analysis error:", err);
+         setSttError(err instanceof Error ? err.message : "Chưa thể kết nối tới Sensei AI");
+      } finally {
+         setIsAnalyzing(false);
+      }
     } else {
-      resetTranscript();
+      // Bắt đầu ghi âm
       setHasStartedRecording(true);
-      startListening();
+      setHasChecked(false);
+      setPronunciationScore(null);
+      setTranscript('');
+      setSttError(null);
+      // Duck volume
+      window.dispatchEvent(new CustomEvent('duck-video-volume', { detail: { isDucked: true } }));
+      try {
+        await startRecording();
+      } catch (e) {
+        setSttError("Không thể kết nối Micro. Cần cấp quyền trên trình duyệt.");
+      }
     }
   };
 
@@ -188,7 +230,9 @@ export const SpeakingMode: React.FC<SpeakingModeProps> = ({
     setHasChecked(false);
     setHasStartedRecording(false);
     setPronunciationScore(null);
-    resetTranscript();
+    setTranscript('');
+    setSttError(null);
+    window.dispatchEvent(new CustomEvent('duck-video-volume', { detail: { isDucked: false } }));
   };
 
   // Handle navigation
@@ -410,7 +454,7 @@ export const SpeakingMode: React.FC<SpeakingModeProps> = ({
                     : 'bg-matcha hover:bg-matcha/90 text-white',
                 )}
                 onClick={handleRecord}
-                disabled={!isSupported || hasChecked}
+                disabled={hasChecked || isAnalyzing}
               >
                 <div className="flex flex-col items-center">
                   <div className="flex items-center gap-2">
@@ -472,48 +516,57 @@ export const SpeakingMode: React.FC<SpeakingModeProps> = ({
               </div>
             </div>
 
-            {/* Listening indicator */}
+            {/* Listening Visualizer */}
             {isListening && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="text-center"
+                className="text-center mt-6"
               >
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-destructive/10 text-destructive">
+                <div className="inline-flex items-center gap-3 px-6 py-3 rounded-[24px] bg-sakura/5 border border-sakura/20 text-sakura font-medium shadow-inner">
                   <span className="relative flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive" />
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sakura opacity-75" />
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-sakura" />
                   </span>
-                  Đang nghe... Hãy nói tiếng Nhật
+                  Sensei đang nghe, bạn bắt đầu đọc nhé...
                 </div>
-                {transcript && (
-                  <p className="font-jp text-lg mt-3 text-muted-foreground">{transcript}</p>
-                )}
+                
+                {/* Audio Waveform Effect */}
+                <div className="flex justify-center items-end h-16 gap-1 mt-6">
+                  {audioBars.map((height, i) => (
+                    <motion.div
+                      key={i}
+                      className="w-2 md:w-3 rounded-t-full bg-gradient-to-t from-sakura/80 to-sakura-light"
+                      animate={{ height: height }}
+                      transition={{ type: "spring", bounce: 0.5, duration: 0.1 }}
+                    />
+                  ))}
+                </div>
               </motion.div>
             )}
 
-            {/* Analyzing indicator */}
+            {/* Analyzing indicator (Whisper Wait) */}
             {isAnalyzing && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="text-center"
+                className="text-center mt-6"
               >
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10">
-                  <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-                  Đang phân tích phát âm...
+                <div className="inline-flex items-center gap-2 px-6 py-3 rounded-[24px] bg-matcha/10 text-matcha font-bold border border-matcha/20">
+                  <div className="animate-spin h-5 w-5 border-2 border-matcha border-t-transparent rounded-full" />
+                  Sensei AI đang bóc băng đánh giá...
                 </div>
               </motion.div>
             )}
 
             {/* STT Error */}
-            {sttError && (
+            {(sttError || recordingError) && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="text-center p-3 bg-destructive/10 rounded-lg text-destructive"
+                className="text-center mt-4 p-4 bg-destructive/10 border border-destructive/20 rounded-2xl text-destructive font-medium shadow-sm"
               >
-                {sttError}
+                {sttError || recordingError}
               </motion.div>
             )}
           </CardContent>

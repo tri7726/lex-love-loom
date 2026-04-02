@@ -4,6 +4,81 @@
 @tailwind components;
 @tailwind utilities;
 
+@theme {
+  /* Japanese-inspired color palette */
+  --color-background: hsl(30 40% 98%);
+  --color-foreground: hsl(0 0% 15%);
+
+  --color-card: hsl(30 30% 99%);
+  --color-card-foreground: hsl(0 0% 15%);
+
+  --color-popover: hsl(30 30% 99%);
+  --color-popover-foreground: hsl(0 0% 15%);
+
+  /* Sakura pink primary */
+  --color-primary: hsl(350 89% 60%);
+  --color-primary-foreground: hsl(0 0% 100%);
+
+  /* Warm cream secondary */
+  --color-secondary: hsl(35 60% 90%);
+  --color-secondary-foreground: hsl(350 40% 25%);
+
+  --color-muted: hsl(350 30% 96%);
+  --color-muted-foreground: hsl(350 15% 45%);
+
+  /* Gold accent for achievements */
+  --color-accent: hsl(38 95% 55%);
+  --color-accent-foreground: hsl(38 100% 10%);
+
+  --color-destructive: hsl(0 85% 60%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+
+  --color-border: hsl(350 20% 92%);
+  --color-input: hsl(350 20% 92%);
+  --color-ring: hsl(350 89% 60%);
+
+  --radius-lg: 1.25rem;
+
+  /* Custom Sakura Palette */
+  --color-sakura: hsl(350 89% 60%);
+  --color-sakura-light: hsl(350 100% 98%);
+  --color-sakura-soft: hsl(350 100% 95%);
+  --color-sakura-dark: hsl(350 80% 45%);
+  --color-crimson: hsl(350 85% 35%);
+  --color-crimson-light: hsl(350 85% 95%);
+  --color-crimson-dark: hsl(350 85% 20%);
+  --color-gold: hsl(38 95% 55%);
+  --color-gold-light: hsl(42 100% 75%);
+  --color-cream: hsl(35 60% 98%);
+  --color-matcha: hsl(155 40% 40%);
+  --color-matcha-light: hsl(155 50% 93%);
+  --color-matcha-dark: hsl(155 40% 25%);
+  --color-indigo-jp: hsl(235 45% 30%);
+  --color-indigo-jp-light: hsl(235 45% 93%);
+  --color-indigo-jp-dark: hsl(235 45% 15%);
+  --color-sumi: hsl(240 15% 15%);
+  --color-sumi-light: hsl(240 10% 93%);
+  --color-sumi-dark: hsl(240 10% 5%);
+
+  /* Premium Gradients */
+  --background-image-gradient-sakura: linear-gradient(135deg, hsl(345 85% 65%), hsl(355 90% 75%), hsl(335 80% 70%));
+  --background-image-gradient-sakura-soft: linear-gradient(135deg, hsl(345 100% 97%), hsl(345 100% 92%));
+  --background-image-gradient-sakura-intense: linear-gradient(135deg, hsl(345 85% 55%), hsl(330 90% 45%));
+  --background-image-gradient-gold: linear-gradient(135deg, hsl(38 95% 55%), hsl(45 100% 70%));
+  --background-image-gradient-matcha: linear-gradient(135deg, hsl(155 40% 40%), hsl(145 45% 55%));
+  --background-image-gradient-hero: linear-gradient(180deg, hsl(35 60% 98%), hsl(345 100% 97%));
+
+  /* Shadows */
+  --shadow-soft: 0 10px 40px -10px hsl(345 85% 65% / 0.2);
+  --shadow-card: 0 4px 24px -2px hsl(345 20% 40% / 0.06);
+  --shadow-elevated: 0 20px 50px -12px hsl(345 85% 65% / 0.25);
+
+  /* Font Families for Tailwind 4 */
+  --font-sans: "Outfit", "Noto Sans JP", sans-serif;
+  --font-serif: "EB Garamond", serif;
+  --font-jp: "Noto Sans JP", "Hiragino Sans", "Meiryo", sans-serif;
+}
+
 @layer base {
   :root {
     /* Japanese-inspired color palette */
@@ -227,68 +302,60 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: "Outfit", "Noto Sans JP", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: var(--font-sans);
     text-rendering: optimizeLegibility;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: "EB Garamond", "Noto Sans JP", serif;
-    letter-spacing: -0.01em;
+    font-family: var(--font-serif);
+    @apply font-medium tracking-tight;
   }
 
   .font-serif {
-    font-family: "EB Garamond", serif !important;
+    font-family: var(--font-serif) !important;
   }
 
   .font-sans {
-    font-family: "Outfit", sans-serif !important;
+    font-family: var(--font-sans) !important;
   }
   
   .font-jp {
-    font-family: "Noto Sans JP", "Hiragino Sans", "Meiryo", sans-serif !important;
+    font-family: var(--font-jp) !important;
   }
 }
 
 @layer components {
-  /* Furigana / Ruby text styling — furigana nằm DƯỚI kanji (design gốc) */
+  /* Modern Ruby / Furigana styling */
   ruby {
-    display: inline-flex;
-    flex-direction: column-reverse; /* kanji trên, rt dưới */
-    align-items: center;
-    vertical-align: bottom;
-    line-height: 1.1;
-    margin: 0 0.1em;
+    ruby-position: over;
+    ruby-align: center;
+    @apply transition-colors duration-200;
   }
 
-  ruby rt {
-    display: block;
-    font-size: 0.5em;
-    line-height: 1;
-    text-align: center;
-    color: hsl(var(--muted-foreground));
-    font-family: "Noto Sans JP", sans-serif;
+  rt {
+    font-family: var(--font-jp);
+    font-size: 0.55em;
     font-weight: 500;
+    color: hsl(var(--primary));
+    opacity: 0.9;
     user-select: none;
-    white-space: nowrap;
-    opacity: 0.8;
+    padding-bottom: 0.1em;
   }
 
-  /* Container bọc ruby text cần đủ line-height để rt không bị cắt */
-  .reading-content,
-  [class*="leading-"] ruby,
-  .font-jp ruby {
-    vertical-align: baseline;
+  /* Support for browser specific alignment if needed */
+  [lang="ja"] ruby {
+    -webkit-ruby-position: before;
   }
 
   /* Japanese text styling - Optimized for legibility and wrapping */
   .jp-text {
-    font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+    font-family: var(--font-jp);
     @apply tracking-wide;
     text-rendering: optimizeLegibility;
     line-break: strict;
     overflow-wrap: anywhere;
     word-break: normal;
-    line-height: 1.6;
+    line-height: 1.8;
   }
 
   .jp-text-lg {
@@ -490,4 +557,17 @@
 .animate-petal-fall {
   animation: petal-fall linear infinite;
   will-change: transform;
+}
+
+@keyframes progress-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-progress-shimmer {
+  animation: progress-shimmer 2s infinite linear;
 }

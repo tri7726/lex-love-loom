@@ -9,45 +9,46 @@ import { ProfileProvider } from "@/hooks/useProfile";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { FuriganaProvider } from "@/contexts/FuriganaContext";
 import { AIProvider } from "@/contexts/AIContext";
-import { ConfettiProvider } from "@/components/ConfettiProvider";
 import { WritingLabProvider } from "@/contexts/WritingLabContext";
-
-// Critical pages loaded eagerly
-import { Index } from "./pages/Index";
-import { Leagues } from './pages/Leagues';
-import { Auth } from "./pages/Auth";
-import { NotFound } from "./pages/NotFound";
+import { ConfettiProvider } from "@/components/ConfettiProvider";
+import { LevelUpModal } from "@/components/effects/LevelUpModal";
 import { AppLayout } from "./components/layout/AppLayout";
+import { Index } from "./pages/Index";
 
-// All other pages lazy-loaded
+// Lazy-loaded pages
 const Vocabulary = React.lazy(() => import("./pages/Vocabulary").then(m => ({ default: m.Vocabulary })));
-const Reading = React.lazy(() => import("./pages/Reading").then(m => ({ default: m.Reading })));
-const Achievements = React.lazy(() => import("./pages/Achievements").then(m => ({ default: m.Achievements })));
-const UserGuide = React.lazy(() => import("./pages/UserGuide").then(m => ({ default: m.UserGuide })));
-const VideoLearning = React.lazy(() => import("./pages/VideoLearning").then(m => ({ default: m.VideoLearning })));
-const ModuleManager = React.lazy(() => import("./pages/ModuleManager").then(m => ({ default: m.ModuleManager })));
-const FolderManager = React.lazy(() => import("./pages/FolderManager").then(m => ({ default: m.FolderManager })));
-const KanjiDetail = React.lazy(() => import("./pages/KanjiDetail").then(m => ({ default: m.KanjiDetail })));
+const SavedVocabulary = React.lazy(() => import("./pages/SavedVocabulary"));
+const Auth = React.lazy(() => import("./pages/Auth").then(m => ({ default: m.Auth })));
+const NotFound = React.lazy(() => import("./pages/NotFound").then(m => ({ default: m.NotFound })));
+const EditProfile = React.lazy(() => import("./pages/EditProfile").then(m => ({ default: m.EditProfile })));
+const UserProfile = React.lazy(() => import("./pages/UserProfile").then(m => ({ default: m.UserProfile })));
+const Leagues = React.lazy(() => import("./pages/Leagues").then(m => ({ default: m.Leagues })));
+const LeaderboardPage = React.lazy(() => import("./pages/LeaderboardPage"));
+const Friends = React.lazy(() => import("./pages/Friends").then(m => ({ default: m.Friends })));
+const Challenges = React.lazy(() => import("./pages/Challenges").then(m => ({ default: m.Challenges })));
+const Messages = React.lazy(() => import("./pages/Messages").then(m => ({ default: m.Messages })));
+const Squads = React.lazy(() => import("./pages/Squads").then(m => ({ default: m.Squads })));
 const JLPTPortal = React.lazy(() => import("./pages/JLPTPortal").then(m => ({ default: m.JLPTPortal })));
 const JLPTLevelDetail = React.lazy(() => import("./pages/JLPTLevelDetail").then(m => ({ default: m.JLPTLevelDetail })));
-const GrammarWiki = React.lazy(() => import("./pages/GrammarWiki").then(m => ({ default: m.GrammarWiki })));
 const MockTestCenter = React.lazy(() => import("./pages/MockTestCenter").then(m => ({ default: m.MockTestCenter })));
-const UnitContent = React.lazy(() => import("./pages/UnitContent").then(m => ({ default: m.UnitContent })));
 const JLPTMockExam = React.lazy(() => import("./pages/JLPTMockExam").then(m => ({ default: m.JLPTMockExam })));
+const GrammarWiki = React.lazy(() => import("./pages/GrammarWiki").then(m => ({ default: m.GrammarWiki })));
+const Reading = React.lazy(() => import("./pages/Reading").then(m => ({ default: m.Reading })));
+const VideoLearning = React.lazy(() => import("./pages/VideoLearning").then(m => ({ default: m.VideoLearning })));
+const KanjiDetail = React.lazy(() => import("./pages/KanjiDetail").then(m => ({ default: m.KanjiDetail })));
 const KanjiWorksheet = React.lazy(() => import("./pages/KanjiWorksheet").then(m => ({ default: m.KanjiWorksheet })));
-const News = React.lazy(() => import("./pages/News").then(m => ({ default: m.News })));
-const Squads = React.lazy(() => import("./pages/Squads").then(m => ({ default: m.Squads })));
-const Challenges = React.lazy(() => import("./pages/Challenges").then(m => ({ default: m.Challenges })));
-const Friends = React.lazy(() => import("./pages/Friends").then(m => ({ default: m.Friends })));
-const UserProfile = React.lazy(() => import("./pages/UserProfile").then(m => ({ default: m.UserProfile })));
-const EditProfile = React.lazy(() => import("./pages/EditProfile").then(m => ({ default: m.EditProfile })));
-const Messages = React.lazy(() => import("./pages/Messages").then(m => ({ default: m.Messages })));
+const UnitContent = React.lazy(() => import("./pages/UnitContent").then(m => ({ default: m.UnitContent })));
+const ModuleManager = React.lazy(() => import("./pages/ModuleManager").then(m => ({ default: m.ModuleManager })));
+
+// Pages with mixed export styles (standardized below)
 const AdminImport = React.lazy(() => import("./pages/AdminImport").then(m => ({ default: m.AdminImport })));
 const StoryMode = React.lazy(() => import("./pages/StoryMode").then(m => ({ default: m.StoryMode })));
 const StoryModeFrame = React.lazy(() => import("./components/chat/SenseiChatHub/StoryModeFrame").then(m => ({ default: m.StoryModeFrame })));
-const SenseiHub = React.lazy(() => import("./pages/SenseiHub"));
-const PvPBattle = React.lazy(() => import("./pages/PvPBattle").then(m => ({ default: m.PvPBattle })));
 const AdminExamManager = React.lazy(() => import("./pages/AdminExamManager").then(m => ({ default: m.AdminExamManager })));
+
+// Default exports
+const SenseiHub = React.lazy(() => import("./pages/SenseiHub"));
+const PvPBattle = React.lazy(() => import("./pages/PvPBattle"));
 const AdminDashboard = React.lazy(() => import("./pages/AdminDashboard"));
 const QuickMode = React.lazy(() => import("./pages/QuickMode"));
 const CommunityDecks = React.lazy(() => import("./pages/CommunityDecks"));
@@ -56,82 +57,80 @@ const queryClient = new QueryClient();
 
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center bg-background">
-    <div className="flex flex-col items-center gap-3">
-      <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+    <div className="flex flex-col items-center gap-4">
+      <div className="w-12 h-12 rounded-full border-4 border-sakura/20 border-t-sakura animate-spin" />
       <p className="text-sm text-muted-foreground">読み込み中...</p>
     </div>
   </div>
 );
 
-function App() {
-  return (
-    <React.Fragment>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <ProfileProvider>
-            <ThemeProvider>
-              <FuriganaProvider>
-                <AIProvider>
-                  <WritingLabProvider>
-                    <ConfettiProvider>
-                      <TooltipProvider>
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <ConfettiProvider>
+      <AuthProvider>
+        <ProfileProvider>
+          <ThemeProvider>
+            <FuriganaProvider>
+              <AIProvider>
+                <WritingLabProvider>
+                  <TooltipProvider>
+                    <BrowserRouter>
+                      <Suspense fallback={<PageLoader />}>
+                        <LevelUpModal />
+                        <Routes>
+                          {/* Standalone Pages (No global navigation) */}
+                          <Route path="/auth" element={<Auth />} />
+                          <Route path="/quick-mode" element={<QuickMode />} />
+                          <Route path="/quiz/story/:episodeId" element={<StoryModeFrame />} />
+                          <Route path="/pvp/:challengeId" element={<PvPBattle />} />
+
+                          {/* Pages wrapped in AppLayout (With navigation) */}
+                          <Route element={<AppLayout />}>
+                            <Route path="/" element={<Index />} />
+                            <Route path="/edit-profile" element={<EditProfile />} />
+                            <Route path="/profile/:userId" element={<UserProfile />} />
+                            <Route path="/vocabulary" element={<Vocabulary />} />
+                            <Route path="/saved-vocabulary" element={<SavedVocabulary />} />
+                            <Route path="/leagues" element={<Leagues />} />
+                            <Route path="/leaderboard" element={<LeaderboardPage />} />
+                            <Route path="/friends" element={<Friends />} />
+                            <Route path="/challenges" element={<Challenges />} />
+                            <Route path="/messages" element={<Messages />} />
+                            <Route path="/messages/:userId" element={<Messages />} />
+                            <Route path="/squads" element={<Squads />} />
+                            <Route path="/jlpt" element={<JLPTPortal />} />
+                            <Route path="/jlpt/:level" element={<JLPTLevelDetail />} />
+                            <Route path="/mock-tests" element={<MockTestCenter />} />
+                            <Route path="/mock-tests/:examId" element={<JLPTMockExam />} />
+                            <Route path="/grammar" element={<GrammarWiki />} />
+                            <Route path="/reading" element={<Reading />} />
+                            <Route path="/video-learning" element={<VideoLearning />} />
+                            <Route path="/kanji/:kanji" element={<KanjiDetail />} />
+                            <Route path="/kanji-worksheet" element={<KanjiWorksheet />} />
+                            <Route path="/unit/:unitId" element={<UnitContent />} />
+                            <Route path="/modules" element={<ModuleManager />} />
+                            <Route path="/admin-import" element={<AdminImport />} />
+                            <Route path="/quiz/story" element={<StoryMode />} />
+                            <Route path="/sensei" element={<SenseiHub />} />
+                            <Route path="/admin/exam-manager" element={<AdminExamManager />} />
+                            <Route path="/admin" element={<AdminDashboard />} />
+                            <Route path="/community-decks" element={<CommunityDecks />} />
+                            <Route path="*" element={<NotFound />} />
+                          </Route>
+                        </Routes>
                         <Toaster />
                         <Sonner />
-                        <BrowserRouter>
-                          <Suspense fallback={<PageLoader />}>
-                            <Routes>
-                              <Route path="/auth" element={<Auth />} />
-                              <Route element={<AppLayout />}>
-                                <Route path="/" element={<Index />} />
-                                <Route path="/vocabulary" element={<Vocabulary />} />
-                                <Route path="/reading" element={<Reading />} />
-                                <Route path="/achievements" element={<Achievements />} />
-                                <Route path="/guide" element={<UserGuide />} />
-                                <Route path="/video-learning" element={<VideoLearning />} />
-                                <Route path="/module-manager" element={<ModuleManager />} />
-                                <Route path="/folder-manager" element={<FolderManager />} />
-                                <Route path="/kanji/:character" element={<KanjiDetail />} />
-                                <Route path="/sensei" element={<SenseiHub />} />
-                                <Route path="/learning-path" element={<JLPTPortal />} />
-                                <Route path="/learning-path/:level" element={<JLPTLevelDetail />} />
-                                <Route path="/grammar" element={<GrammarWiki />} />
-                                <Route path="/mock-tests" element={<MockTestCenter />} />
-                                <Route path="/learning-path/:level/unit/:unitId" element={<UnitContent />} />
-                                <Route path="/mock-exam/:examId" element={<JLPTMockExam />} />
-                                <Route path="/kanji-worksheet" element={<KanjiWorksheet />} />
-                                <Route path="/news" element={<News />} />
-                                <Route path="/squads" element={<Squads />} />
-                                <Route path="/challenges" element={<Challenges />} />
-                                <Route path="/friends" element={<Friends />} />
-                                <Route path="/profile/:userId" element={<UserProfile />} />
-                                <Route path="/edit-profile" element={<EditProfile />} />
-                                <Route path="/messages" element={<Messages />} />
-                                <Route path="/leagues" element={<Leagues />} />
-                                <Route path="/admin/import" element={<AdminImport />} />
-                                <Route path="/quiz/story" element={<StoryMode />} />
-                                <Route path="/pvp/:challengeId" element={<PvPBattle />} />
-                                <Route path="/admin/exam-manager" element={<AdminExamManager />} />
-                                <Route path="/admin/dashboard" element={<AdminDashboard />} />
-                                {/* ── New Learning Technique Routes ── */}
-                                <Route path="/quick" element={<QuickMode />} />
-                                <Route path="/community-decks" element={<CommunityDecks />} />
-                              </Route>
-                              <Route path="/quiz/story/:episodeId" element={<StoryModeFrame />} />
-                              <Route path="*" element={<NotFound />} />
-                            </Routes>
-                          </Suspense>
-                        </BrowserRouter>
-                      </TooltipProvider>
-                    </ConfettiProvider>
-                  </WritingLabProvider>
-                </AIProvider>
-              </FuriganaProvider>
-            </ThemeProvider>
-          </ProfileProvider>
-        </AuthProvider>
-      </QueryClientProvider>
-    </React.Fragment>
-  );
-}
+                      </Suspense>
+                    </BrowserRouter>
+                  </TooltipProvider>
+                </WritingLabProvider>
+              </AIProvider>
+            </FuriganaProvider>
+          </ThemeProvider>
+        </ProfileProvider>
+      </AuthProvider>
+    </ConfettiProvider>
+  </QueryClientProvider>
+);
 
 export default App;

@@ -1362,6 +1362,53 @@ export type Database = {
           },
         ]
       }
+      user_evolved_skills: {
+        Row: {
+          challenge_data: Json
+          created_at: string | null
+          description: string | null
+          expires_at: string | null
+          id: string
+          status: string
+          title: string
+          type: string
+          user_id: string
+          xp_reward: number | null
+        }
+        Insert: {
+          challenge_data?: Json
+          created_at?: string | null
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          status?: string
+          title: string
+          type: string
+          user_id: string
+          xp_reward?: number | null
+        }
+        Update: {
+          challenge_data?: Json
+          created_at?: string | null
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          status?: string
+          title?: string
+          type?: string
+          user_id?: string
+          xp_reward?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_evolved_skills_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       user_mistakes: {
         Row: {
           context: string | null

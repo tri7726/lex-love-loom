@@ -85,13 +85,15 @@ serve(async (req: Request) => {
       }),
     });
 
-    const groqData = await groqRes.json();
-    if (!groqData.choices || groqData.choices.length === 0) {
+    const groqData = await groqRes.json() as Record<string, unknown>;
+    const choices = groqData.choices as Array<Record<string, unknown>>;
+    if (!choices || choices.length === 0) {
       throw new Error("Groq AI failed to generate response: No choices found");
     }
     
-    const content = groqData.choices[0].message.content;
-    const result = JSON.parse(content);
+    const message = choices[0].message as Record<string, unknown>;
+    const content = message.content as string;
+    const result = JSON.parse(content) as Record<string, unknown>;
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

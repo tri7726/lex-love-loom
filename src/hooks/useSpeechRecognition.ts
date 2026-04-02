@@ -30,7 +30,7 @@ export const useSpeechRecognition = ({
 
     recognition.onresult = (event: any) => {
       let currentTranscript = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
+      for (let i = 0; i < event.results.length; i++) {
         currentTranscript += event.results[i][0].transcript;
       }
       setTranscript(currentTranscript);

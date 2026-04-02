@@ -8,6 +8,7 @@ import { Sparkles, Volume2, EyeOff, Eye, RotateCcw, Loader2, Trophy, BarChart3, 
 import { calculateNextReview, getQualityFromAction, getIntervalText, getMasteryPercentage, getMasteryColor } from '@/lib/srs';
 import { useAI } from '@/contexts/AIContext';
 import { toast } from 'sonner';
+import { useConfetti } from '@/hooks/useConfetti';
 
 interface Flashcard {
   id: string;
@@ -45,6 +46,7 @@ export const FlashcardSRS: React.FC<FlashcardSRSProps> = ({
   const [startTime] = useState(Date.now());
   const [showSummary, setShowSummary] = useState(false);
   const { analyzeText, isAnalyzing } = useAI();
+  const confetti = useConfetti();
 
   const currentCard = flashcards[currentIndex];
   const progress = ((reviewedCount / flashcards.length) * 100);
@@ -81,7 +83,10 @@ export const FlashcardSRS: React.FC<FlashcardSRSProps> = ({
 
     if (isLastCard) {
       setShowSummary(true);
-      setTimeout(() => onComplete(), 1000);
+      setTimeout(() => {
+        confetti.fire('school');
+        onComplete();
+      }, 1000);
     } else {
       setCurrentIndex(prev => prev + 1);
     }
