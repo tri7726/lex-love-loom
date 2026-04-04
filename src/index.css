@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap");
 
 @import "tailwindcss";
 
@@ -7,51 +7,49 @@
   --container-padding: 2rem;
   --container-max-width-7xl: 80rem;
 
-  /* Refined warm-neutral palette with indigo-ink accent */
-  --color-background: hsl(40 30% 97%);
-  --color-foreground: hsl(220 20% 14%);
+  /* Classic Sakura: white + cherry blossom pink */
+  --color-background: hsl(0 0% 100%);
+  --color-foreground: hsl(240 10% 15%);
 
-  --color-card: hsl(40 20% 99%);
-  --color-card-foreground: hsl(220 20% 14%);
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(240 10% 15%);
 
-  --color-popover: hsl(40 20% 99%);
-  --color-popover-foreground: hsl(220 20% 14%);
+  --color-popover: hsl(0 0% 100%);
+  --color-popover-foreground: hsl(240 10% 15%);
 
-  /* Deep indigo-ink primary — sophisticated, not generic */
-  --color-primary: hsl(235 35% 38%);
+  /* Cherry blossom pink primary */
+  --color-primary: hsl(340 65% 60%);
   --color-primary-foreground: hsl(0 0% 100%);
 
-  /* Warm stone secondary */
-  --color-secondary: hsl(35 25% 91%);
-  --color-secondary-foreground: hsl(220 15% 25%);
+  --color-secondary: hsl(340 30% 95%);
+  --color-secondary-foreground: hsl(340 40% 30%);
 
-  --color-muted: hsl(35 15% 95%);
-  --color-muted-foreground: hsl(220 10% 46%);
+  --color-muted: hsl(340 15% 96%);
+  --color-muted-foreground: hsl(240 5% 46%);
 
-  /* Muted terracotta accent */
-  --color-accent: hsl(16 55% 52%);
+  --color-accent: hsl(340 50% 55%);
   --color-accent-foreground: hsl(0 0% 100%);
 
   --color-destructive: hsl(0 65% 50%);
   --color-destructive-foreground: hsl(0 0% 100%);
 
-  --color-border: hsl(35 15% 90%);
-  --color-input: hsl(35 15% 90%);
-  --color-ring: hsl(235 35% 38%);
+  --color-border: hsl(340 20% 92%);
+  --color-input: hsl(340 20% 92%);
+  --color-ring: hsl(340 65% 60%);
 
   --radius-lg: 0.875rem;
 
-  /* Sakura — muted, refined rose */
-  --color-sakura: hsl(345 45% 58%);
-  --color-sakura-light: hsl(345 40% 96%);
-  --color-sakura-soft: hsl(345 35% 93%);
-  --color-sakura-dark: hsl(345 40% 40%);
+  /* Sakura colors */
+  --color-sakura: hsl(340 65% 65%);
+  --color-sakura-light: hsl(340 60% 96%);
+  --color-sakura-soft: hsl(340 50% 94%);
+  --color-sakura-dark: hsl(340 55% 40%);
   --color-crimson: hsl(350 55% 35%);
   --color-crimson-light: hsl(350 40% 94%);
   --color-crimson-dark: hsl(350 55% 22%);
   --color-gold: hsl(42 70% 48%);
   --color-gold-light: hsl(45 65% 72%);
-  --color-cream: hsl(40 30% 94%);
+  --color-cream: hsl(340 20% 97%);
   --color-matcha: hsl(158 32% 38%);
   --color-matcha-light: hsl(158 30% 93%);
   --color-matcha-dark: hsl(158 32% 24%);
@@ -62,13 +60,13 @@
   --color-sumi-light: hsl(220 10% 92%);
   --color-sumi-dark: hsl(220 18% 6%);
 
-  /* Gradients — subdued, warm */
-  --background-image-gradient-sakura: linear-gradient(135deg, hsl(345 45% 58%), hsl(16 55% 52%));
-  --background-image-gradient-sakura-soft: linear-gradient(135deg, hsl(40 25% 97%), hsl(345 40% 96%));
-  --background-image-gradient-sakura-intense: linear-gradient(135deg, hsl(235 35% 38%), hsl(345 45% 50%));
+  /* Gradients — sakura pink */
+  --background-image-gradient-sakura: linear-gradient(135deg, hsl(340 65% 65%), hsl(350 55% 55%));
+  --background-image-gradient-sakura-soft: linear-gradient(135deg, hsl(0 0% 100%), hsl(340 60% 96%));
+  --background-image-gradient-sakura-intense: linear-gradient(135deg, hsl(340 65% 55%), hsl(350 60% 45%));
   --background-image-gradient-gold: linear-gradient(135deg, hsl(42 70% 48%), hsl(45 65% 62%));
   --background-image-gradient-matcha: linear-gradient(135deg, hsl(158 32% 38%), hsl(148 35% 48%));
-  --background-image-gradient-hero: linear-gradient(180deg, hsl(40 30% 97%), hsl(35 25% 93%));
+  --background-image-gradient-hero: linear-gradient(180deg, hsl(0 0% 100%), hsl(340 30% 97%));
 
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
@@ -79,14 +77,14 @@
   --animate-pulse: pulse 2s ease-in-out infinite;
   --animate-shake: shake 0.2s ease-in-out 0s 2;
 
-  /* Shadows — warm tinted */
-  --shadow-soft: 0 8px 30px -8px hsl(220 20% 14% / 0.08);
-  --shadow-card: 0 2px 16px -2px hsl(220 20% 14% / 0.05);
-  --shadow-elevated: 0 16px 40px -10px hsl(220 20% 14% / 0.12);
+  /* Shadows */
+  --shadow-soft: 0 8px 30px -8px hsl(340 30% 50% / 0.08);
+  --shadow-card: 0 2px 16px -2px hsl(340 30% 50% / 0.06);
+  --shadow-elevated: 0 16px 40px -10px hsl(340 30% 50% / 0.12);
 
   /* Typography */
-  --font-sans: "DM Sans", "Noto Sans JP", system-ui, sans-serif;
-  --font-serif: "Fraunces", "Noto Sans JP", serif;
+  --font-sans: "Outfit", "Noto Sans JP", system-ui, sans-serif;
+  --font-serif: "Outfit", "Noto Sans JP", serif;
   --font-jp: "Noto Sans JP", "Hiragino Sans", "Meiryo", sans-serif;
 }
 
