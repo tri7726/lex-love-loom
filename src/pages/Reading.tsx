@@ -285,12 +285,12 @@ export const Reading = () => {
       // Fetch recommended reading
       if (user?.id) {
         try {
-          const { data: recData } = await supabase.rpc('get_recommended_reading', {
+          const { data: recData } = await supabase.rpc('get_recommended_reading' as any, {
             p_user_id: user.id,
             p_limit: 3
           });
           if (recData) {
-            setRecommendedPassages(recData);
+            setRecommendedPassages(recData as any);
           }
         } catch (e) {
           console.warn('Could not fetch recommended passages:', e);

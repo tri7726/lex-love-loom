@@ -244,6 +244,30 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_quest_progress: {
+        Row: {
+          is_claimed: boolean | null
+          is_completed: boolean | null
+          quest_date: string
+          quest_id: string
+          user_id: string
+        }
+        Insert: {
+          is_claimed?: boolean | null
+          is_completed?: boolean | null
+          quest_date?: string
+          quest_id: string
+          user_id: string
+        }
+        Update: {
+          is_claimed?: boolean | null
+          is_completed?: boolean | null
+          quest_date?: string
+          quest_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       favorite_videos: {
         Row: {
           created_at: string
@@ -278,38 +302,6 @@ export type Database = {
             referencedRelation: "video_sources_public"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      daily_quest_progress: {
-        Row: {
-          is_claimed: boolean | null
-          is_completed: boolean | null
-          quest_date: string
-          quest_id: string
-          user_id: string
-        }
-        Insert: {
-          is_claimed?: boolean | null
-          is_completed?: boolean | null
-          quest_date?: string
-          quest_id: string
-          user_id: string
-        }
-        Update: {
-          is_claimed?: boolean | null
-          is_completed?: boolean | null
-          quest_date?: string
-          quest_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "daily_quest_progress_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          }
         ]
       }
       flashcards: {
@@ -1214,6 +1206,53 @@ export type Database = {
         }
         Relationships: []
       }
+      squad_goals: {
+        Row: {
+          created_at: string | null
+          current_value: number
+          description: string | null
+          expires_at: string
+          id: string
+          reward_xp: number
+          squad_id: string
+          status: string | null
+          target_value: number
+          title: string
+        }
+        Insert: {
+          created_at?: string | null
+          current_value?: number
+          description?: string | null
+          expires_at: string
+          id?: string
+          reward_xp?: number
+          squad_id: string
+          status?: string | null
+          target_value?: number
+          title: string
+        }
+        Update: {
+          created_at?: string | null
+          current_value?: number
+          description?: string | null
+          expires_at?: string
+          id?: string
+          reward_xp?: number
+          squad_id?: string
+          status?: string | null
+          target_value?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "squad_goals_squad_id_fkey"
+            columns: ["squad_id"]
+            isOneToOne: false
+            referencedRelation: "study_squads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       squad_members: {
         Row: {
           id: string
@@ -1246,6 +1285,38 @@ export type Database = {
           },
         ]
       }
+      squad_messages: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          squad_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          squad_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          squad_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "squad_messages_squad_id_fkey"
+            columns: ["squad_id"]
+            isOneToOne: false
+            referencedRelation: "study_squads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       study_squads: {
         Row: {
           avatar_url: string | null
@@ -1255,7 +1326,9 @@ export type Database = {
           name: string
           owner_id: string
           tags: string[] | null
+          total_xp: number | null
           updated_at: string
+          weekly_xp: number | null
         }
         Insert: {
           avatar_url?: string | null
@@ -1265,7 +1338,9 @@ export type Database = {
           name: string
           owner_id: string
           tags?: string[] | null
+          total_xp?: number | null
           updated_at?: string
+          weekly_xp?: number | null
         }
         Update: {
           avatar_url?: string | null
@@ -1275,7 +1350,9 @@ export type Database = {
           name?: string
           owner_id?: string
           tags?: string[] | null
+          total_xp?: number | null
           updated_at?: string
+          weekly_xp?: number | null
         }
         Relationships: []
       }
@@ -1392,53 +1469,6 @@ export type Database = {
             referencedRelation: "kanji"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      user_evolved_skills: {
-        Row: {
-          challenge_data: Json
-          created_at: string | null
-          description: string | null
-          expires_at: string | null
-          id: string
-          status: string
-          title: string
-          type: string
-          user_id: string
-          xp_reward: number | null
-        }
-        Insert: {
-          challenge_data?: Json
-          created_at?: string | null
-          description?: string | null
-          expires_at?: string | null
-          id?: string
-          status?: string
-          title: string
-          type: string
-          user_id: string
-          xp_reward?: number | null
-        }
-        Update: {
-          challenge_data?: Json
-          created_at?: string | null
-          description?: string | null
-          expires_at?: string | null
-          id?: string
-          status?: string
-          title?: string
-          type?: string
-          user_id?: string
-          xp_reward?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_evolved_skills_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          }
         ]
       }
       user_mistakes: {
@@ -1853,11 +1883,13 @@ export type Database = {
       }
       vocabulary_folders: {
         Row: {
+          clone_count: number | null
           color: string | null
           created_at: string | null
           description: string | null
           icon: string | null
           id: string
+          is_public: boolean | null
           module_id: string | null
           name: string
           order_index: number | null
@@ -1866,11 +1898,13 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          clone_count?: number | null
           color?: string | null
           created_at?: string | null
           description?: string | null
           icon?: string | null
           id?: string
+          is_public?: boolean | null
           module_id?: string | null
           name: string
           order_index?: number | null
@@ -1879,11 +1913,13 @@ export type Database = {
           user_id: string
         }
         Update: {
+          clone_count?: number | null
           color?: string | null
           created_at?: string | null
           description?: string | null
           icon?: string | null
           id?: string
+          is_public?: boolean | null
           module_id?: string | null
           name?: string
           order_index?: number | null
@@ -2017,9 +2053,23 @@ export type Database = {
       }
     }
     Functions: {
+      check_achievements: { Args: { p_user_id: string }; Returns: undefined }
+      clone_public_deck: { Args: { p_folder_id: string }; Returns: string }
       earn_xp: {
         Args: { p_amount: number; p_source: string }
         Returns: undefined
+      }
+      get_community_decks: {
+        Args: never
+        Returns: {
+          card_count: number
+          clone_count: number
+          created_at: string
+          description: string
+          id: string
+          name: string
+          owner_name: string
+        }[]
       }
       get_due_flashcards_count: { Args: { user_uuid: string }; Returns: number }
       get_folder_flashcard_count: {
@@ -2027,6 +2077,18 @@ export type Database = {
         Returns: number
       }
       get_kanji_details: { Args: { kanji_char: string }; Returns: Json }
+      get_recommended_reading: {
+        Args: { p_limit?: number; p_user_id: string }
+        Returns: {
+          category: string
+          learning_count: number
+          level: string
+          mastered_count: number
+          match_percentage: number
+          passage_id: string
+          title: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
