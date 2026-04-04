@@ -289,7 +289,6 @@ export const Index = () => {
         }}
         initial="hidden"
         animate="show"
-        animate="show"
         className="py-8 space-y-10"
       >
         {/* Streak Reminder */}
