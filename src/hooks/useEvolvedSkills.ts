@@ -85,7 +85,7 @@ export const useEvolvedSkills = () => {
       if (!skill) return;
 
       // 1. Update status in DB
-      const { error: updateError } = await supabase
+      const { error: updateError } = await (supabase as any)
         .from('user_evolved_skills')
         .update({ status: 'mastered' })
         .eq('id', skillId);
