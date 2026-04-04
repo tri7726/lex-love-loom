@@ -33,7 +33,7 @@ export const SakuraPageLayout: React.FC<SakuraPageLayoutProps> = ({
           damping: 20,
           duration: 0.5 
         }}
-        className="relative z-10 w-full"
+        className="relative z-10 w-full container max-w-7xl mx-auto px-4 md:px-8 pb-32"
       >
         {children}
       </motion.div>

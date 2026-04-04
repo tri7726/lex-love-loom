@@ -290,7 +290,7 @@ export const Index = () => {
         initial="hidden"
         animate="show"
         animate="show"
-        className="container max-w-7xl mx-auto py-8 space-y-10"
+        className="py-8 space-y-10"
       >
         {/* Streak Reminder */}
         <motion.div variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
