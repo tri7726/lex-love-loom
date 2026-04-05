@@ -102,7 +102,7 @@ export const FlashcardSRS: React.FC<FlashcardSRSProps> = ({
       setTotalCorrect(c => c + 1);
       if (newStreak === 5) {
         toast.success('🔥 5 thẻ liên tiếp! Tuyệt vời!');
-        confetti.fire('basic');
+        confetti.fire('success');
       } else if (newStreak === 10) {
         toast.success('⚡ 10 thẻ liên tiếp! Xuất sắc!');
         confetti.fire('school');
