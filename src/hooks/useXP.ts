@@ -38,39 +38,41 @@ export const useXP = () => {
     if (xpAmount === 0) return;
 
     try {
-      // 1. Log xp_event
-      await (supabase as any).from('xp_events').insert({
-        user_id: user.id,
-        source,
-        amount: xpAmount,
-        metadata: metadata ?? {},
-      });
-
-      // 2. Increment total_xp on profile
+      // Fetch current level BEFORE awarding XP (for level-up detection)
       const { data: profile } = await (supabase as any)
         .from('profiles')
         .select('total_xp')
         .eq('user_id', user.id)
         .single();
 
-      const newXP = Math.max(0, (profile?.total_xp ?? 0) + xpAmount);
-
-      await (supabase as any)
-        .from('profiles')
-        .update({ total_xp: newXP })
-        .eq('user_id', user.id);
-
-      // Level Up Logic
       const oldLevel = getLevelInfo(profile?.total_xp ?? 0).level;
-      const newLevel = getLevelInfo(newXP).level;
-      
+
+      // Atomic increment via RPC — no race condition
+      const { data: newXP, error } = await supabase.rpc('earn_xp' as any, {
+        p_amount: xpAmount,
+        p_source: source,
+      });
+      if (error) throw error;
+
+      // Optional: log metadata in xp_events separately (non-blocking)
+      if (metadata && Object.keys(metadata).length > 0) {
+        (supabase as any).from('xp_events').insert({
+          user_id: user.id,
+          source,
+          amount: xpAmount,
+          metadata,
+        }).catch(() => {});
+      }
+
+      // Level-up detection
+      const resolvedXP = typeof newXP === 'number' ? newXP : (profile?.total_xp ?? 0) + xpAmount;
+      const newLevel = getLevelInfo(resolvedXP).level;
       if (newLevel > oldLevel) {
-        // Trigger generic app event for Level Up Modal
-        window.dispatchEvent(new CustomEvent('level-up', { detail: { level: newLevel, totalXp: newXP } }));
+        window.dispatchEvent(new CustomEvent('level-up', { detail: { level: newLevel, totalXp: resolvedXP } }));
         setTimeout(() => confetti.fire('school'), 500);
       }
 
-      return newXP;
+      return resolvedXP;
     } catch (err) {
       console.error('awardXP error:', err);
     }

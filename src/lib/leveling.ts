@@ -18,7 +18,7 @@ export interface LevelInfo {
 
 export function getLevelInfo(totalXp: number): LevelInfo {
   // Solve for Level: L^2 + L - (XP/250) = 0
-  const xp = Math.max(0, totalXp);
+  const xp = isNaN(totalXp) || !isFinite(totalXp) ? 0 : Math.max(0, totalXp);
   const currentLevel = Math.floor((-1 + Math.sqrt(1 + (4 * xp) / 250)) / 2);
   
   const xpForCurrentLevel = currentLevel * (currentLevel + 1) * 250;

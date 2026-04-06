@@ -52,40 +52,13 @@ import { cn } from '@/lib/utils';
 import { useWritingLab } from '@/contexts/WritingLabContext';
 import { getLevelInfo } from '@/lib/leveling';
 import { Progress } from '@/components/ui/progress';
+import { useFriends } from '@/hooks/useFriends';
 
 import { MINNA_N5_VOCAB } from '@/data/minna-n5';
 
 // Daily Tasks will now be calculated dynamically in the component
 
-// Get Word of the Day dynamic based on date
-const getWordOfTheDay = () => {
-  const allWords = MINNA_N5_VOCAB.flat();
-  if (allWords.length === 0) {
-    return {
-      word: '頑張る',
-      furigana: 'がんばる',
-      meaning: 'to do one\'s best, to persevere',
-      example: '毎日頑張っています。',
-      exampleMeaning: 'I\'m doing my best every day.',
-    };
-  }
-  
-  // Use current date as a seed for consistent daily selection
-  const today = new Date();
-  const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000);
-  const wordIndex = dayOfYear % allWords.length;
-  const word = allWords[wordIndex];
-  
-  return {
-    word: word.word,
-    furigana: word.reading || '',
-    meaning: word.meaning,
-    example: word.example || word.example_sentence || null,
-    exampleMeaning: word.exampleMeaning || word.example_translation || null,
-  };
-};
-
-const wordOfTheDay = getWordOfTheDay();
+// wordOfTheDay logic is now inside the component using useMemo to ensure safety
 
 export const Index = () => {
   const navigate = useNavigate();
@@ -100,6 +73,9 @@ export const Index = () => {
   const [loadingDue, setLoadingDue] = useState(false);
   const [writingRecs, setWritingRecs] = useState<any[]>([]);
   const [loadingRecs, setLoadingRecs] = useState(false);
+  const [todayXP, setTodayXP] = useState(0);
+  const { friends } = useFriends();
+
 
   const fetchDueCards = useCallback(async () => {
     if (!user) return;
@@ -170,11 +146,61 @@ export const Index = () => {
       fetchLeaderboard();
       fetchDueCards();
       fetchWritingRecommendations();
+      // Fetch today's XP earned
+      const today = new Date().toISOString().split('T')[0];
+      (supabase as any)
+        .from('xp_events')
+        .select('amount')
+        .eq('user_id', user.id)
+        .gte('created_at', `${today}T00:00:00`)
+        .then(({ data }: { data: { amount: number }[] | null }) => {
+          const sum = (data || []).reduce((acc, e) => acc + (e.amount || 0), 0);
+          setTodayXP(sum);
+        });
     }
   }, [user?.id]); // Only run on login or user change
 
+  const wordOfTheDay = useMemo(() => {
+    try {
+      const allWords = MINNA_N5_VOCAB.flat();
+      if (!allWords || allWords.length === 0) {
+        return {
+          word: '頑張る',
+          furigana: 'がんばる',
+          meaning: 'đang tải dữ liệu...',
+          example: '毎日頑張っています。',
+          exampleMeaning: 'Tôi đang nỗ lực mỗi ngày.',
+        };
+      }
+      
+      const today = new Date();
+      const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000);
+      const wordIndex = Math.max(0, dayOfYear % allWords.length);
+      const ẇ = allWords[wordIndex];
+      
+      if (!ẇ) throw new Error("Word selection failed");
+
+      return {
+        word: ẇ.word,
+        furigana: ẇ.reading || '',
+        meaning: ẇ.meaning,
+        example: ẇ.example || ẇ.example_sentence || null,
+        exampleMeaning: ẇ.exampleMeaning || ẇ.example_translation || null,
+      };
+    } catch (e) {
+      console.error("Error generating word of the day:", e);
+      return {
+        word: '頑張る',
+        furigana: 'がんばる',
+        meaning: 'cố gắng lên',
+        example: null,
+        exampleMeaning: null,
+      };
+    }
+  }, []);
+
   const userStats = useMemo(() => {
-    if (!profile) return {
+    const defaultStats = {
       streak: 0,
       totalXp: 0,
       wordsLearned: 0,
@@ -182,25 +208,32 @@ export const Index = () => {
       level: 'N5',
       levelInfo: getLevelInfo(0),
       jlptProgress: {
-        N5: 45, // Demo values
-        N4: 12,
+        N5: 0,
+        N4: 0,
         N3: 0,
       }
     };
 
-    return {
-      streak: profile.current_streak || 0,
-      totalXp: profile.total_xp || 0,
-      wordsLearned: history.length,
-      quizzesCompleted: 0,
-      level: profile.jlpt_level || 'N5',
-      levelInfo: getLevelInfo(profile.total_xp || 0),
-      jlptProgress: {
-        N5: Math.min(100, ((profile.total_xp || 0) / 1000) * 100),
-        N4: Math.max(0, Math.min(100, (((profile.total_xp || 0) - 1000) / 2000) * 100)),
-        N3: 0,
-      }
-    };
+    if (!profile) return defaultStats;
+
+    try {
+      return {
+        streak: profile.current_streak || 0,
+        totalXp: profile.total_xp || 0,
+        wordsLearned: history?.length || 0,
+        quizzesCompleted: 0, // Placeholder
+        level: profile.jlpt_level || 'N5',
+        levelInfo: getLevelInfo(profile.total_xp || 0),
+        jlptProgress: {
+          N5: Math.min(100, ((profile.total_xp || 0) / 1000) * 100),
+          N4: Math.max(0, Math.min(100, (((profile.total_xp || 0) - 1000) / 2000) * 100)),
+          N3: 0,
+        }
+      };
+    } catch (err) {
+      console.error("Error calculating userStats:", err);
+      return defaultStats;
+    }
   }, [profile, history]);
 
   const dynamicTasks = useMemo(() => {
@@ -300,7 +333,7 @@ export const Index = () => {
         <motion.section
           variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
         >
-          <Link to="/quick">
+          <Link to="/quick-mode">
             <div className="relative overflow-hidden rounded-3xl p-5 flex items-center gap-5 cursor-pointer group shadow-soft hover:shadow-elevated transition-shadow"
                  style={{ background: 'var(--gradient-sakura)' }}>
               {/* BG decoration */}
@@ -627,20 +660,35 @@ export const Index = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-1 space-y-4">
-                <div className="text-center py-2">
-                  <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Hạng hiện tại</p>
-                  <p className="text-4xl font-black text-gold">#4</p>
-                  <Badge className="bg-slate-400 mt-2 text-[10px] font-bold">GIẢI BẠC</Badge>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-[10px] font-bold">
-                    <span>Lên TOP 3</span>
-                    <span className="text-primary font-black">+250 XP</span>
-                  </div>
-                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                    <div className="h-full bg-primary" style={{ width: '75%' }} />
-                  </div>
-                </div>
+                {(() => {
+                  const myEntry = leaderboard.find(e => e.isCurrentUser);
+                  const myRank = myEntry?.rank ?? null;
+                  const nextEntry = myRank && myRank > 1 ? leaderboard.find(e => e.rank === myRank - 1) : null;
+                  const xpGap = myEntry && nextEntry ? Math.max(0, nextEntry.xp - myEntry.xp) : null;
+                  const rankBadge = myRank === 1 ? 'GIẢI VÀNG' : myRank === 2 ? 'GIẢI BẠC' : myRank === 3 ? 'GIẢI ĐỒNG' : `Hạng ${myRank ?? '?'}`;
+                  const badgeColor = myRank === 1 ? 'bg-amber-400' : myRank === 2 ? 'bg-slate-400' : myRank === 3 ? 'bg-orange-600' : 'bg-muted-foreground';
+                  return (
+                    <div className="text-center py-2">
+                      <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Hạng hiện tại</p>
+                      <p className="text-4xl font-black text-gold">#{myRank ?? '?'}</p>
+                      <Badge className={`${badgeColor} mt-2 text-[10px] font-bold text-white`}>{rankBadge}</Badge>
+                      {nextEntry && xpGap !== null && xpGap > 0 && (
+                        <div className="space-y-2 mt-3">
+                          <div className="flex justify-between text-[10px] font-bold">
+                            <span>Lên TOP {myRank! - 1}</span>
+                            <span className="text-primary font-black">+{xpGap} XP</span>
+                          </div>
+                          <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-primary transition-all duration-500"
+                              style={{ width: `${Math.min(100, 100 - (xpGap / Math.max(1, nextEntry.xp)) * 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </CardContent>
               <CardFooter className="pt-0 border-t border-border/50 mt-auto">
                 <Link to="/leagues" className="w-full">
@@ -694,15 +742,23 @@ export const Index = () => {
               </CardHeader>
               <CardContent className="flex-1 space-y-6 pt-4">
                 <div className="flex -space-x-3 overflow-hidden justify-center py-2">
-                  {[1, 2, 3, 4, 5].map((i) => (
+                  {(friends || []).slice(0, 5).map((f, i) => (
+                    <Avatar key={f.user_id ?? i} className="inline-block h-12 w-12 rounded-2xl ring-4 ring-background shadow-md">
+                      <AvatarImage src={f.avatar_url ?? undefined} />
+                      <AvatarFallback className="text-xs bg-secondary/10 text-secondary font-bold">
+                        {(f.display_name ?? `U${i + 1}`).slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  ))}
+                  {(friends?.length ?? 0) === 0 && [1,2,3].map((i) => (
                     <Avatar key={i} className="inline-block h-12 w-12 rounded-2xl ring-4 ring-background shadow-md">
-                      <AvatarFallback className="text-xs bg-secondary/10 text-secondary font-bold">U{i}</AvatarFallback>
+                      <AvatarFallback className="text-xs bg-secondary/10 text-secondary font-bold">?</AvatarFallback>
                     </Avatar>
                   ))}
                 </div>
                 <div className="text-center space-y-1">
-                  <p className="text-sm font-medium">Bạn đang theo dõi <strong>16 người</strong></p>
-                  <p className="text-xs text-muted-foreground">Có <span className="text-green-500 font-bold">3 người</span> đang trực tuyến học tập.</p>
+                  <p className="text-sm font-medium">Bạn đang theo dõi <strong>{friends?.length ?? 0} người</strong></p>
+                  <p className="text-xs text-muted-foreground">Kết nối với bạn bè để cùng học!</p>
                 </div>
               </CardContent>
               <CardFooter className="pt-0 border-t border-border/50">
@@ -723,7 +779,7 @@ export const Index = () => {
             <DailyPractice
               tasks={dynamicTasks}
               onStartTask={handleStartTask}
-              totalXpToday={0}
+              totalXpToday={todayXP}
               dailyGoal={100}
             />
           </div>

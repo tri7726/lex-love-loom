@@ -37,6 +37,32 @@ function nextInterval(s: number): number {
   return Math.max(1, Math.round(s / FACTOR * (REQUEST_RETENTION ** (1 / DECAY) - 1)));
 }
 
+/**
+ * Preview next intervals for all 4 ratings without writing to DB.
+ * Returns { again, hard, good, easy } in days.
+ */
+export function previewIntervals(card: { fsrs_difficulty?: number; fsrs_stability?: number; fsrs_state?: string; interval?: number } | null): { again: number; hard: number; good: number; easy: number } {
+  if (!card || !card.fsrs_state || card.fsrs_state === 'new') {
+    // First review previews
+    return {
+      again: 1,
+      hard: nextInterval(initStability(2)),
+      good: nextInterval(initStability(3)),
+      easy: nextInterval(initStability(4)),
+    };
+  }
+  const t = card.interval ?? 1;
+  const s = card.fsrs_stability ?? 1;
+  const d = card.fsrs_difficulty ?? 5;
+  const r = forgettingCurve(t, s);
+  return {
+    again: 1,
+    hard: nextInterval(updateStability(d, s, r, 2)),
+    good: nextInterval(updateStability(d, s, r, 3)),
+    easy: nextInterval(updateStability(d, s, r, 4)),
+  };
+}
+
 function updateDifficulty(d: number, rating: number): number {
   const delta = -w[6] * (rating - 3);
   const mean = 5 - (5 - d) * Math.exp(-w[7] * (w[6] - 1 - delta));

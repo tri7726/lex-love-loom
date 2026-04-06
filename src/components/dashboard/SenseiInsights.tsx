@@ -19,6 +19,7 @@ import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
 
 interface InsightData {
   performance_summary: string;
@@ -33,6 +34,7 @@ interface InsightData {
 }
 
 export const SenseiInsights: React.FC<{ userId: string }> = ({ userId }) => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<InsightData | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
@@ -199,7 +201,11 @@ export const SenseiInsights: React.FC<{ userId: string }> = ({ userId }) => {
         </CardContent>
 
         <CardFooter className="bg-sakura/5 border-t border-sakura/10 p-4">
-           <Button variant="ghost" className="w-full text-xs font-bold text-sakura uppercase tracking-widest gap-2 hover:bg-sakura/10">
+           <Button
+             variant="ghost"
+             className="w-full text-xs font-bold text-sakura uppercase tracking-widest gap-2 hover:bg-sakura/10"
+             onClick={() => navigate('/sensei')}
+           >
              Mở lộ trình ôn tập chi tiết <ArrowRight className="h-3 w-3" />
            </Button>
         </CardFooter>

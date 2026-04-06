@@ -1,4 +1,7 @@
+// @ts-nocheck: suppressing standard TS errors in Deno edge function
+// @ts-ignore Deno imports
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// @ts-ignore Deno imports
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -58,34 +61,54 @@ serve(async (req: Request) => {
       context = `Người dùng đang gặp khó khăn với các từ sau: ${JSON.stringify(flashcards)}. Hãy thiết kế một Skill Quest để giúp họ khắc phục.`;
     }
 
-    const apiKey = Deno.env.get("GROQ_API_KEY_1") || Deno.env.get("GROQ_API_KEY");
+    const apiKeys = [
+      Deno.env.get("GROQ_API_KEY_1"),
+      Deno.env.get("GROQ_API_KEY_2"),
+      Deno.env.get("GROQ_API_KEY_3"),
+      Deno.env.get("GROQ_API_KEY"),
+    ].filter(Boolean) as string[];
 
-    const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: context }
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.7,
-      }),
-    });
+    // Use 8B for EvoSkill generation: high volume (14,400 req/day),
+    // fast enough for JSON task generation, 70B as quality fallback
+    const modelPriority = ["llama-3.1-8b-instant", "llama-3.3-70b-versatile"];
 
-    const groqData = await groqRes.json() as Record<string, unknown>;
+    let groqData: Record<string, unknown> | null = null;
+    outer: for (const model of modelPriority) {
+      for (const apiKey of apiKeys) {
+        const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: SYSTEM_PROMPT },
+              { role: "user", content: context }
+            ],
+            response_format: { type: "json_object" },
+            temperature: 0.7,
+          }),
+        });
+        if (groqRes.ok) {
+          groqData = await groqRes.json() as Record<string, unknown>;
+          console.log(`✅ EvoSkill generated with ${model}`);
+          break outer;
+        }
+        const errText = await groqRes.text();
+        console.warn(`EvoSkill: model ${model} / key failed: ${errText.slice(0, 80)}`);
+      }
+    }
+    if (!groqData) throw new Error("All AI models failed to generate skill");
     const choices = groqData.choices as Array<Record<string, unknown>>;
     if (!choices || choices.length === 0) {
       throw new Error("AI failed to generate skill");
     }
     
     const message = choices[0].message as Record<string, unknown>;
-    let content = message.content as string;
-    let skillData = JSON.parse(content);
+    const content = message.content as string;
+    const skillData = JSON.parse(content);
 
     // Insert into database
     const { data: insertedData, error: insertError } = await supabaseClient

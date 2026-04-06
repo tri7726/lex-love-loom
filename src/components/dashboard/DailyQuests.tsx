@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   CheckCircle2, 
   Circle, 
@@ -9,16 +9,19 @@ import {
   MessageSquare,
   Gift,
   Brain,
-  Loader2
+  Loader2,
+  PartyPopper
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { useConfetti } from '@/hooks/useConfetti';
 
 interface Quest {
   id: string;
@@ -36,10 +39,13 @@ interface Quest {
 export const DailyQuests = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const confetti = useConfetti();
   const [quests, setQuests] = useState<Quest[]>([]);
   const [loading, setLoading] = useState(true);
   const [isClaimed, setIsClaimed] = useState(false);
   const [claimingReward, setClaimingReward] = useState(false);
+  const [newlyCompleted, setNewlyCompleted] = useState<Set<string>>(new Set());
+  const prevCompletedRef = useRef<Set<string>>(new Set());
 
   const fetchQuestProgress = useCallback(async () => {
     if (!user) {
@@ -102,6 +108,18 @@ export const DailyQuests = () => {
   useEffect(() => {
     fetchQuestProgress();
   }, [fetchQuestProgress]);
+
+  // Detect newly completed quests and celebrate
+  useEffect(() => {
+    const currentCompleted = new Set(quests.filter(q => q.completed).map(q => q.id));
+    const freshlyDone = [...currentCompleted].filter(id => !prevCompletedRef.current.has(id));
+    if (freshlyDone.length > 0 && prevCompletedRef.current.size > 0) {
+      setNewlyCompleted(new Set(freshlyDone));
+      confetti.fire('success');
+      setTimeout(() => setNewlyCompleted(new Set()), 2000);
+    }
+    prevCompletedRef.current = currentCompleted;
+  }, [quests]);
 
   const getDefaultQuests = (
     reviewedCards: number, 
@@ -221,42 +239,53 @@ export const DailyQuests = () => {
         <Progress value={(completedCount / Math.max(totalCount, 1)) * 100} className="h-1.5 mt-2" />
       </CardHeader>
       <CardContent className="p-4 space-y-3">
-        {quests.map((quest) => (
-          <motion.div 
-            key={quest.id}
-            initial={false}
-            animate={{ opacity: quest.completed ? 0.7 : 1 }}
-            className={cn(
-              "p-3 rounded-xl border-2 transition-all flex items-center gap-3 cursor-pointer",
-              quest.completed ? "bg-muted/30 border-transparent" : "bg-background border-border hover:border-primary/30"
-            )}
-            onClick={() => !quest.completed && quest.route && navigate(quest.route)}
-          >
-            <div className={cn(
-              "h-10 w-10 rounded-lg flex items-center justify-center shrink-0",
-              quest.completed ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"
-            )}>
-              {quest.icon}
-            </div>
-            <div className="flex-1 min-w-0 space-y-1">
-              <div className="flex justify-between items-center">
-                <p className={cn("text-xs font-bold truncate", quest.completed && "line-through")}>{quest.title}</p>
-                <span className="text-[10px] font-black text-primary">+{quest.reward} XP</span>
+        {quests.map((quest) => {
+          const justCompleted = newlyCompleted.has(quest.id);
+          return (
+            <motion.div 
+              key={quest.id}
+              initial={false}
+              animate={{ 
+                opacity: quest.completed ? 0.75 : 1,
+                scale: justCompleted ? [1, 1.04, 1] : 1,
+              }}
+              transition={{ duration: 0.4 }}
+              className={cn(
+                "p-3 rounded-xl border-2 transition-all flex items-center gap-3 cursor-pointer",
+                justCompleted ? "bg-green-50 border-green-300 shadow-md shadow-green-100" :
+                quest.completed ? "bg-muted/30 border-transparent" : "bg-background border-border hover:border-primary/30"
+              )}
+              onClick={() => quest.route && navigate(quest.route)}
+            >
+              <div className={cn(
+                "h-10 w-10 rounded-lg flex items-center justify-center shrink-0",
+                justCompleted ? "bg-green-500 text-white" :
+                quest.completed ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"
+              )}>
+                {justCompleted ? <PartyPopper className="h-4 w-4" /> : quest.icon}
               </div>
-              <div className="flex items-center gap-2">
-                <Progress value={(quest.current / quest.target) * 100} className="h-1 flex-1" />
-                <span className="text-[10px] font-bold text-muted-foreground whitespace-nowrap">
-                  {quest.current}/{quest.target}
-                </span>
+              <div className="flex-1 min-w-0 space-y-1">
+                <div className="flex justify-between items-center">
+                  <p className={cn("text-xs font-bold truncate", quest.completed && "line-through")}>{quest.title}</p>
+                  <span className={cn("text-[10px] font-black", justCompleted ? "text-green-600" : "text-primary")}>
+                    +{quest.reward} XP
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Progress value={(quest.current / quest.target) * 100} className="h-1 flex-1" />
+                  <span className="text-[10px] font-bold text-muted-foreground whitespace-nowrap">
+                    {quest.current}/{quest.target}
+                  </span>
+                </div>
               </div>
-            </div>
-            {quest.completed ? (
-              <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
-            ) : (
-              <Circle className="h-5 w-5 text-muted-foreground/30 shrink-0" />
-            )}
-          </motion.div>
-        ))}
+              {quest.completed ? (
+                <CheckCircle2 className={cn("h-5 w-5 shrink-0", justCompleted ? "text-green-500" : "text-green-400")} />
+              ) : (
+                <Circle className="h-5 w-5 text-muted-foreground/30 shrink-0" />
+              )}
+            </motion.div>
+          );
+        })}
         {(allDone || isClaimed) && (
           <Button 
             className={cn(

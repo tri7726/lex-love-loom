@@ -11,7 +11,9 @@ import { FuriganaProvider } from "@/contexts/FuriganaContext";
 import { AIProvider } from "@/contexts/AIContext";
 import { WritingLabProvider } from "@/contexts/WritingLabContext";
 import { ConfettiProvider } from "@/components/ConfettiProvider";
+import { StandardErrorBoundary } from "./components/StandardErrorBoundary";
 import { LevelUpModal } from "@/components/effects/LevelUpModal";
+import { XPGainToast } from "@/components/effects/XPGainToast";
 import { AppLayout } from "./components/layout/AppLayout";
 import { Index } from "./pages/Index";
 
@@ -78,9 +80,11 @@ const App = () => (
                 <WritingLabProvider>
                   <TooltipProvider>
                     <BrowserRouter>
-                      <Suspense fallback={<PageLoader />}>
-                        <LevelUpModal />
-                        <Routes>
+                      <StandardErrorBoundary>
+                        <Suspense fallback={<PageLoader />}>
+                          <LevelUpModal />
+                          <XPGainToast />
+                          <Routes>
                           {/* Standalone Pages (No global navigation) */}
                           <Route path="/auth" element={<Auth />} />
                           <Route path="/quick-mode" element={<QuickMode />} />
@@ -127,7 +131,8 @@ const App = () => (
                         <Toaster />
                         <Sonner />
                       </Suspense>
-                    </BrowserRouter>
+                    </StandardErrorBoundary>
+                  </BrowserRouter>
                   </TooltipProvider>
                 </WritingLabProvider>
               </AIProvider>

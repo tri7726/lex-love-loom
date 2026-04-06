@@ -1,7 +1,7 @@
 import { openDB, IDBPDatabase } from 'idb';
 
 const DB_NAME = 'sakura-offline-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Bumped: always add new stores here
 
 export interface SyncAction {
   id?: number;
@@ -17,13 +17,19 @@ class OfflineSync {
 
   constructor() {
     this.dbPromise = openDB(DB_NAME, DB_VERSION, {
-      upgrade(db) {
+      upgrade(db, oldVersion) {
+        // v1 stores — guard prevents errors on any version
         if (!db.objectStoreNames.contains('flashcards')) {
           db.createObjectStore('flashcards', { keyPath: 'id' });
         }
         if (!db.objectStoreNames.contains('sync_queue')) {
           db.createObjectStore('sync_queue', { keyPath: 'id', autoIncrement: true });
         }
+        // v2 stores — add future stores here with oldVersion guards:
+        // if (oldVersion < 2 && !db.objectStoreNames.contains('new_store')) {
+        //   db.createObjectStore('new_store', { keyPath: 'id' });
+        // }
+        void oldVersion; // used for future migration gates
       },
     });
   }

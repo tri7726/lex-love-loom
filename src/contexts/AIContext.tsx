@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { checkContentSafety, deepExplain, DeepExplainResult, ExplainType } from '@/services/groqServices';
 
 interface AIContextType {
   isAnalyzing: boolean;
@@ -9,6 +10,7 @@ interface AIContextType {
   chat: (messages: { role: string; content: string }[], systemPrompt: string, user_id?: string) => Promise<any>;
   streamChat: (messages: { role: string; content: string }[], systemPrompt: string, user_id?: string, onChunk?: (chunk: string) => void) => Promise<void>;
   checkGrammar: (text: string) => Promise<any>;
+  explainDeep: (question: string, context?: string, type?: ExplainType) => Promise<DeepExplainResult | null>;
 }
 
 const AIContext = createContext<AIContextType | undefined>(undefined);
@@ -53,6 +55,18 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const chat = useCallback(async (messages: { role: string; content: string }[], systemPrompt: string, user_id?: string) => {
     setIsChatting(true);
     try {
+      // Content safety check for roleplay mode (non-blocking — only screen if roleplay keyword detected)
+      const isRoleplay = systemPrompt.toLowerCase().includes('roleplay') || systemPrompt.toLowerCase().includes('nhân vật');
+      if (isRoleplay && messages.length > 0) {
+        const lastMsg = messages[messages.length - 1];
+        if (lastMsg.role === 'user' && typeof lastMsg.content === 'string' && lastMsg.content.length > 10) {
+          const guard = await checkContentSafety(lastMsg.content);
+          if (!guard.safe) {
+            return { role: 'assistant', content: '⚠️ Nội dung này không phù hợp trong môi trường học tập. Hãy thay đổi câu hỏi nhé! 🌸' };
+          }
+        }
+      }
+
       const { data, error } = await supabase.functions.invoke('japanese-chat', {
         body: {
           messages,
@@ -166,6 +180,15 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     }
   }, []);
 
+  /** Deep explain via DeepSeek R1 */
+  const explainDeep = useCallback(async (
+    question: string,
+    context?: string,
+    type: ExplainType = 'grammar'
+  ): Promise<DeepExplainResult | null> => {
+    return deepExplain(question, context, type);
+  }, []);
+
   return (
     <AIContext.Provider value={{
       isAnalyzing,
@@ -173,7 +196,8 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       analyzeText,
       chat,
       streamChat,
-      checkGrammar
+      checkGrammar,
+      explainDeep,
     }}>
       {children}
     </AIContext.Provider>

@@ -15,7 +15,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useFSRS, FSRSRating } from '@/hooks/useFSRS';
+import { useFSRS, FSRSRating, previewIntervals } from '@/hooks/useFSRS';
+import { useXP } from '@/hooks/useXP';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +29,7 @@ export const SRSReview = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { reviewCard, flushSyncQueue } = useFSRS();
+  const { awardXP } = useXP();
 
   const [cards, setCards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,12 +103,17 @@ export const SRSReview = () => {
 
     try {
       await reviewCard(card.id, rating, card);
-      setReviewsDone(prev => prev + 1);
+      const newDone = reviewsDone + 1;
+      setReviewsDone(newDone);
 
       if (currentIndex + 1 < cards.length) {
         setIsFlipped(false);
         setCurrentIndex(prev => prev + 1);
       } else {
+        // Session complete — award XP
+        const xpEarned = newDone * 5;
+        await awardXP('flashcard', xpEarned, { cards_reviewed: newDone });
+        toast.success(`⚡ +${xpEarned} XP từ buổi ôn tập!`, { duration: 3000 });
         setSessionDone(true);
       }
     } catch (e) {
@@ -279,24 +286,27 @@ export const SRSReview = () => {
                 animate={{ opacity: 1, scale: 1 }}
                 className="grid grid-cols-4 gap-3 w-full"
               >
-                {[
-                  { rating: 1, label: 'Lại', sub: '< 1m', color: 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100' },
-                  { rating: 2, label: 'Khó', sub: '2d', color: 'bg-orange-50 text-orange-600 border-orange-100 hover:bg-orange-100' },
-                  { rating: 3, label: 'Tốt', sub: '4d', color: 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100' },
-                  { rating: 4, label: 'Dễ', sub: '7d', color: 'bg-sky-50 text-sky-600 border-sky-100 hover:bg-sky-100' },
-                ].map((btn) => (
-                  <button
-                    key={btn.rating}
-                    onClick={() => handleRating(btn.rating as any)}
-                    className={cn(
-                      "flex flex-col items-center justify-center p-4 rounded-[1.5rem] border-2 transition-all active:scale-95 space-y-1 font-bold",
-                      btn.color
-                    )}
-                  >
-                    <span className="text-lg">{btn.label}</span>
-                    <span className="text-[10px] opacity-60 font-black uppercase tracking-widest">{btn.sub}</span>
-                  </button>
-                ))}
+    {(() => {
+                  const preview = previewIntervals(currentCard);
+                  return [
+                    { rating: 1 as FSRSRating, label: 'Lại', sub: preview.again === 1 ? '1 ngày' : `${preview.again}d`, color: 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100' },
+                    { rating: 2 as FSRSRating, label: 'Khó', sub: `${preview.hard}d`, color: 'bg-orange-50 text-orange-600 border-orange-100 hover:bg-orange-100' },
+                    { rating: 3 as FSRSRating, label: 'Tốt', sub: `${preview.good}d`, color: 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100' },
+                    { rating: 4 as FSRSRating, label: 'Dễ', sub: `${preview.easy}d`, color: 'bg-sky-50 text-sky-600 border-sky-100 hover:bg-sky-100' },
+                  ].map((btn) => (
+                    <button
+                      key={btn.rating}
+                      onClick={() => handleRating(btn.rating)}
+                      className={cn(
+                        "flex flex-col items-center justify-center p-4 rounded-[1.5rem] border-2 transition-all active:scale-95 space-y-1 font-bold",
+                        btn.color
+                      )}
+                    >
+                      <span className="text-lg">{btn.label}</span>
+                      <span className="text-[10px] opacity-60 font-black uppercase tracking-widest">{btn.sub}</span>
+                    </button>
+                  ));
+                })()}
               </motion.div>
             )}
           </AnimatePresence>

@@ -1,3 +1,4 @@
+// @ts-nocheck: suppressing standard TS errors in Deno edge function
 // Japanese Analysis Edge Function
 // @ts-ignore Deno imports
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -275,30 +276,49 @@ serve(async (req: Request) => {
 
     let resultData: { format: string; result?: GrammarAnalysis | VisionAnalysis; analysis?: StructuredAnalysis; text?: string; engine: string } | null = null;
 
+    // ── Smart Analysis Model Router ────────────────────────────────
+    // DeepSeek R1  → Hard grammar (step-by-step reasoning)
+    // Llama 4 Scout → Vision analysis
+    // Llama 3.3 70B → Standard text analysis (proven, stable)
+    function selectAnalysisModel(taskType: string, textContent: string): string {
+      if (taskType === 'vision') {
+        return "meta-llama/llama-4-scout-17b-16e-instruct";
+      }
+      if (taskType === 'grammar') {
+        const isHardGrammar = /keigo|passive|causative|potential|conditional|volitional|こそあど|接続詞|て形|た形|ない形|る形|敬語|謙譲|丁寧|接続|ても|たら|なら|れば|させ|られ/i.test(textContent);
+        if (isHardGrammar) {
+          return "deepseek-r1-distill-llama-70b"; // Reasoning model
+        }
+      }
+      return "llama-3.3-70b-versatile"; // Default: battle-tested
+    }
+
     if (task === 'chat') {
       console.log("Handling Chat Task using Groq...");
       const systemPrompt = prompt || "You are a helpful Japanese Sensei.";
       const rawChat = await fetchGroqWithRotation("llama-3.3-70b-versatile", systemPrompt, content, false, history);
       resultData = { format: 'chat', text: rawChat, engine: "groq" };
     } else if (isImageAnalysis && image) {
-      console.log("Analyzing image using Groq Vision (Key 2)...");
+      const visionModel = selectAnalysisModel('vision', '');
+      console.log(`Analyzing image using ${visionModel}...`);
       const userContent = [
         { type: "text", text: "Analyze the Japanese content in this image and return JSON." },
         { type: "image_url", image_url: { url: `data:image/jpeg;base64,${image}` } }
       ];
-      const rawVision = await fetchGroqWithRotation("llama-3.2-11b-vision-preview", VISION_SYSTEM_PROMPT, userContent);
+      const rawVision = await fetchGroqWithRotation(visionModel, VISION_SYSTEM_PROMPT, userContent);
       resultData = { format: 'vision', result: extractJSON(rawVision) as VisionAnalysis, engine: "groq" };
     } else {
       const typeLabel = (isGrammar || task === 'grammar') ? "grammar" : "text";
-      console.log(`Analyzing ${typeLabel} using Groq (Key 2)...`);
+      const chosenModel = selectAnalysisModel(typeLabel, content || '');
+      console.log(`Analyzing ${typeLabel} using ${chosenModel}...`);
       const systemPrompt = (isGrammar || task === 'grammar') ? GRAMMAR_SYSTEM_PROMPT : ENHANCED_SYSTEM_PROMPT;
       let userContent = `Text to analyze:\n"""\n${content}\n"""`;
       if (prompt) {
         userContent += `\n\nUser Instruction/Context:\n"""\n${prompt}\n"""`;
       }
-      const raw = await fetchGroqWithRotation("llama-3.3-70b-versatile", systemPrompt, userContent, true);
+      const raw = await fetchGroqWithRotation(chosenModel, systemPrompt, userContent, true);
       const parsed = extractJSON(raw);
-      resultData = (isGrammar || task === 'grammar') 
+      resultData = (isGrammar || task === 'grammar')
         ? { format: 'grammar', result: parsed as GrammarAnalysis, engine: "groq" }
         : { format: 'structured', analysis: parsed as StructuredAnalysis, engine: "groq" };
     }

@@ -1,4 +1,6 @@
+// @ts-nocheck: suppressing standard TS errors in Deno edge function
 // Supabase Edge Function: Japanese Chat
+// @ts-ignore Deno imports
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -140,22 +142,48 @@ serve(async (req: Request) => {
       }
     }
 
-    // ── Groq LLM with key rotation ────────────────────────────────
+    // ── Groq API Key Pool (rotation across 3 keys) ───────────────
     const apiKeys = [
       Deno.env.get("GROQ_API_KEY_1"),
       Deno.env.get("GROQ_API_KEY_2"),
       Deno.env.get("GROQ_API_KEY_3"),
-      Deno.env.get("GROQ_API_KEY"),  // fallback: single key without number
-    ].filter(Boolean);
-    
-    // Check if any message contains an image for model switching
-    const hasImage = messages.some((m: Message) => 
+      Deno.env.get("GROQ_API_KEY"),
+    ].filter(Boolean) as string[];
+
+    // ── Smart Model Router ────────────────────────────────────────
+    // Priority tiers (all Groq free):
+    //   Tier 1 — Llama 4 Scout  : Best all-around + vision (30k tok/min)
+    //   Tier 2 — Llama 3.1 8B   : High volume, simple queries (14,400 req/day)
+    //   Tier 3 — Llama 3.3 70B  : Fallback text quality
+    const hasImage = messages.some((m: Message) =>
       Array.isArray(m.content) && m.content.some((c: Record<string, unknown>) => c.type === 'image_url')
     );
-    const model = hasImage ? "llama-3.2-11b-vision-preview" : "llama-3.3-70b-versatile";
+
+    function selectModel(queryClass: 'simple' | 'complex', hasImg: boolean): string[] {
+      if (hasImg) {
+        // Vision: Scout first (best), Maverick as fallback
+        return [
+          "meta-llama/llama-4-scout-17b-16e-instruct",
+          "meta-llama/llama-4-maverick-17b-128e-instruct",
+        ];
+      }
+      if (queryClass === 'simple') {
+        // Simple/chitchat: 8B is fast + high volume, Scout as fallback
+        return [
+          "llama-3.1-8b-instant",
+          "meta-llama/llama-4-scout-17b-16e-instruct",
+        ];
+      }
+      // Complex conversation: Scout primary, 70B as proven fallback
+      return [
+        "meta-llama/llama-4-scout-17b-16e-instruct",
+        "llama-3.3-70b-versatile",
+      ];
+    }
+
+    const modelPriority = selectModel(queryClass, hasImage);
 
     if (apiKeys.length === 0) {
-      // Graceful: return a message instead of crashing
       console.error("CRITICAL: No Groq API keys configured!");
       return new Response(
         JSON.stringify({ role: "assistant", content: "⚠️ Sensei đang bảo trì hệ thống AI. Vui lòng thử lại sau ít phút!" }),
@@ -164,27 +192,34 @@ serve(async (req: Request) => {
     }
 
     async function streamGroq(msgs: Message[], sysPrompt: string) {
-      for (const apiKey of apiKeys) {
-        try {
-          const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: model,
-              messages: [{ role: "system", content: sysPrompt }, ...msgs],
-              stream: true,
-              temperature: 0.7,
-              max_tokens: 1024,
-            }),
-          });
-          if (response.ok) return response;
-          const errText = await response.text();
-          console.warn(`Groq key failed (${response.status}): ${errText.slice(0, 200)}`);
-        } catch (e) {
-          console.error("Groq fetch error:", e);
+      // Try each model in priority order, with key rotation per model
+      for (const model of modelPriority) {
+        for (const apiKey of apiKeys) {
+          try {
+            const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                model,
+                messages: [{ role: "system", content: sysPrompt }, ...msgs],
+                stream: true,
+                temperature: 0.7,
+                max_tokens: model.includes("8b") ? 512 : 1024,
+              }),
+            });
+            if (response.ok) {
+              console.log(`✅ Using model: ${model}`);
+              return response;
+            }
+            const errText = await response.text();
+            // Rate limit (429) → try next key, then next model
+            console.warn(`Model ${model} / key failed (${response.status}): ${errText.slice(0, 120)}`);
+          } catch (e) {
+            console.error("Groq fetch error:", e);
+          }
         }
       }
       return null;
