@@ -1,12 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
-import { Play, Pause, ChevronLeft, ChevronRight, Volume2, VolumeX, Sparkles } from 'lucide-react';
+import { Play, Pause, ChevronLeft, ChevronRight, Volume2, VolumeX, Sparkles, SkipForward } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import { useTTS } from '@/hooks/useTTS';
-import { AnalysisPanel } from './AnalysisPanel';
-import { supabase } from '@/integrations/supabase/client';
 
 interface Segment {
   id: string;
@@ -32,6 +31,8 @@ interface VideoModeProps {
   showTranslation?: boolean;
   onToggleFurigana?: () => void;
   onToggleTranslation?: () => void;
+  autoAdvance?: boolean;
+  onToggleAutoAdvance?: () => void;
 }
 
 export const VideoMode: React.FC<VideoModeProps> = ({
@@ -47,6 +48,8 @@ export const VideoMode: React.FC<VideoModeProps> = ({
   showTranslation = true,
   onToggleFurigana,
   onToggleTranslation,
+  autoAdvance = false,
+  onToggleAutoAdvance,
 }) => {
   const { speak, isSpeaking, stop, isSupported } = useTTS({ lang: 'ja-JP' });
 
@@ -54,10 +57,22 @@ export const VideoMode: React.FC<VideoModeProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Segment counter */}
+      <div className="flex items-center justify-between">
+        <Badge variant="secondary" className="text-xs px-3 py-1">
+          Đoạn {currentIndex + 1} / {totalSegments}
+        </Badge>
+        {autoAdvance && (
+          <Badge className="bg-matcha/15 text-matcha text-xs border-none gap-1">
+            <SkipForward className="h-3 w-3" />
+            Tự động chuyển
+          </Badge>
+        )}
+      </div>
+
       {/* Current subtitle display */}
       <Card className="bg-gradient-to-br from-background to-muted/30 border-2">
         <CardContent className="p-6 text-center">
-          {/* Japanese with optional furigana */}
           <motion.div
             key={currentSegment.id}
             initial={{ opacity: 0, y: 10 }}
@@ -81,7 +96,6 @@ export const VideoMode: React.FC<VideoModeProps> = ({
                   ));
                 }
 
-                // Simple regex-based replacement for furigana injection
                 let parts: Array<{ text: string, furigana?: string }> = [{ text }];
                 
                 vocab.forEach(v => {
@@ -134,6 +148,18 @@ export const VideoMode: React.FC<VideoModeProps> = ({
                 {currentSegment.vietnamese_text}
               </p>
             )}
+
+            {/* Grammar notes inline */}
+            {currentSegment.grammar_notes && currentSegment.grammar_notes.length > 0 && (
+              <div className="flex flex-wrap justify-center gap-2 pt-2">
+                {currentSegment.grammar_notes.map((note, i) => (
+                  <Badge key={i} variant="outline" className="text-xs font-normal gap-1">
+                    <span className="font-jp font-medium">{note.point}</span>
+                    <span className="text-muted-foreground">— {note.explanation}</span>
+                  </Badge>
+                ))}
+              </div>
+            )}
           </motion.div>
         </CardContent>
       </Card>
@@ -179,11 +205,11 @@ export const VideoMode: React.FC<VideoModeProps> = ({
       </div>
 
       {/* Quick toggle buttons */}
-      <div className="flex items-center justify-center gap-2">
+      <div className="flex items-center justify-center gap-2 flex-wrap">
         <Button 
           variant={showFurigana ? "default" : "outline"} 
           size="sm" 
-          className={`gap-1 ${showFurigana ? 'bg-sakura hover:bg-sakura/90' : ''}`}
+          className={cn("gap-1", showFurigana ? 'bg-sakura hover:bg-sakura/90' : '')}
           onClick={onToggleFurigana}
         >
           Furigana
@@ -191,7 +217,7 @@ export const VideoMode: React.FC<VideoModeProps> = ({
         <Button 
           variant={showTranslation ? "default" : "outline"} 
           size="sm" 
-          className={`gap-1 ${showTranslation ? 'bg-gold hover:bg-gold/90 border-gold/50' : ''}`}
+          className={cn("gap-1", showTranslation ? 'bg-gold hover:bg-gold/90 border-gold/50' : '')}
           onClick={onToggleTranslation}
         >
           Dịch
@@ -205,9 +231,18 @@ export const VideoMode: React.FC<VideoModeProps> = ({
           <Sparkles className="h-3 w-3" />
           Giải thích AI
         </Button>
+        {onToggleAutoAdvance && (
+          <Button 
+            variant={autoAdvance ? "default" : "outline"} 
+            size="sm" 
+            className={cn("gap-1", autoAdvance ? 'bg-matcha hover:bg-matcha/90' : '')}
+            onClick={onToggleAutoAdvance}
+          >
+            <SkipForward className="h-3 w-3" />
+            Tự chuyển
+          </Button>
+        )}
       </div>
     </div>
   );
 };
-
-// export default VideoMode;

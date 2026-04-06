@@ -9,9 +9,12 @@ import {
   Keyboard,
   SkipForward,
   RotateCcw,
+  Timer,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { useTTS } from '@/hooks/useTTS';
 
@@ -90,12 +93,21 @@ export const VideoQuizMode: React.FC<VideoQuizModeProps> = ({
   const [correctCount, setCorrectCount] = useState(0);
   const [shuffledQuestions, setShuffledQuestions] = useState<Question[]>([]);
   const [isComplete, setIsComplete] = useState(false);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [streak, setStreak] = useState(0);
+  const [bestStreak, setBestStreak] = useState(0);
 
   const { speak, isSupported } = useTTS({ lang: 'ja-JP' });
 
+  // Timer
+  useEffect(() => {
+    if (isComplete || shuffledQuestions.length === 0) return;
+    const timer = setInterval(() => setElapsedTime(prev => prev + 1), 1000);
+    return () => clearInterval(timer);
+  }, [isComplete, shuffledQuestions.length]);
+
   // Shuffle questions on mount
   useEffect(() => {
-    // Sort by type (A -> B -> C) then shuffle within types
     const sorted = [...questions].sort((a, b) => {
       const typeOrder: Record<string, number> = { 'vocabulary': 1, 'grammar': 2, 'comprehension': 3 };
       const orderA = typeOrder[a.question_type || 'comprehension'] || 4;
@@ -107,8 +119,38 @@ export const VideoQuizMode: React.FC<VideoQuizModeProps> = ({
     setShuffledQuestions(sorted);
   }, [questions]);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+
+      if (!hasAnswered) {
+        if (e.key >= '1' && e.key <= '4') {
+          const idx = parseInt(e.key) - 1;
+          if (idx < (currentQuestion?.options?.length || 0)) {
+            handleAnswer(idx);
+          }
+        }
+      } else {
+        if (e.code === 'Space' || e.code === 'Enter') {
+          e.preventDefault();
+          handleNext();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [hasAnswered, currentIndex, shuffledQuestions]);
+
   const currentQuestion = shuffledQuestions[currentIndex];
-  const progress = ((currentIndex + 1) / shuffledQuestions.length) * 100;
+  const progress = shuffledQuestions.length > 0 ? ((currentIndex + 1) / shuffledQuestions.length) * 100 : 0;
+
+  const formatTime = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  };
 
   const handleAnswer = (index: number) => {
     if (hasAnswered) return;
@@ -118,6 +160,13 @@ export const VideoQuizMode: React.FC<VideoQuizModeProps> = ({
     
     if (index === currentQuestion.correct_answer) {
       setCorrectCount(prev => prev + 1);
+      setStreak(prev => {
+        const newStreak = prev + 1;
+        setBestStreak(best => Math.max(best, newStreak));
+        return newStreak;
+      });
+    } else {
+      setStreak(0);
     }
   };
 
@@ -127,7 +176,6 @@ export const VideoQuizMode: React.FC<VideoQuizModeProps> = ({
       setSelectedAnswer(null);
       setHasAnswered(false);
     } else {
-      // Quiz complete
       setIsComplete(true);
       onComplete(correctCount + (selectedAnswer === currentQuestion.correct_answer ? 1 : 0), shuffledQuestions.length);
     }
@@ -141,6 +189,9 @@ export const VideoQuizMode: React.FC<VideoQuizModeProps> = ({
     setHasAnswered(false);
     setCorrectCount(0);
     setIsComplete(false);
+    setElapsedTime(0);
+    setStreak(0);
+    setBestStreak(0);
   };
 
   if (questions.length === 0) {
@@ -183,6 +234,17 @@ export const VideoQuizMode: React.FC<VideoQuizModeProps> = ({
         <div className="text-5xl font-bold text-matcha">
           {percentage}%
         </div>
+
+        {/* Stats */}
+        <div className="flex justify-center gap-6 text-sm text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <Timer className="h-4 w-4" />
+            {formatTime(elapsedTime)}
+          </div>
+          <div>
+            🔥 Streak tốt nhất: {bestStreak}
+          </div>
+        </div>
         
         <Button onClick={handleReshuffle} className="gap-2">
           <Shuffle className="h-4 w-4" />
@@ -201,15 +263,24 @@ export const VideoQuizMode: React.FC<VideoQuizModeProps> = ({
         <div className="flex items-baseline gap-2">
           <h2 className="text-xl font-bold">Trắc nghiệm</h2>
           <span className="text-sm text-muted-foreground">
-            (Câu hỏi {currentIndex + 1}/{shuffledQuestions.length})
+            (Câu {currentIndex + 1}/{shuffledQuestions.length})
           </span>
         </div>
         <div className="flex items-center gap-2">
+          {streak >= 2 && (
+            <Badge className="bg-gold/15 text-gold border-none text-xs animate-pulse">
+              🔥 {streak}
+            </Badge>
+          )}
           {currentQuestion.question_type && (
             <Badge className="bg-primary/10 text-primary border-none text-[10px] px-2 h-5">
               {currentQuestion.question_type.toUpperCase()}
             </Badge>
           )}
+          <Badge variant="outline" className="text-[10px] gap-1">
+            <Timer className="h-3 w-3" />
+            {formatTime(elapsedTime)}
+          </Badge>
         </div>
       </div>
       
@@ -287,6 +358,11 @@ export const VideoQuizMode: React.FC<VideoQuizModeProps> = ({
                 <div className="font-jp text-base flex-1">
                   {renderTextWithFurigana(option, allVocabulary, showFurigana)}
                 </div>
+                {!hasAnswered && (
+                  <kbd className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded font-mono opacity-0 group-hover:opacity-100 transition-opacity">
+                    {index + 1}
+                  </kbd>
+                )}
               </motion.button>
             );
           })}
@@ -313,8 +389,7 @@ export const VideoQuizMode: React.FC<VideoQuizModeProps> = ({
       <div className="flex items-center justify-between pt-4">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Keyboard className="h-4 w-4" />
-          <span>Phím tắt</span>
-          <Badge variant="outline" className="text-xs">F1</Badge>
+          <span className="text-xs">1-4: chọn đáp án • Space: tiếp</span>
         </div>
         
         <Button
@@ -330,12 +405,3 @@ export const VideoQuizMode: React.FC<VideoQuizModeProps> = ({
     </div>
   );
 };
-
-// Badge component inline for this file
-const Badge = ({ children, variant, className }: { children: React.ReactNode; variant?: string; className?: string }) => (
-  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${variant === 'outline' ? 'border' : 'bg-primary/10'} ${className}`}>
-    {children}
-  </span>
-);
-
-// export default VideoQuizMode;

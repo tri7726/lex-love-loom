@@ -13,10 +13,13 @@ import {
   MonitorOff,
   HelpCircle,
   Keyboard,
+  Repeat,
+  Gauge,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { Navigation } from '@/components/Navigation';
 import { VideoLearningTabs, VideoTab } from '@/components/video/VideoLearningTabs';
 import { SubtitlePanel } from '@/components/video/SubtitlePanel';
@@ -65,12 +68,16 @@ interface YouTubePlayerInstance {
   seekTo: (time: number, allowSeekAhead: boolean) => void;
   playVideo: () => void;
   pauseVideo: () => void;
+  setPlaybackRate?: (rate: number) => void;
+  getPlaybackRate?: () => number;
 }
 
 interface DictationPlayerProps {
   video: VideoSource;
   onBack: () => void;
 }
+
+const PLAYBACK_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5];
 
 export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack }) => {
   // Core state
@@ -83,12 +90,18 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
   const [activeTab, setActiveTab] = useState<VideoTab>('video');
   const [showSubtitlePanel, setShowSubtitlePanel] = useState(false);
   const [isPlayerCollapsed, setIsPlayerCollapsed] = useState(false);
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   
   // YouTube player state  
   const [player, setPlayer] = useState<YouTubePlayerInstance | null>(null);
   const [playerReady, setPlayerReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  
+  // Playback controls
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [loopSegment, setLoopSegment] = useState(false);
+  const [autoAdvance, setAutoAdvance] = useState(false);
   
   // Progress tracking
   const [completedSegments, setCompletedSegments] = useState<Set<number>>(new Set());
@@ -110,6 +123,7 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
   const [isVideoHidden, setIsVideoHidden] = useState(false);
 
   const timeUpdateRef = useRef<number | null>(null);
+  const loopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { user } = useAuth();
   const { awardXP } = useXP();
   const { fire } = useConfetti();
@@ -124,7 +138,6 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch segments
         const { data: segmentsData, error: segmentsError } = await supabase
           .from('video_segments')
           .select('*')
@@ -150,7 +163,6 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
         
         setSegments(transformedSegments);
 
-        // Fetch questions
         const { data: questionsData, error: questionsError } = await supabase
           .from('video_questions')
           .select('*')
@@ -185,7 +197,7 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
       timeUpdateRef.current = setInterval(() => {
         const time = player.getCurrentTime?.() || 0;
         setCurrentTime(time);
-      }, 200) as unknown as number; // Reduced frequency from 100ms to 200ms for performance
+      }, 200) as unknown as number;
     }
 
     return () => {
@@ -194,6 +206,127 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
       }
     };
   }, [playerReady, player]);
+
+  // Apply playback speed when it changes
+  useEffect(() => {
+    if (player && player.setPlaybackRate) {
+      player.setPlaybackRate(playbackSpeed);
+    }
+  }, [player, playbackSpeed]);
+
+  // Loop segment logic
+  useEffect(() => {
+    if (!loopSegment || !player || !currentSegment || !isPlaying) return;
+
+    const checkLoop = () => {
+      const time = player.getCurrentTime?.() || 0;
+      if (time >= currentSegment.end_time - 0.2) {
+        player.seekTo(currentSegment.start_time, true);
+        player.playVideo();
+      }
+    };
+
+    const interval = setInterval(checkLoop, 200);
+    return () => clearInterval(interval);
+  }, [loopSegment, player, currentSegment, isPlaying]);
+
+  // Auto-advance to next segment when playback finishes
+  useEffect(() => {
+    if (!autoAdvance || !player || !currentSegment || !isPlaying || loopSegment) return;
+
+    const checkAutoAdvance = () => {
+      const time = player.getCurrentTime?.() || 0;
+      if (time >= currentSegment.end_time - 0.1 && currentIndex < segments.length - 1) {
+        setCurrentIndex(prev => prev + 1);
+        // Will auto-play next segment
+        setTimeout(() => {
+          const nextSeg = segments[currentIndex + 1];
+          if (nextSeg && player) {
+            player.seekTo(nextSeg.start_time, true);
+            player.playVideo();
+          }
+        }, 300);
+      }
+    };
+
+    const interval = setInterval(checkAutoAdvance, 200);
+    return () => clearInterval(interval);
+  }, [autoAdvance, player, currentSegment, isPlaying, loopSegment, currentIndex, segments]);
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't capture when typing in input fields
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        // Only capture Space in dictation/speaking mode for play
+        if (e.code === 'Space' && (activeTab === 'dictation' || activeTab === 'pronunciation')) {
+          // Let the mode handle it
+          return;
+        }
+        return;
+      }
+
+      switch (e.code) {
+        case 'Space':
+          e.preventDefault();
+          playCurrentSegment();
+          break;
+        case 'ArrowLeft':
+          if (e.shiftKey) {
+            e.preventDefault();
+            setCurrentIndex(prev => Math.max(0, prev - 1));
+          }
+          break;
+        case 'ArrowRight':
+          if (e.shiftKey) {
+            e.preventDefault();
+            setCurrentIndex(prev => Math.min(segments.length - 1, prev + 1));
+          }
+          break;
+        case 'KeyF':
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            setShowFurigana(prev => !prev);
+          }
+          break;
+        case 'KeyT':
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            setShowTranslation(prev => !prev);
+          }
+          break;
+        case 'KeyL':
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            setLoopSegment(prev => !prev);
+          }
+          break;
+        case 'BracketLeft':
+          e.preventDefault();
+          setPlaybackSpeed(prev => {
+            const idx = PLAYBACK_SPEEDS.indexOf(prev);
+            return idx > 0 ? PLAYBACK_SPEEDS[idx - 1] : prev;
+          });
+          break;
+        case 'BracketRight':
+          e.preventDefault();
+          setPlaybackSpeed(prev => {
+            const idx = PLAYBACK_SPEEDS.indexOf(prev);
+            return idx < PLAYBACK_SPEEDS.length - 1 ? PLAYBACK_SPEEDS[idx + 1] : prev;
+          });
+          break;
+        case 'Escape':
+          if (showAnalysis) {
+            setShowAnalysis(false);
+          }
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTab, segments.length, showAnalysis]);
 
   const handleAnalyzeSegment = useCallback(async (index: number) => {
     const segment = segments[index];
@@ -228,9 +361,9 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
     } finally {
       setIsAnalyzing(false);
     }
-  }, [segments, supabase]);
+  }, [segments]);
 
-  // Play current segment - use segments[currentIndex] directly for fresh reference
+  // Play current segment
   const playCurrentSegment = useCallback(() => {
     const segment = segments[currentIndex];
     if (!player || !segment) return;
@@ -238,16 +371,18 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
     player.seekTo(segment.start_time, true);
     player.playVideo();
     
-    const duration = (segment.end_time - segment.start_time) * 1000;
-    setTimeout(() => {
-      const time = player.getCurrentTime?.() || 0;
-      if (time >= segment.start_time - 0.5 && time <= segment.end_time + 1) {
-        player.pauseVideo();
-      }
-    }, duration + 200);
-  }, [player, segments, currentIndex]);
+    if (!loopSegment && !autoAdvance) {
+      const duration = (segment.end_time - segment.start_time) * 1000 / playbackSpeed;
+      if (loopTimeoutRef.current) clearTimeout(loopTimeoutRef.current);
+      loopTimeoutRef.current = setTimeout(() => {
+        const time = player.getCurrentTime?.() || 0;
+        if (time >= segment.start_time - 0.5 && time <= segment.end_time + 1) {
+          player.pauseVideo();
+        }
+      }, duration + 200);
+    }
+  }, [player, segments, currentIndex, loopSegment, autoAdvance, playbackSpeed]);
 
-  // Handle segment selection from subtitle panel
   const handleSegmentClick = useCallback((index: number) => {
     setCurrentIndex(index);
     if (player && segments[index]) {
@@ -256,7 +391,6 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
     }
   }, [player, segments]);
 
-  // Handle dictation completion
   const handleDictationComplete = useCallback((score: number) => {
     setSegmentScores(prev => new Map(prev).set(currentIndex, score));
     
@@ -266,7 +400,6 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
       if (score === 100) fire('sakura');
     }
 
-    // Save progress to database
     if (user && currentSegment) {
       supabase.from('user_video_progress').upsert({
         user_id: user.id,
@@ -280,9 +413,8 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
         if (error) console.error('Error saving progress:', error);
       });
     }
-  }, [currentIndex, user, currentSegment, awardXP, fire, supabase]);
+  }, [currentIndex, user, currentSegment, awardXP, fire]);
 
-  // Handle speaking completion
   const handleSpeakingComplete = useCallback((score: number) => {
     setSpeakingScores(prev => new Map(prev).set(currentIndex, score));
     
@@ -291,12 +423,10 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
     }
   }, [currentIndex]);
 
-  // Handle quiz completion
   const handleQuizComplete = useCallback((correct: number, total: number) => {
     setQuizScore({ correct, total });
   }, []);
 
-  // Handle manual quiz generation
   const handleGenerateQuiz = async () => {
     if (!video || questions.length > 0) return;
     
@@ -306,7 +436,7 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
     if (!fullText.trim()) {
       toast({ 
         title: 'Thiếu dữ liệu', 
-        description: 'Video này chưa có nội dung phụ đề để tạo bài tập. Hãy kiểm tra lại phần xử lý video.', 
+        description: 'Video này chưa có nội dung phụ đề để tạo bài tập.', 
         variant: 'destructive' 
       });
       setLoading(false);
@@ -314,7 +444,6 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
     }
 
     try {
-      console.log('Invoking generate-video-quiz for video:', video.id);
       const { data, error } = await supabase.functions.invoke('generate-video-quiz', {
         body: { 
           video_id: video.id, 
@@ -323,34 +452,16 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
         }
       });
 
-      if (error) {
-        console.error('Supabase function invocation error:', error);
-        throw new Error(error.message || 'Lỗi kết nối tới server');
-      }
-
-      console.log('Function response data:', data);
-
-      if (data.success === false) {
-        console.error('AI Processing error details:', data.error);
-        throw new Error(data.error || 'Server xử lý thất bại');
-      }
-
-      if (data.error) {
-        console.error('Server returned error:', data.error);
-        throw new Error(`AI: ${data.error}`);
-      }
+      if (error) throw new Error(error.message || 'Lỗi kết nối tới server');
+      if (data.success === false) throw new Error(data.error || 'Server xử lý thất bại');
+      if (data.error) throw new Error(`AI: ${data.error}`);
 
       if (data.success) {
         if (data.count === 0) {
-          toast({ 
-            title: 'Không có câu hỏi', 
-            description: 'AI đã phân tích nhưng không thể tạo được câu hỏi phù hợp. Hãy thử lại với video khác.',
-            variant: 'default'
-          });
+          toast({ title: 'Không có câu hỏi', description: 'AI không thể tạo câu hỏi phù hợp.', variant: 'default' });
           return;
         }
 
-        // Fetch questions again
         const { data: qData, error: fetchQError } = await supabase
           .from('video_questions')
           .select('*')
@@ -370,38 +481,27 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
           })));
         }
         
-        toast({ title: 'Thành công', description: `Đã tạo ${data.count} câu hỏi bài tập!` });
-      } else {
-        throw new Error('Server không phản hồi thành công');
+        toast({ title: 'Thành công', description: `Đã tạo ${data.count} câu hỏi!` });
       }
     } catch (error) {
       console.error('Error generating quiz:', error);
-      let errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
-      
-      // If it's a Supabase error object, try to extract more info
-      const supabaseError = error as { status?: number; message?: string };
-      if (supabaseError.status) {
-        errorMessage = `(Lỗi ${supabaseError.status}) ${errorMessage}`;
-      }
-      
-      toast({ 
-        title: 'Lỗi tạo bài tập', 
-        description: `Chi tiết: ${errorMessage}. Vui lòng thử lại sau.`, 
-        variant: 'destructive' 
-      });
+      const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
+      toast({ title: 'Lỗi tạo bài tập', description: errorMessage, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
   };
 
-  // YouTube Event Handlers
   const onPlayerReady: YouTubeProps['onReady'] = (event) => {
     setPlayer(event.target);
     setPlayerReady(true);
+    // Apply initial speed
+    if (event.target.setPlaybackRate) {
+      event.target.setPlaybackRate(playbackSpeed);
+    }
   };
 
   const onPlayerStateChange: YouTubeProps['onStateChange'] = (event) => {
-    // 1 = PLAYING
     setIsPlaying(event.data === 1);
   };
 
@@ -417,7 +517,6 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
     },
   };
   
-  // Calculate global vocabulary for modes that need it (like Quiz)
   const allVocabulary = segments.reduce((acc, seg) => {
     seg.vocabulary.forEach(v => {
       if (!acc.some(existing => existing.word === v.word)) {
@@ -427,7 +526,13 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
     return acc;
   }, [] as Array<{ word: string; reading: string; meaning: string }>);
 
-  // Render content based on active tab
+  const cycleSpeed = () => {
+    setPlaybackSpeed(prev => {
+      const idx = PLAYBACK_SPEEDS.indexOf(prev);
+      return PLAYBACK_SPEEDS[(idx + 1) % PLAYBACK_SPEEDS.length];
+    });
+  };
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'video':
@@ -445,6 +550,8 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
             showTranslation={showTranslation}
             onToggleFurigana={() => setShowFurigana(!showFurigana)}
             onToggleTranslation={() => setShowTranslation(!showTranslation)}
+            autoAdvance={autoAdvance}
+            onToggleAutoAdvance={() => setAutoAdvance(!autoAdvance)}
           />
         );
       
@@ -513,6 +620,8 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
             segments={segments}
             completedSegments={completedSegments}
             segmentScores={segmentScores}
+            speakingCompletedSegments={speakingCompletedSegments}
+            speakingScores={speakingScores}
             quizScore={quizScore}
             showFurigana={showFurigana}
             showTranslation={showTranslation}
@@ -535,7 +644,7 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
 
   return (
     <div className="h-[100dvh] flex flex-col bg-background overflow-hidden overscroll-none">
-      {/* Global Tab Navigation (Desktop Header Style) */}
+      {/* Global Tab Navigation */}
       <div className="bg-background border-b z-40">
         <VideoLearningTabs
           activeTab={activeTab}
@@ -547,7 +656,7 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
 
       <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
         
-        {/* Left Column: Video + Statistics */}
+        {/* Left Column: Video + Controls */}
         <div className={cn(
           "w-full lg:w-[45%] xl:w-[40%] flex flex-col border-r bg-muted/5",
           "lg:overflow-y-auto",
@@ -587,14 +696,19 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
                 </div>
               )}
 
-              {/* Video Control & Settings Card */}
+              {/* Playback Controls Card */}
               <Card className="p-4 rounded-2xl shadow-sm bg-background border border-muted-foreground/10">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Cài đặt Video</span>
-                  <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-matcha animate-pulse" />
-                    <span className="text-[10px] font-bold text-matcha uppercase">Live Mode</span>
-                  </div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Điều khiển</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-[10px] gap-1 text-muted-foreground"
+                    onClick={() => setShowShortcutsHelp(!showShortcutsHelp)}
+                  >
+                    <Keyboard className="h-3 w-3" />
+                    Phím tắt
+                  </Button>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-2">
@@ -611,11 +725,75 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
                     {isVideoHidden ? "Hiện video" : "Ẩn video"}
                   </Button>
                   
-                  <Button variant="secondary" size="sm" className="h-10 text-xs gap-2 rounded-xl bg-muted/50 hover:bg-muted border-none">
-                    <Keyboard className="h-4 w-4" />
-                    Phím tắt
+                  {/* Speed control */}
+                  <Button 
+                    variant="secondary" 
+                    size="sm" 
+                    className={cn(
+                      "h-10 text-xs gap-2 rounded-xl border-none transition-all",
+                      playbackSpeed !== 1 ? "bg-sakura/15 text-sakura" : "bg-muted/50 hover:bg-muted"
+                    )}
+                    onClick={cycleSpeed}
+                  >
+                    <Gauge className="h-4 w-4" />
+                    {playbackSpeed}x
+                  </Button>
+
+                  {/* Loop toggle */}
+                  <Button 
+                    variant="secondary" 
+                    size="sm" 
+                    className={cn(
+                      "h-10 text-xs gap-2 rounded-xl border-none transition-all",
+                      loopSegment ? "bg-gold/15 text-gold" : "bg-muted/50 hover:bg-muted"
+                    )}
+                    onClick={() => setLoopSegment(!loopSegment)}
+                  >
+                    <Repeat className="h-4 w-4" />
+                    {loopSegment ? "Lặp: ON" : "Lặp đoạn"}
+                  </Button>
+
+                  {/* Auto advance */}
+                  <Button 
+                    variant="secondary" 
+                    size="sm" 
+                    className={cn(
+                      "h-10 text-xs gap-2 rounded-xl border-none transition-all",
+                      autoAdvance ? "bg-matcha/15 text-matcha" : "bg-muted/50 hover:bg-muted"
+                    )}
+                    onClick={() => setAutoAdvance(!autoAdvance)}
+                  >
+                    <Play className="h-4 w-4" />
+                    {autoAdvance ? "Tự chuyển: ON" : "Tự chuyển"}
                   </Button>
                 </div>
+
+                {/* Keyboard shortcuts help */}
+                <AnimatePresence>
+                  {showShortcutsHelp && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="mt-3 pt-3 border-t space-y-1.5 overflow-hidden"
+                    >
+                      {[
+                        ['Space', 'Phát đoạn hiện tại'],
+                        ['Shift + ← →', 'Chuyển đoạn'],
+                        ['F', 'Bật/tắt Furigana'],
+                        ['T', 'Bật/tắt dịch'],
+                        ['L', 'Bật/tắt lặp đoạn'],
+                        ['[ ]', 'Giảm/tăng tốc độ'],
+                        ['Esc', 'Đóng panel'],
+                      ].map(([key, desc]) => (
+                        <div key={key} className="flex items-center justify-between text-[11px]">
+                          <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">{key}</kbd>
+                          <span className="text-muted-foreground">{desc}</span>
+                        </div>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </Card>
 
               {/* Progress Card */}
@@ -627,16 +805,30 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
                       {completedSegments.size} <span className="text-sm font-normal text-muted-foreground">/ {segments.length} câu</span>
                     </p>
                   </div>
-                  <div className="w-12 h-12 rounded-full border-4 border-matcha/10 flex items-center justify-center relative">
-                    <span className="text-[10px] font-bold text-matcha">
-                      {Math.round((completedSegments.size / segments.length) * 100)}%
-                    </span>
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="w-12 h-12 rounded-full border-4 border-matcha/10 flex items-center justify-center">
+                      <span className="text-[10px] font-bold text-matcha">
+                        {segments.length > 0 ? Math.round((completedSegments.size / segments.length) * 100) : 0}%
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <Progress 
-                  value={(completedSegments.size / segments.length) * 100} 
+                  value={segments.length > 0 ? (completedSegments.size / segments.length) * 100 : 0} 
                   className="h-2 rounded-full bg-matcha/10"
                 />
+                
+                {/* Speaking progress indicator */}
+                {speakingCompletedSegments.size > 0 && (
+                  <div className="mt-2 flex items-center gap-2 text-[10px] text-muted-foreground">
+                    <span>🎤 Phát âm: {speakingCompletedSegments.size}/{segments.length}</span>
+                    <Progress 
+                      value={segments.length > 0 ? (speakingCompletedSegments.size / segments.length) * 100 : 0} 
+                      className="h-1 flex-1 bg-sakura/10"
+                      indicatorClassName="bg-sakura"
+                    />
+                  </div>
+                )}
               </Card>
             </div>
           </div>
@@ -677,5 +869,3 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
     </div>
   );
 };
-
-// export default DictationPlayer;
