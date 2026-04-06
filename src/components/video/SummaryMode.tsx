@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle, XCircle, Trophy, Target, BarChart3 } from 'lucide-react';
+import { CheckCircle, XCircle, Trophy, Target, BarChart3, Mic, Headphones } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -54,6 +54,8 @@ interface SummaryModeProps {
   segments: Segment[];
   completedSegments: Set<number>;
   segmentScores: Map<number, number>;
+  speakingCompletedSegments?: Set<number>;
+  speakingScores?: Map<number, number>;
   quizScore?: { correct: number; total: number };
   showFurigana?: boolean;
   showTranslation?: boolean;
@@ -63,6 +65,8 @@ export const SummaryMode: React.FC<SummaryModeProps> = ({
   segments,
   completedSegments,
   segmentScores,
+  speakingCompletedSegments = new Set(),
+  speakingScores = new Map(),
   quizScore,
   showFurigana = false,
   showTranslation = true,
@@ -71,22 +75,36 @@ export const SummaryMode: React.FC<SummaryModeProps> = ({
   const completedCount = completedSegments.size;
   const completionRate = totalSegments > 0 ? (completedCount / totalSegments) * 100 : 0;
   
-  // Calculate average score
-  const scores = Array.from(segmentScores.values());
-  const averageScore = scores.length > 0 
-    ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+  // Dictation average score
+  const dictScores = Array.from(segmentScores.values());
+  const avgDictation = dictScores.length > 0 
+    ? Math.round(dictScores.reduce((a, b) => a + b, 0) / dictScores.length)
     : 0;
 
-  // Get grade based on completion and scores
+  // Speaking average score
+  const spkScores = Array.from(speakingScores.values());
+  const avgSpeaking = spkScores.length > 0
+    ? Math.round(spkScores.reduce((a, b) => a + b, 0) / spkScores.length)
+    : 0;
+
+  // Overall average
+  const allScores = [...dictScores, ...spkScores];
+  const averageScore = allScores.length > 0
+    ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length)
+    : 0;
+
+  const speakingRate = totalSegments > 0 ? (speakingCompletedSegments.size / totalSegments) * 100 : 0;
+
   const getGrade = () => {
-    if (completionRate >= 90 && averageScore >= 90) return { grade: 'S', color: 'text-gold' };
-    if (completionRate >= 80 && averageScore >= 80) return { grade: 'A', color: 'text-matcha' };
-    if (completionRate >= 60 && averageScore >= 70) return { grade: 'B', color: 'text-primary' };
-    if (completionRate >= 40 && averageScore >= 60) return { grade: 'C', color: 'text-muted-foreground' };
-    return { grade: 'D', color: 'text-muted-foreground' };
+    const combined = (completionRate + speakingRate) / 2;
+    if (combined >= 90 && averageScore >= 90) return { grade: 'S', color: 'text-gold', bg: 'bg-gold/10' };
+    if (combined >= 80 && averageScore >= 80) return { grade: 'A', color: 'text-matcha', bg: 'bg-matcha/10' };
+    if (combined >= 60 && averageScore >= 70) return { grade: 'B', color: 'text-primary', bg: 'bg-primary/10' };
+    if (combined >= 40 && averageScore >= 60) return { grade: 'C', color: 'text-muted-foreground', bg: 'bg-muted' };
+    return { grade: 'D', color: 'text-muted-foreground', bg: 'bg-muted' };
   };
 
-  const { grade, color } = getGrade();
+  const { grade, color, bg } = getGrade();
 
   return (
     <div className="space-y-6">
@@ -105,36 +123,53 @@ export const SummaryMode: React.FC<SummaryModeProps> = ({
         </div>
         <h2 className="text-2xl font-bold tracking-tight">Kết quả luyện tập</h2>
         <p className="text-muted-foreground mt-1">
-          Tuyệt vời! Bạn đã hoàn thành <span className="text-matcha font-bold">{completedCount}/{totalSegments}</span> đoạn video.
+          Bạn đã hoàn thành <span className="text-matcha font-bold">{completedCount}/{totalSegments}</span> đoạn chép chính tả
+          {speakingCompletedSegments.size > 0 && (
+            <> và <span className="text-sakura font-bold">{speakingCompletedSegments.size}/{totalSegments}</span> đoạn phát âm</>
+          )}
         </p>
       </motion.div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Card className="border-none bg-muted/30 shadow-none rounded-2xl">
-          <CardContent className="p-6 text-center">
-            <Target className="h-6 w-6 mx-auto text-matcha mb-2 opacity-70" />
-            <p className="text-3xl font-black">{Math.round(completionRate)}%</p>
-            <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Hoàn thành</p>
+          <CardContent className="p-5 text-center">
+            <Headphones className="h-5 w-5 mx-auto text-matcha mb-2 opacity-70" />
+            <p className="text-2xl font-black">{Math.round(completionRate)}%</p>
+            <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Chép chính tả</p>
           </CardContent>
         </Card>
 
         <Card className="border-none bg-muted/30 shadow-none rounded-2xl">
-          <CardContent className="p-6 text-center">
-            <BarChart3 className="h-6 w-6 mx-auto text-sakura mb-2 opacity-70" />
-            <p className="text-3xl font-black">{averageScore}%</p>
-            <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Độ chính xác (TB)</p>
+          <CardContent className="p-5 text-center">
+            <Mic className="h-5 w-5 mx-auto text-sakura mb-2 opacity-70" />
+            <p className="text-2xl font-black">{Math.round(speakingRate)}%</p>
+            <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Phát âm</p>
           </CardContent>
         </Card>
 
-        {quizScore && (
-          <Card className="border-none bg-matcha/5 shadow-none rounded-2xl col-span-2 lg:col-span-1">
-            <CardContent className="p-6 text-center">
-              <Trophy className="h-6 w-6 mx-auto text-gold mb-2 opacity-70" />
-              <p className="text-3xl font-black">
-                {quizScore.correct}/{quizScore.total}
-              </p>
-              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Kết quả Quiz</p>
+        <Card className="border-none bg-muted/30 shadow-none rounded-2xl">
+          <CardContent className="p-5 text-center">
+            <BarChart3 className="h-5 w-5 mx-auto text-primary mb-2 opacity-70" />
+            <p className="text-2xl font-black">{avgDictation > 0 ? `${avgDictation}%` : '—'}</p>
+            <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">TB Chép tả</p>
+          </CardContent>
+        </Card>
+
+        {quizScore ? (
+          <Card className="border-none bg-matcha/5 shadow-none rounded-2xl">
+            <CardContent className="p-5 text-center">
+              <Trophy className="h-5 w-5 mx-auto text-gold mb-2 opacity-70" />
+              <p className="text-2xl font-black">{quizScore.correct}/{quizScore.total}</p>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Quiz</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-none bg-muted/30 shadow-none rounded-2xl">
+            <CardContent className="p-5 text-center">
+              <Target className="h-5 w-5 mx-auto text-primary mb-2 opacity-70" />
+              <p className="text-2xl font-black">{avgSpeaking > 0 ? `${avgSpeaking}%` : '—'}</p>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">TB Phát âm</p>
             </CardContent>
           </Card>
         )}
@@ -147,25 +182,31 @@ export const SummaryMode: React.FC<SummaryModeProps> = ({
         </CardHeader>
         <CardContent className="space-y-2">
           {segments.map((segment, index) => {
-            const isCompleted = completedSegments.has(index);
-            const score = segmentScores.get(index);
+            const isDictCompleted = completedSegments.has(index);
+            const isSpeakCompleted = speakingCompletedSegments.has(index);
+            const dictScore = segmentScores.get(index);
+            const speakScore = speakingScores.get(index);
             
             return (
               <div
                 key={segment.id}
-                className="flex items-center gap-3 p-2 rounded-lg bg-muted/50"
+                className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/50"
               >
-                <div className={`
-                  flex items-center justify-center w-6 h-6 rounded-full
-                  ${isCompleted ? 'bg-matcha text-white' : 'bg-muted text-muted-foreground'}
-                `}>
-                  {isCompleted ? (
-                    <CheckCircle className="h-4 w-4" />
-                  ) : (
-                    <XCircle className="h-4 w-4" />
-                  )}
+                {/* Status icons */}
+                <div className="flex flex-col gap-0.5">
+                  <div className={cn(
+                    "flex items-center justify-center w-5 h-5 rounded-full",
+                    isDictCompleted ? 'bg-matcha text-white' : 'bg-muted text-muted-foreground'
+                  )}>
+                    {isDictCompleted ? <CheckCircle className="h-3 w-3" /> : <Headphones className="h-3 w-3" />}
+                  </div>
+                  <div className={cn(
+                    "flex items-center justify-center w-5 h-5 rounded-full",
+                    isSpeakCompleted ? 'bg-sakura text-white' : 'bg-muted text-muted-foreground'
+                  )}>
+                    {isSpeakCompleted ? <CheckCircle className="h-3 w-3" /> : <Mic className="h-3 w-3" />}
+                  </div>
                 </div>
-                
                 
                 <div className="flex-1 min-w-0">
                   <div className="font-jp text-sm">
@@ -178,14 +219,25 @@ export const SummaryMode: React.FC<SummaryModeProps> = ({
                   )}
                 </div>
                 
-                {score !== undefined && (
-                  <Badge 
-                    variant={score >= 90 ? 'default' : 'secondary'}
-                    className={score >= 90 ? 'bg-matcha' : ''}
-                  >
-                    {score}%
-                  </Badge>
-                )}
+                {/* Scores */}
+                <div className="flex flex-col gap-0.5 items-end">
+                  {dictScore !== undefined && (
+                    <Badge 
+                      variant={dictScore >= 90 ? 'default' : 'secondary'}
+                      className={cn("text-[10px] h-5", dictScore >= 90 ? 'bg-matcha' : '')}
+                    >
+                      ✍️ {dictScore}%
+                    </Badge>
+                  )}
+                  {speakScore !== undefined && (
+                    <Badge 
+                      variant={speakScore >= 70 ? 'default' : 'secondary'}
+                      className={cn("text-[10px] h-5", speakScore >= 70 ? 'bg-sakura' : '')}
+                    >
+                      🎤 {speakScore}%
+                    </Badge>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -194,5 +246,3 @@ export const SummaryMode: React.FC<SummaryModeProps> = ({
     </div>
   );
 };
-
-// export default SummaryMode;
