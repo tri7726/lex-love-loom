@@ -1,4 +1,4 @@
-// Supabase Edge Function: Sensei RAG
+// Supabase Edge Function: Sensei RAG — 100% Groq, no Gemini
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -8,13 +8,24 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// ── Groq helper ──────────────────────────────────────────────────
-async function callGroq(prompt: string, text: string): Promise<string | null> {
-  const apiKeys = [
+// ── Groq helper with key rotation ────────────────────────────────
+function getGroqKeys(): string[] {
+  return [
     Deno.env.get("GROQ_API_KEY_1"),
     Deno.env.get("GROQ_API_KEY_2"),
     Deno.env.get("GROQ_API_KEY_3"),
-  ].filter(Boolean);
+  ].filter(Boolean) as string[];
+}
+
+async function callGroq(
+  prompt: string,
+  text: string,
+  opts?: { model?: string; maxTokens?: number; temperature?: number }
+): Promise<string | null> {
+  const apiKeys = getGroqKeys();
+  const model = opts?.model || "llama-3.1-8b-instant";
+  const maxTokens = opts?.maxTokens || 300;
+  const temperature = opts?.temperature ?? 0.2;
 
   for (const key of apiKeys) {
     try {
@@ -22,10 +33,10 @@ async function callGroq(prompt: string, text: string): Promise<string | null> {
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "llama-3.1-8b-instant",
+          model,
           messages: [{ role: "user", content: `${prompt}\n\n${text}` }],
-          temperature: 0.2,
-          max_tokens: 300,
+          temperature,
+          max_tokens: maxTokens,
         }),
       });
       if (res.ok) {
@@ -33,38 +44,13 @@ async function callGroq(prompt: string, text: string): Promise<string | null> {
         if (!data.choices || data.choices.length === 0) return null;
         return data.choices[0].message?.content?.trim() || null;
       }
-      await res.text(); // consume body
+      const errText = await res.text();
+      console.warn(`Groq key failed (${res.status}): ${errText.slice(0, 200)}`);
     } catch (e) {
       console.error("Groq error, trying next key:", e);
     }
   }
   return null;
-}
-
-// ── Gemini Embedding helper (replaces Jina — no extra API key needed) ──
-async function getEmbedding(text: string): Promise<number[]> {
-  const geminiKey = Deno.env.get("GEMINI_API_KEY");
-  if (!geminiKey) throw new Error("GEMINI_API_KEY not set");
-
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${geminiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "models/text-embedding-004",
-        content: { parts: [{ text }] },
-      }),
-    }
-  );
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Gemini Embedding error: ${res.status} ${err}`);
-  }
-
-  const data = await res.json();
-  return data.embedding.values;
 }
 
 // ── PROMPTS ───────────────────────────────────────────────────────
@@ -126,26 +112,10 @@ serve(async (req: Request) => {
         return ok({ success: true, skipped: true });
       }
 
-      let embedding: number[];
-      try {
-        embedding = await getEmbedding(learningAtom);
-      } catch (e) {
-        console.error("Embedding failed, storing without vector:", e);
-        // Store without embedding — still useful for keyword search
-        const { error } = await supabase.from("sensei_knowledge").insert({
-          user_id,
-          content: learningAtom,
-          source_type: source_type || "conversation",
-          metadata: metadata || {},
-        });
-        if (error) throw error;
-        return ok({ success: true, indexed: learningAtom, embedded: false });
-      }
-
+      // Store without embedding — use keyword search (pg_trgm) instead
       const { error } = await supabase.from("sensei_knowledge").insert({
         user_id,
         content: learningAtom,
-        embedding,
         source_type: source_type || "conversation",
         metadata: metadata || {},
       });
@@ -176,17 +146,13 @@ serve(async (req: Request) => {
         .map((k: any, i: number) => `[${i + 1}] (${k.source_type}) ${k.content}`)
         .join("\n");
 
-      const profileSnapshot = await callGroq(PROFILE_PROMPT, historyText);
+      const profileSnapshot = await callGroq(PROFILE_PROMPT, historyText, {
+        model: "llama-3.1-70b-versatile",
+        maxTokens: 500,
+      });
       if (!profileSnapshot) return err("Profile generation failed.");
 
-      let embedding: number[];
-      try {
-        embedding = await getEmbedding(profileSnapshot);
-      } catch {
-        // If embedding fails, skip profile update
-        return err("Embedding generation failed for profile.");
-      }
-
+      // Delete old profile
       await supabase
         .from("sensei_knowledge")
         .delete()
@@ -196,7 +162,6 @@ serve(async (req: Request) => {
       const { error: insertErr } = await supabase.from("sensei_knowledge").insert({
         user_id,
         content: profileSnapshot,
-        embedding,
         source_type: "profile",
         metadata: { generated_at: new Date().toISOString() },
       });
@@ -210,24 +175,9 @@ serve(async (req: Request) => {
     // ══════════════════════════════════════════════════════════════
     if (action === "index") {
       if (!content) return err("content is required.", 400);
-      let embedding: number[];
-      try {
-        embedding = await getEmbedding(content);
-      } catch {
-        // Store without embedding
-        const { error } = await supabase.from("sensei_knowledge").insert({
-          user_id,
-          content,
-          source_type: source_type || "mistake",
-          metadata: metadata || {},
-        });
-        if (error) throw error;
-        return ok({ success: true, embedded: false });
-      }
       const { error } = await supabase.from("sensei_knowledge").insert({
         user_id,
         content,
-        embedding,
         source_type: source_type || "mistake",
         metadata: metadata || {},
       });
@@ -236,21 +186,13 @@ serve(async (req: Request) => {
     }
 
     // ══════════════════════════════════════════════════════════════
-    // ACTION: retrieve
+    // ACTION: retrieve — keyword search using pg_trgm similarity
     // ══════════════════════════════════════════════════════════════
     if (action === "retrieve") {
       if (!query) return err("query is required.", 400);
 
-      let queryEmbedding: number[];
-      try {
-        queryEmbedding = await getEmbedding(query);
-      } catch (e) {
-        console.error("Embedding failed for retrieve:", e);
-        return ok({ context: [] });
-      }
-
       // Fetch profile separately
-      const profileResult = await supabase
+      const { data: profileData } = await supabase
         .from("sensei_knowledge")
         .select("content, source_type, metadata")
         .eq("user_id", user_id)
@@ -258,51 +200,50 @@ serve(async (req: Request) => {
         .order("created_at", { ascending: false })
         .limit(1);
 
-      // Try hybrid search, fallback to vector-only
-      let similar: Record<string, unknown>[] = [];
-      try {
-        const { data: hybridData, error: hybridErr } = await supabase.rpc(
-          "hybrid_match_sensei_knowledge",
-          {
-            query_embedding: queryEmbedding,
-            query_text: query,
-            target_user_id: user_id,
-            match_threshold: 0.40,
-            match_count: 8,
-          }
-        );
-        if (hybridErr) throw hybridErr;
-        similar = hybridData || [];
-      } catch {
-        const { data: vecData, error: vecErr } = await supabase.rpc(
-          "match_sensei_knowledge",
-          {
-            query_embedding: queryEmbedding,
-            target_user_id: user_id,
-            match_threshold: 0.45,
-            match_count: 6,
-          }
-        );
-        if (vecErr) console.error("Vector search also failed:", vecErr);
-        similar = vecData || [];
-      }
+      // Keyword search: fetch recent entries and rank by text similarity
+      const { data: allKnowledge } = await supabase
+        .from("sensei_knowledge")
+        .select("content, source_type, metadata, created_at")
+        .eq("user_id", user_id)
+        .neq("source_type", "profile")
+        .order("created_at", { ascending: false })
+        .limit(50);
 
-      // Deduplicate
-      const seen = new Set();
-      const deduped = similar.filter((c: Record<string, unknown>) => {
-        if (c.source_type === "profile") return false;
-        if (typeof c.content !== 'string') return false;
-        const key = (c.content as string).slice(0, 60).toLowerCase();
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      }).slice(0, 5);
+      // Simple client-side relevance scoring
+      const queryLower = query.toLowerCase();
+      const queryWords = queryLower.split(/\s+/).filter((w: string) => w.length > 1);
+
+      const scored = (allKnowledge || []).map((item: any) => {
+        const contentLower = item.content.toLowerCase();
+        let score = 0;
+
+        // Exact substring match
+        if (contentLower.includes(queryLower)) score += 5;
+
+        // Word overlap
+        for (const word of queryWords) {
+          if (contentLower.includes(word)) score += 1;
+        }
+
+        // Recency boost
+        const ageMs = Date.now() - new Date(item.created_at).getTime();
+        const ageDays = ageMs / (1000 * 60 * 60 * 24);
+        if (ageDays < 7) score *= 1.3;
+        else if (ageDays < 30) score *= 1.15;
+        else if (ageDays > 90) score *= 0.85;
+
+        return { ...item, similarity: score };
+      });
+
+      // Sort by score, take top 5
+      scored.sort((a: any, b: any) => b.similarity - a.similarity);
+      const topResults = scored.filter((s: any) => s.similarity > 0).slice(0, 5);
 
       const context: Record<string, unknown>[] = [];
-      if (profileResult.data && profileResult.data.length > 0) {
-        context.push({ ...profileResult.data[0], similarity: 1.0 });
+      if (profileData && profileData.length > 0) {
+        context.push({ ...profileData[0], similarity: 1.0 });
       }
-      context.push(...deduped);
+      context.push(...topResults);
 
       return ok({ context });
     }
