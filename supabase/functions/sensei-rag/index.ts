@@ -8,9 +8,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const JINA_API = "https://api.jina.ai/v1/embeddings";
-
-// ── Groq helper for Smart Chunking & Profile ──────────────────────────────────
+// ── Groq helper ──────────────────────────────────────────────────
 async function callGroq(prompt: string, text: string): Promise<string | null> {
   const apiKeys = [
     Deno.env.get("GROQ_API_KEY_1"),
@@ -24,7 +22,7 @@ async function callGroq(prompt: string, text: string): Promise<string | null> {
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
+          model: "llama-3.1-8b-instant",
           messages: [{ role: "user", content: `${prompt}\n\n${text}` }],
           temperature: 0.2,
           max_tokens: 300,
@@ -35,6 +33,7 @@ async function callGroq(prompt: string, text: string): Promise<string | null> {
         if (!data.choices || data.choices.length === 0) return null;
         return data.choices[0].message?.content?.trim() || null;
       }
+      await res.text(); // consume body
     } catch (e) {
       console.error("Groq error, trying next key:", e);
     }
@@ -42,32 +41,33 @@ async function callGroq(prompt: string, text: string): Promise<string | null> {
   return null;
 }
 
-// ── Jina AI Embedding helper ──────────────────────────────────────────────────
+// ── Gemini Embedding helper (replaces Jina — no extra API key needed) ──
 async function getEmbedding(text: string): Promise<number[]> {
-  const res = await fetch(JINA_API, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(Deno.env.get("JINA_API_KEY")
-        ? { Authorization: `Bearer ${Deno.env.get("JINA_API_KEY")}` }
-        : {}),
-    },
-    body: JSON.stringify({
-      model: "jina-embeddings-v2-base-multilingual",
-      input: [text],
-    }),
-  });
+  const geminiKey = Deno.env.get("GEMINI_API_KEY");
+  if (!geminiKey) throw new Error("GEMINI_API_KEY not set");
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${geminiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "models/text-embedding-004",
+        content: { parts: [{ text }] },
+      }),
+    }
+  );
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`Jina AI error: ${res.status} ${err}`);
+    throw new Error(`Gemini Embedding error: ${res.status} ${err}`);
   }
 
   const data = await res.json();
-  return data.data[0].embedding;
+  return data.embedding.values;
 }
 
-// ── PROMPTS ───────────────────────────────────────────────────────────────────
+// ── PROMPTS ───────────────────────────────────────────────────────
 const SMART_CHUNK_PROMPT = `Bạn là chuyên gia sư phạm tiếng Nhật. Hãy trích xuất "học điểm cốt lõi" (learning atom) từ đoạn hội thoại dưới đây thành 1–3 câu súc tích bằng tiếng Việt.
 
 Chỉ trích xuất: từ vựng/ngữ pháp được dạy, lỗi sai cụ thể, điểm người học còn yếu hoặc chưa hiểu.
@@ -77,16 +77,15 @@ Hội thoại:`;
 
 const PROFILE_PROMPT = `Bạn là chuyên gia sư phạm. Dựa trên các "học điểm" dưới đây từ lịch sử học tiếng Nhật của người dùng, hãy tạo một "Hồ sơ kiến thức" ngắn gọn bằng tiếng Việt theo đúng format sau:
 
-LEVEL: [Ước tính trình độ: N5/N4/N3/N2/N1 hoặc "Sơ cấp/Trung cấp/Cao cấp"]
+LEVEL: [Ước tính trình độ: N5/N4/N3/N2/N1]
 STRENGTHS: [Điểm mạnh: tối đa 3 mục]
-WEAKNESSES: [Điểm yếu đang gặp: tối đa 5 mục, ưu tiên gần đây nhất]
+WEAKNESSES: [Điểm yếu: tối đa 5 mục]
 RECENT_TOPICS: [Chủ đề đã học gần đây: tối đa 4 mục]
-NEVER_LEARNED: [Chủ đề chưa từng được hỏi/học]
-LEARNING_STYLE: [Nhận xét về phong cách học: thích lý thuyết/ví dụ/quiz/...]
+LEARNING_STYLE: [Nhận xét về phong cách học]
 
 Lịch sử học:`;
 
-// ── Main serve ────────────────────────────────────────────────────────────────
+// ── Main serve ────────────────────────────────────────────────────
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -115,12 +114,11 @@ serve(async (req: Request) => {
     if (!user_id) return err("user_id is required.", 400);
 
     // ══════════════════════════════════════════════════════════════
-    // ACTION: summarize_and_index — Priority 1: Smart Chunking
+    // ACTION: summarize_and_index
     // ══════════════════════════════════════════════════════════════
     if (action === "summarize_and_index") {
       if (!content) return err("content is required.", 400);
 
-      // 1. Use Groq to extract the "learning atom" from raw conversation
       const learningAtom = await callGroq(SMART_CHUNK_PROMPT, content);
 
       if (!learningAtom || learningAtom.toUpperCase().includes("SKIP")) {
@@ -128,10 +126,22 @@ serve(async (req: Request) => {
         return ok({ success: true, skipped: true });
       }
 
-      // 2. Embed the clean, summarized text — not the noisy raw conversation
-      const embedding = await getEmbedding(learningAtom);
+      let embedding: number[];
+      try {
+        embedding = await getEmbedding(learningAtom);
+      } catch (e) {
+        console.error("Embedding failed, storing without vector:", e);
+        // Store without embedding — still useful for keyword search
+        const { error } = await supabase.from("sensei_knowledge").insert({
+          user_id,
+          content: learningAtom,
+          source_type: source_type || "conversation",
+          metadata: metadata || {},
+        });
+        if (error) throw error;
+        return ok({ success: true, indexed: learningAtom, embedded: false });
+      }
 
-      // 3. Store the clean learning atom
       const { error } = await supabase.from("sensei_knowledge").insert({
         user_id,
         content: learningAtom,
@@ -145,10 +155,9 @@ serve(async (req: Request) => {
     }
 
     // ══════════════════════════════════════════════════════════════
-    // ACTION: update_profile — Priority 2: User Knowledge Map
+    // ACTION: update_profile
     // ══════════════════════════════════════════════════════════════
     if (action === "update_profile") {
-      // 1. Fetch the last 30 learning atoms (non-profile entries)
       const { data: recentKnowledge, error: fetchErr } = await supabase
         .from("sensei_knowledge")
         .select("content, source_type, created_at")
@@ -163,26 +172,27 @@ serve(async (req: Request) => {
         return ok({ success: true, skipped: true, reason: "Not enough data yet." });
       }
 
-      // 2. Format history for Groq
       const historyText = recentKnowledge
-        .map((k, i) => `[${i + 1}] (${k.source_type}) ${k.content}`)
+        .map((k: any, i: number) => `[${i + 1}] (${k.source_type}) ${k.content}`)
         .join("\n");
 
-      // 3. Generate profile snapshot using Groq
       const profileSnapshot = await callGroq(PROFILE_PROMPT, historyText);
       if (!profileSnapshot) return err("Profile generation failed.");
 
-      // 4. Embed the profile
-      const embedding = await getEmbedding(profileSnapshot);
+      let embedding: number[];
+      try {
+        embedding = await getEmbedding(profileSnapshot);
+      } catch {
+        // If embedding fails, skip profile update
+        return err("Embedding generation failed for profile.");
+      }
 
-      // 5. Delete old profile entries (keep only the latest)
       await supabase
         .from("sensei_knowledge")
         .delete()
         .eq("user_id", user_id)
         .eq("source_type", "profile");
 
-      // 6. Insert fresh profile
       const { error: insertErr } = await supabase.from("sensei_knowledge").insert({
         user_id,
         content: profileSnapshot,
@@ -196,11 +206,24 @@ serve(async (req: Request) => {
     }
 
     // ══════════════════════════════════════════════════════════════
-    // ACTION: index — Simple direct indexing (for mistake tracking)
+    // ACTION: index
     // ══════════════════════════════════════════════════════════════
     if (action === "index") {
       if (!content) return err("content is required.", 400);
-      const embedding = await getEmbedding(content);
+      let embedding: number[];
+      try {
+        embedding = await getEmbedding(content);
+      } catch {
+        // Store without embedding
+        const { error } = await supabase.from("sensei_knowledge").insert({
+          user_id,
+          content,
+          source_type: source_type || "mistake",
+          metadata: metadata || {},
+        });
+        if (error) throw error;
+        return ok({ success: true, embedded: false });
+      }
       const { error } = await supabase.from("sensei_knowledge").insert({
         user_id,
         content,
@@ -213,64 +236,44 @@ serve(async (req: Request) => {
     }
 
     // ══════════════════════════════════════════════════════════════
-    // ACTION: retrieve — HyDE + Hybrid Search + Profile injection
+    // ACTION: retrieve
     // ══════════════════════════════════════════════════════════════
     if (action === "retrieve") {
       if (!query) return err("query is required.", 400);
 
-      // ── HyDE: Generate a hypothetical answer to improve embedding quality ──
-      // This bridges the gap between short user questions and detailed knowledge entries
-      const HYDE_PROMPT = `Bạn là gia sư tiếng Nhật. Hãy viết MỘT CÂU trả lời giả định cho câu hỏi sau bằng tiếng Việt. 
-Chỉ trả lời ngắn gọn (1-2 câu), tập trung vào từ vựng/ngữ pháp liên quan. Không cần chính xác 100%.
-
-Câu hỏi:`;
-
-      let textToEmbed = query; // fallback: embed raw query
-
+      let queryEmbedding: number[];
       try {
-        const hydeAnswer = await callGroq(HYDE_PROMPT, query);
-        if (hydeAnswer && hydeAnswer.length > 10) {
-          // Combine original query + hypothetical answer for richer embedding
-          textToEmbed = `${query}\n${hydeAnswer}`;
-          console.log(`HyDE: "${query}" → "${hydeAnswer.slice(0, 80)}..."`);
-        }
+        queryEmbedding = await getEmbedding(query);
       } catch (e) {
-        console.warn("HyDE generation failed, using raw query:", e);
+        console.error("Embedding failed for retrieve:", e);
+        return ok({ context: [] });
       }
 
-      // ── Parallel: Profile fetch + HyDE-enhanced embedding ──
-      const [profileResult, queryEmbedding] = await Promise.all([
-        supabase
-          .from("sensei_knowledge")
-          .select("content, source_type, metadata")
-          .eq("user_id", user_id)
-          .eq("source_type", "profile")
-          .order("created_at", { ascending: false })
-          .limit(1),
-        getEmbedding(textToEmbed),
-      ]);
+      // Fetch profile separately
+      const profileResult = await supabase
+        .from("sensei_knowledge")
+        .select("content, source_type, metadata")
+        .eq("user_id", user_id)
+        .eq("source_type", "profile")
+        .order("created_at", { ascending: false })
+        .limit(1);
 
-      // ── Hybrid Search: Vector (70%) + Keyword (30%) + Time-weight ──
-      // Try hybrid first, fall back to vector-only if hybrid function doesn't exist
+      // Try hybrid search, fallback to vector-only
       let similar: Record<string, unknown>[] = [];
       try {
         const { data: hybridData, error: hybridErr } = await supabase.rpc(
           "hybrid_match_sensei_knowledge",
           {
             query_embedding: queryEmbedding,
-            query_text: query, // raw text for keyword matching (not HyDE)
+            query_text: query,
             target_user_id: user_id,
             match_threshold: 0.40,
             match_count: 8,
           }
         );
-
         if (hybridErr) throw hybridErr;
         similar = hybridData || [];
-        console.log(`Hybrid Search: ${similar.length} results for "${query.slice(0, 40)}"`);
-      } catch (hybridFallbackErr) {
-        // Fallback to vector-only if hybrid function not yet deployed
-        console.warn("Hybrid search unavailable, falling back to vector-only:", hybridFallbackErr);
+      } catch {
         const { data: vecData, error: vecErr } = await supabase.rpc(
           "match_sensei_knowledge",
           {
@@ -280,35 +283,29 @@ Câu hỏi:`;
             match_count: 6,
           }
         );
-        if (vecErr) throw vecErr;
+        if (vecErr) console.error("Vector search also failed:", vecErr);
         similar = vecData || [];
       }
 
-      // ── Deduplicate: Remove near-duplicate entries ──
+      // Deduplicate
       const seen = new Set();
       const deduped = similar.filter((c: Record<string, unknown>) => {
-        if (c.source_type === "profile") return false; // handled separately
+        if (c.source_type === "profile") return false;
         if (typeof c.content !== 'string') return false;
-        // Simple dedup: first 60 chars of content as key
-        const key = c.content.slice(0, 60).toLowerCase();
+        const key = (c.content as string).slice(0, 60).toLowerCase();
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
       }).slice(0, 5);
 
-      // ── Assemble: Profile first, then deduplicated results ──
       const context: Record<string, unknown>[] = [];
       if (profileResult.data && profileResult.data.length > 0) {
-        context.push({
-          ...profileResult.data[0],
-          similarity: 1.0,
-        });
+        context.push({ ...profileResult.data[0], similarity: 1.0 });
       }
       context.push(...deduped);
 
       return ok({ context });
     }
-
 
     return err(`Invalid action: ${action}`, 400);
   } catch (error) {
