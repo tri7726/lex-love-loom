@@ -44,3 +44,30 @@ verify_jwt = false
 
 [functions.notebooklm-proxy]
 verify_jwt = false
+
+[functions.evolve-skills]
+verify_jwt = false
+
+[functions.content-guard]
+verify_jwt = false
+
+[functions.sensei-rag]
+verify_jwt = false
+
+[functions.scheduled-reminders]
+verify_jwt = false
+
+[functions.push-notify]
+verify_jwt = false
+
+[functions.sensei-insights]
+verify_jwt = false
+
+[functions.ai-explain]
+verify_jwt = false
+
+[functions.analyze-speech]
+verify_jwt = false
+
+[functions.generate-kanji-worksheet]
+verify_jwt = false
