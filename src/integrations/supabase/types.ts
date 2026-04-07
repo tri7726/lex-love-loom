@@ -1394,6 +1394,74 @@ export type Database = {
           },
         ]
       }
+      user_achievements: {
+        Row: {
+          achievement_id: string
+          id: string
+          unlocked_at: string | null
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          id?: string
+          unlocked_at?: string | null
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          id?: string
+          unlocked_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_achievements_achievement_id_fkey"
+            columns: ["achievement_id"]
+            isOneToOne: false
+            referencedRelation: "achievements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_evolved_skills: {
+        Row: {
+          challenge_data: Json | null
+          created_at: string | null
+          description: string | null
+          expires_at: string | null
+          id: string
+          status: string
+          title: string
+          type: string
+          user_id: string
+          xp_reward: number | null
+        }
+        Insert: {
+          challenge_data?: Json | null
+          created_at?: string | null
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          status?: string
+          title: string
+          type?: string
+          user_id: string
+          xp_reward?: number | null
+        }
+        Update: {
+          challenge_data?: Json | null
+          created_at?: string | null
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          status?: string
+          title?: string
+          type?: string
+          user_id?: string
+          xp_reward?: number | null
+        }
+        Relationships: []
+      }
       user_kanji_progress: {
         Row: {
           created_at: string | null
