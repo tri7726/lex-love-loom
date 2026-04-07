@@ -744,7 +744,7 @@ export const Index = () => {
                 <div className="flex -space-x-3 overflow-hidden justify-center py-2">
                   {(friends || []).slice(0, 5).map((f, i) => (
                     <Avatar key={f.user_id ?? i} className="inline-block h-12 w-12 rounded-2xl ring-4 ring-background shadow-md">
-                      <AvatarImage src={f.avatar_url ?? undefined} />
+                      {f.avatar_url && <AvatarImage src={f.avatar_url} />}
                       <AvatarFallback className="text-xs bg-secondary/10 text-secondary font-bold">
                         {(f.display_name ?? `U${i + 1}`).slice(0, 2).toUpperCase()}
                       </AvatarFallback>
