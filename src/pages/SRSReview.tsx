@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useFSRS, FSRSRating, previewIntervals } from '@/hooks/useFSRS';
 import { useXP } from '@/hooks/useXP';
+import { useTTS } from '@/hooks/useTTS';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +31,7 @@ export const SRSReview = () => {
   const navigate = useNavigate();
   const { reviewCard, flushSyncQueue } = useFSRS();
   const { awardXP } = useXP();
+  const { speak, isSpeaking } = useTTS({ lang: 'ja-JP' });
 
   const [cards, setCards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,13 +91,7 @@ export const SRSReview = () => {
     fetchDueCards();
   }, [fetchDueCards]);
 
-  const speak = (text: string) => {
-    if ('speechSynthesis' in window) {
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'ja-JP';
-      speechSynthesis.speak(u);
-    }
-  };
+
 
   const handleRating = async (rating: FSRSRating) => {
     const card = cards[currentIndex];
@@ -196,7 +192,7 @@ export const SRSReview = () => {
   const progress = ((currentIndex + 1) / cards.length) * 100;
 
   return (
-    <div className="min-h-screen bg-slate-50/50 flex flex-col p-4 md:p-8">
+    <div className="min-h-screen flex flex-col p-4 md:p-8">
       {/* Header */}
       <header className="max-w-2xl w-full mx-auto flex items-center justify-between mb-8">
         <Button variant="ghost" size="icon" onClick={() => navigate('/')} className="rounded-2xl text-slate-400 hover:text-sakura">
@@ -245,7 +241,10 @@ export const SRSReview = () => {
                 
                 <button 
                   onClick={(e) => { e.stopPropagation(); speak(currentCard.word); }}
-                  className="mx-auto flex items-center gap-2 text-sakura font-black text-xs hover:scale-105 transition-transform"
+                  className={cn(
+                    "mx-auto flex items-center gap-2 font-black text-xs transition-all",
+                    isSpeaking ? "text-primary animate-pulse" : "text-sakura hover:scale-105"
+                  )}
                 >
                   <Volume2 className="h-5 w-5" /> Phát âm
                 </button>

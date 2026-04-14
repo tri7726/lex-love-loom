@@ -7,10 +7,31 @@ import { toast } from 'sonner';
 import { Json } from '@/integrations/supabase/types';
 import { CORE_RULES, getContextualGreeting, getNonRepeatingCulturalFact, getRandomNextStep, getTimeOfDay } from './prompt_repository';
 
-const assembleSystemPrompt = (mode: SenseiMode, mistakeContext?: string | null) => {
+const assembleSystemPrompt = (
+  mode: SenseiMode,
+  mistakeContext?: string | null,
+  ragProfile?: string | null,
+  isSocratic?: boolean,
+) => {
   const greeting = getContextualGreeting(mode);
   const culturalFact = getNonRepeatingCulturalFact();
   const nextStep = getRandomNextStep();
+
+  const socraticBlock = isSocratic ? `
+### 🔍 CHẾ ĐỘ THÁM TỬ (Socratic Mode)
+TRONG PHIÊN NÀY, bạn KHÔNG được trả lời thẳng câu hỏi của người học.
+Thay vào đó, bạn PHẢI:
+1. Hỏi lại câu hỏi gợi ý để người học TỰ TÌM RA đáp án.
+2. Dùng gợi ý từng bước (scaffolding), KHÔNG bao giờ reveal đáp án ngay.
+3. Chỉ xác nhận hoặc điều chỉnh KHI người học đã đưa ra câu trả lời.
+Ví dụ: nếu hỏi "は vs が khác nhau thế nào?", hãy hỏi "Bạn nghĩ trong câu '私は学生です', 'は' đóng vai trò gì?"
+` : '';
+
+  const profileBlock = ragProfile ? `
+### 📋 HỒ SƠ NGƯỜI HỌC (được cập nhật tự động)
+${ragProfile}
+Hãy điều chỉnh độ khó, ví dụ, và chủ đề cho phù hợp với hồ sơ này.
+` : '';
 
   return `Bạn là **Sensei Pro Max** – chuyên gia Nhật ngữ & văn hóa Nhật Bản đẳng cấp cao.
 
@@ -19,8 +40,9 @@ ${greeting}
 💡 *Kiến thức văn hóa hôm nay*: ${culturalFact}
 
 ${CORE_RULES}
-
-${mistakeContext ? `\n⚠️ **Lưu ý lỗi trước đó**: ${mistakeContext}. Hãy phân tích nguyên nhân sâu và giúp người học điều chỉnh tư duy.` : ''}
+${profileBlock}
+${socraticBlock}
+${mistakeContext ? `\n⚠️ **Điểm yếu cần chú ý**: ${mistakeContext}. Tìm cơ hội tự nhiên để giúp người học ôn luyện những điểm này.` : ''}
 
 ${nextStep}`;
 };
@@ -229,7 +251,36 @@ export const useSenseiChat = () => {
           // Streaming implementation for text/chat
           setMessages(prev => [...prev, initialAssistantMsg]);
 
-          const chatHistory = currentMessages.map(m => {
+          // ── P2 Fix: Sliding window — keep last 16 messages to prevent token overflow ──
+          const WINDOW_SIZE = 16;
+          const rawHistory = currentMessages;
+          let windowedMessages = rawHistory;
+
+          if (rawHistory.length > WINDOW_SIZE) {
+            const older = rawHistory.slice(0, rawHistory.length - WINDOW_SIZE);
+            const recent = rawHistory.slice(rawHistory.length - WINDOW_SIZE);
+
+            // Build a compressed summary of older messages to preserve context
+            const olderTopics = older
+              .filter(m => m.role === 'user')
+              .map(m => m.content.slice(0, 80))
+              .slice(-5)
+              .join(' | ');
+
+            const summaryMessage = {
+              role: 'system' as const,
+              content: `[Tóm tắt ${older.length} tin nhắn trước đó] Người học đã thảo luận về: ${olderTopics}. Hãy duy trì tính liên tục với nội dung đó.`
+            };
+
+            windowedMessages = [
+              { ...rawHistory[0], role: 'user' as const }, // Keep first message for context
+              summaryMessage as any,
+              ...recent
+            ];
+          }
+
+          const chatHistory = windowedMessages.map(m => {
+            if ((m as any).role === 'system') return m; // keep injected system messages
             if (m.type === 'image' && m.metadata && (m.metadata as any).imageUrl) {
               return {
                 role: m.role,
@@ -242,23 +293,61 @@ export const useSenseiChat = () => {
             return { role: m.role, content: m.content };
           });
           
+          // ── P1 Fix: read mistakes from sensei_knowledge (correct table) ──
           let mistakeContext = "";
+          let ragProfile: string | null = null;
+
           if (!isGuest && user?.id) {
+            // Fetch recent mistakes from correct table (sensei_knowledge, not user_mistakes)
             const { data: mistakes } = await (supabase as any)
-              .from('user_mistakes')
-              .select('word, context')
+              .from('sensei_knowledge')
+              .select('content, metadata')
               .eq('user_id', user.id)
-              .order('last_mistake_at', { ascending: false })
+              .eq('source_type', 'mistake')
+              .order('created_at', { ascending: false })
               .limit(5);
-            
+
             if (mistakes && mistakes.length > 0) {
-              const mistakeList = mistakes
-                .map((m: { word: string; context?: string }) => {
-                  const ctx = m.context && m.context !== 'N/A' ? ` (trong ngữ cảnh: ${m.context})` : '';
-                  return `${m.word}${ctx}`;
+              mistakeContext = mistakes
+                .map((m: { content: string }) => `• ${m.content}`.slice(0, 120))
+                .join('\n');
+            }
+
+            // ── P1 Fix: feed RAG profile snapshot into system prompt ──
+            const { data: profileData } = await (supabase as any)
+              .from('sensei_knowledge')
+              .select('content')
+              .eq('user_id', user.id)
+              .eq('source_type', 'profile')
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            ragProfile = profileData?.content ?? null;
+
+            // ── P2 Fix: cross-feature context from recent activity (last 24h) ──
+            const since24h = new Date(Date.now() - 86400000).toISOString();
+            const { data: recentActivity } = await (supabase as any)
+              .from('xp_events')
+              .select('source, amount, metadata, created_at')
+              .eq('user_id', user.id)
+              .gte('created_at', since24h)
+              .order('created_at', { ascending: false })
+              .limit(10);
+
+            if (recentActivity && recentActivity.length > 0) {
+              const activitySummary = recentActivity
+                .map((a: { source: string; amount: number; metadata?: Record<string, unknown> }) => {
+                  const meta = a.metadata as Record<string, unknown> | null;
+                  const game = meta?.game ? ` (${meta.game})` : '';
+                  const score = meta?.score ? ` · ${meta.score} điểm` : '';
+                  return `${a.source}${game}${score} +${a.amount}XP`;
                 })
                 .join(', ');
-              mistakeContext = `\nLưu ý: Bạn hay gặp khó khăn với: ${mistakeList}. Hãy ưu tiên đặt câu hỏi hoặc tạo widget liên quan đến các điểm yếu này.`;
+              // Append cross-feature activity to mistake context block
+              mistakeContext = mistakeContext
+                ? `${mistakeContext}\n📊 Hoạt động gần đây (24h): ${activitySummary}`
+                : `📊 Hoạt động gần đây (24h): ${activitySummary}`;
             }
           }
 
@@ -266,7 +355,20 @@ export const useSenseiChat = () => {
           const currentMode = pendingMeta?.mode || (activeConv?.mode || 'tutor');
           const customSystemPrompt = pendingMeta?.systemPrompt || (activeConv as any)?.analysis?.system_prompt;
 
-          let systemPrompt = assembleSystemPrompt(currentMode, mistakeContext);
+          // ── P1 Fix: Socratic Mode uses proper system-level instruction ──
+          const isSocraticSession = content.startsWith('[SOCRATIC_MODE]');
+          const cleanContent = isSocraticSession ? content.replace('[SOCRATIC_MODE] ', '') : content;
+          // Update the user message to remove the prefix tag before sending
+          if (isSocraticSession) {
+            currentMessages = currentMessages.map(m =>
+              m.id === userMsg.id ? { ...m, content: cleanContent } : m
+            );
+            setMessages(prev => prev.map(m =>
+              m.id === userMsg.id ? { ...m, content: cleanContent } : m
+            ));
+          }
+
+          let systemPrompt = assembleSystemPrompt(currentMode, mistakeContext, ragProfile, isSocraticSession);
           
           if (currentMode === 'roleplay' && customSystemPrompt) {
             systemPrompt = `Bạn là **Sensei Pro Max** trong chế độ nhập vai.
@@ -282,6 +384,11 @@ ${mistakeContext ? `\n⚠️ Lưu ý nhẹ: Người học đang yếu: ${mistak
           const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
           const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
           
+          // Build chat history using cleaned content (no [SOCRATIC_MODE] prefix)
+          const cleanedHistory = chatHistory.map(m =>
+            m.role === 'user' ? { ...m, content: (m.content as string).replace('[SOCRATIC_MODE] ', '') } : m
+          );
+
           const streamResponse = await fetch(`${supabaseUrl}/functions/v1/japanese-chat`, {
             method: 'POST',
             headers: {
@@ -289,7 +396,7 @@ ${mistakeContext ? `\n⚠️ Lưu ý nhẹ: Người học đang yếu: ${mistak
               'Authorization': `Bearer ${supabaseKey}`,
             },
             body: JSON.stringify({
-              messages: [{ role: 'system', content: systemPrompt }, ...chatHistory],
+              messages: [{ role: 'system', content: systemPrompt }, ...cleanedHistory],
               systemPrompt,
               user_id: user?.id,
               engine: 'gemini',

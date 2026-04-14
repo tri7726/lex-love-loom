@@ -18,9 +18,10 @@ export const SakuraPageLayout: React.FC<SakuraPageLayoutProps> = ({
       {showPetals && <FallingPetals />}
       
       {/* Decorative background layers */}
-      <div className="absolute inset-0 pointer-events-none opacity-40">
-        <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-sakura-light/20 rounded-full blur-[120px] -translate-x-1/2 -translate-y-1/2" />
-        <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-sakura-light/10 rounded-full blur-[150px] translate-x-1/3 translate-y-1/3" />
+      <div className="absolute inset-0 pointer-events-none opacity-100">
+        <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-sakura-light rounded-full blur-[120px] -translate-x-1/2 -translate-y-1/2 opacity-60" />
+        <div className="absolute bottom-0 right-0 w-[800px] h-[800px] bg-sakura-soft rounded-full blur-[160px] translate-x-1/3 translate-y-1/3 opacity-40" />
+        <div className="absolute top-1/2 right-0 w-[400px] h-[400px] bg-sakura-light/40 rounded-full blur-[100px] translate-x-1/2 -translate-y-1/2" />
       </div>
 
       <motion.div

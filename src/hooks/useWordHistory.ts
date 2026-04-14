@@ -10,6 +10,7 @@ interface WordHistoryItem {
   meaning: string;
   created_at: string;
   mastery_level: number | null;
+  example_sentence?: string | null;
 }
 
 export const useWordHistory = () => {
@@ -26,7 +27,7 @@ export const useWordHistory = () => {
     try {
       const { data, error } = await supabase
         .from('saved_vocabulary')
-        .select('id, word, reading, meaning, created_at, mastery_level')
+        .select('id, word, reading, meaning, created_at, mastery_level, example_sentence')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(50);

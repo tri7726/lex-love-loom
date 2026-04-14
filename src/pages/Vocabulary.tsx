@@ -19,8 +19,8 @@ export const Vocabulary = () => {
   const { state, setters, actions } = useVocabulary();
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <main className="container py-6 max-w-4xl">
+    <div className="min-h-screen pb-20 md:pb-0">
+      <main className="container py-6 max-w-4xl mx-auto">
         {state.showKanji ? (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
             <Button

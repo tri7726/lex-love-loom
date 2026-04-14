@@ -122,8 +122,8 @@ export const Navigation: React.FC<NavigationProps> = ({
 
   return (
     <>
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container max-w-7xl mx-auto flex h-14 items-center justify-between gap-4 px-4 md:px-8">
+      <header className="sticky top-0 z-50 w-full border-b border-sakura-light/30 bg-cream/80 backdrop-blur-xl supports-[backdrop-filter]:bg-cream/60">
+        <div className="container max-w-7xl mx-auto flex h-16 items-center justify-between gap-4 px-4 md:px-8">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2.5 shrink-0">
             <span className="text-lg">🌸</span>

@@ -56,6 +56,8 @@ const PvPBattle = React.lazy(() => import("./pages/PvPBattle"));
 const AdminDashboard = React.lazy(() => import("./pages/AdminDashboard"));
 const QuickMode = React.lazy(() => import("./pages/QuickMode"));
 const SRSReview = React.lazy(() => import("./pages/SRSReview"));
+const News = React.lazy(() => import("./pages/News").then(m => ({ default: m.News })));
+const Achievements = React.lazy(() => import("./pages/Achievements").then(m => ({ default: m.Achievements })));
 const CommunityDecks = React.lazy(() => import("./pages/CommunityDecks"));
 
 const queryClient = new QueryClient();
@@ -125,6 +127,8 @@ const App = () => (
                             <Route path="/admin" element={<AdminDashboard />} />
                             <Route path="/community-decks" element={<CommunityDecks />} />
                             <Route path="/review" element={<SRSReview />} />
+                            <Route path="/news" element={<News />} />
+                            <Route path="/achievements" element={<Achievements />} />
                             <Route path="*" element={<NotFound />} />
                           </Route>
                         </Routes>

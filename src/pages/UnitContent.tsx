@@ -130,7 +130,7 @@ export const UnitContent = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen pb-20">
       <main className="container py-6 space-y-6">
         {/* Breadcrumbs & Header */}
         <div className="space-y-4">

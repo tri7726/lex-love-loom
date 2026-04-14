@@ -13,7 +13,7 @@ import { useNavigate } from 'react-router-dom';
 export const Friends = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { friends, loading, followUser, unfollowUser, isFollowing } = useFriends();
+  const { friends, loading, loadingMore, hasMore, loadMore, followUser, unfollowUser, isFollowing } = useFriends();
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
@@ -106,7 +106,7 @@ export const Friends = () => {
                         ) : (
                           <Button 
                             className="rounded-xl shadow-sakura gap-2"
-                            onClick={() => followUser(res.user_id)}
+                            onClick={() => followUser(res.user_id, res)}
                           >
                             <UserPlus className="h-4 w-4" />
                             Theo dõi
@@ -177,6 +177,23 @@ export const Friends = () => {
                   </CardContent>
                 </Card>
               ))
+            )}
+            
+            {friends.length > 0 && hasMore && (
+              <div className="flex justify-center pt-4">
+                <Button 
+                  variant="outline" 
+                  className="rounded-xl w-full max-w-xs border-dashed gap-2 text-muted-foreground hover:border-primary/50 hover:text-primary"
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Đang tải...</>
+                  ) : (
+                    <>Tải thêm bạn bè</>
+                  )}
+                </Button>
+              </div>
             )}
           </div>
         </div>

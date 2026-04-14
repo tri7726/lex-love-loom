@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { useConfetti } from '@/hooks/useConfetti';
 import { getLevelInfo } from '@/lib/leveling';
+import { showXPGain } from '@/components/effects/XPGainToast';
 
 export type XPSource = 'quiz' | 'flashcard' | 'duel_win' | 'duel_loss' | 'duel_draw' | 'reading' | 'speaking' | 'streak_bonus' | 'achievement';
 
@@ -53,6 +54,9 @@ export const useXP = () => {
         p_source: source,
       });
       if (error) throw error;
+
+      // Show XP gain animation
+      showXPGain(xpAmount, source);
 
       // Optional: log metadata in xp_events separately (non-blocking)
       if (metadata && Object.keys(metadata).length > 0) {

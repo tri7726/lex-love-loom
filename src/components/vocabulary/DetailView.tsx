@@ -86,22 +86,30 @@ export const DetailView: React.FC<DetailViewProps> = ({
       exit={{ opacity: 0, x: -40 }}
       className="space-y-6"
     >
-      <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={goBack} className="gap-2 text-sakura hover:bg-sakura-light/50 rounded-full font-bold">
-          <ArrowLeft className="h-4 w-4" /> Quay lại
-        </Button>
-        <div className="flex items-center gap-2">
-          <Badge className={cn('font-bold', accent.badge)}>{selectedLevel.level}</Badge>
-          <span className="font-bold">{selectedSeries.name} – {selectedLesson.name}</span>
-        </div>
-        {hasNext ? (
-          <Button
-            variant="ghost" size="sm" className="gap-1 text-muted-foreground"
-            onClick={() => navigateToDetail(selectedLevel.lessons[lessonIndex + 1])}
-          >
-            Tiếp <ArrowRight className="h-4 w-4" />
+      <div className="grid grid-cols-3 items-center w-full mb-2">
+        <div className="flex justify-start">
+          <Button variant="ghost" size="sm" onClick={goBack} className="gap-2 text-sakura hover:bg-sakura-light/50 rounded-full font-bold transition-all px-4 h-10">
+            <ArrowLeft className="h-4 w-4" /> Quay lại
           </Button>
-        ) : <div className="w-20" />}
+        </div>
+        
+        <div className="flex flex-col items-center justify-center gap-0.5 text-center px-4">
+          <Badge className={cn('font-black w-fit uppercase text-[10px] tracking-widest', accent.badge)}>{selectedLevel.level}</Badge>
+          <h2 className="font-display font-black text-slate-800 text-lg md:text-xl truncate max-w-full">
+            {selectedSeries.name} – {selectedLesson.name}
+          </h2>
+        </div>
+        
+        <div className="flex justify-end">
+          {hasNext ? (
+            <Button
+              variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-sakura rounded-full px-4 h-10 transition-all font-bold"
+              onClick={() => navigateToDetail(selectedLevel.lessons[lessonIndex + 1])}
+            >
+              Tiếp <ArrowRight className="h-4 w-4" />
+            </Button>
+          ) : <div className="w-24" />}
+        </div>
       </div>
 
       {currentWord && (

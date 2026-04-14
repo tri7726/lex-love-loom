@@ -32,6 +32,9 @@ import { GrammarComparisonDialog } from '@/components/grammar/GrammarComparisonD
 import { useGrammarMastery } from '@/hooks/useGrammarMastery';
 import { GrammarMasteryBadge } from '@/components/grammar/GrammarMasteryBadge';
 import { SakuraParticles } from '@/components/ui/SakuraParticles';
+import { useAI } from '@/contexts/AIContext';
+import { DeepExplanationSheet } from '@/components/grammar/DeepExplanationSheet';
+import { DeepExplainResult } from '@/services/groqServices';
 
 import { GRAMMAR_DB, GrammarPoint } from '../data/grammar-db';
 
@@ -44,6 +47,12 @@ export const GrammarWiki = () => {
   const { speak, isSpeaking, stop } = useTTS({ lang: 'ja-JP' });
   const { toast } = useToast();
   const { mastery } = useGrammarMastery();
+  const { explainDeep } = useAI();
+
+  const [deepExplainOpen, setDeepExplainOpen] = useState(false);
+  const [deepExplainResult, setDeepExplainResult] = useState<DeepExplainResult | null>(null);
+  const [isDeepExplaining, setIsDeepExplaining] = useState(false);
+  const [activeExplainTitle, setActiveExplainTitle] = useState('');
 
   const filteredPoints = GRAMMAR_DB.filter(point => {
     const matchesSearch = point.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -58,6 +67,24 @@ export const GrammarWiki = () => {
       description: "Đã sao chép vào bộ nhớ tạm",
       duration: 2000,
     });
+  };
+
+  const handleDeepExplain = async (point: GrammarPoint) => {
+    setActiveExplainTitle(point.title);
+    setDeepExplainOpen(true);
+    setIsDeepExplaining(true);
+    try {
+      const result = await explainDeep(point.title, point.explanation, 'grammar');
+      setDeepExplainResult(result);
+    } catch (error) {
+       toast({
+         title: "Lỗi",
+         description: "Không thể nhận giải thích sâu vào lúc này.",
+         variant: "destructive"
+       });
+    } finally {
+      setIsDeepExplaining(false);
+    }
   };
 
   return (
@@ -234,13 +261,18 @@ export const GrammarWiki = () => {
                               Luyện tập ngay
                             </Button>
                             <Link to={`/sensei?mode=analysis&q=${encodeURIComponent(`Hãy giải thích chuyên sâu và cùng tôi luyện tập mẫu câu ngữ pháp: ${point.title}`)}`} className="flex-1">
-                              <Button 
-                                className="w-full rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white transition-all gap-2 font-bold h-11 shadow-sm"
-                              >
-                                <Brain className="h-4 w-4" />
-                                Hỏi Sensei
-                              </Button>
-                            </Link>
+                               <Button 
+                                 className="w-full rounded-xl bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500 hover:text-white transition-all gap-2 font-bold h-11 border-indigo-500/20"
+                                 variant="outline"
+                                 onClick={(e) => {
+                                   e.preventDefault();
+                                   handleDeepExplain(point);
+                                 }}
+                               >
+                                 <Brain className="h-4 w-4" />
+                                 Giải thích sâu
+                               </Button>
+                             </Link>
                           </div>
                         </CardContent>
                       </Card>
@@ -274,6 +306,14 @@ export const GrammarWiki = () => {
             }}
            />
         )}
+
+        <DeepExplanationSheet 
+          isOpen={deepExplainOpen}
+          onClose={() => setDeepExplainOpen(false)}
+          result={deepExplainResult}
+          isLoading={isDeepExplaining}
+          title={activeExplainTitle}
+        />
 
         <GrammarSensei />
       </main>

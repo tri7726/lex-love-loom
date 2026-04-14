@@ -11,11 +11,14 @@ import {
   BookMarked,
   Calendar,
   Star,
+  Plus,
+  Check
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import {
   Select,
   SelectContent,
@@ -37,6 +40,7 @@ import {
 import { useWordHistory } from '@/hooks/useWordHistory';
 import { useTTS } from '@/hooks/useTTS';
 import { useAuth } from '@/hooks/useAuth';
+import { useFlashcardFolders } from '@/hooks/useFlashcardFolders';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
@@ -47,7 +51,14 @@ const SavedVocabulary: React.FC = () => {
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const { history, isLoading, removeWord, refreshHistory } = useWordHistory();
   const { speak, isSpeaking } = useTTS({ lang: 'ja-JP' });
+  const { saveToInbox, folders } = useFlashcardFolders();
   const { user } = useAuth();
+  const [creatingCardId, setCreatingCardId] = useState<string | null>(null);
+
+  // Helper to check if a word is already in any flashcard folder
+  const isAlreadyInSRS = (word: string) => {
+    return folders.some(f => f.words.some(w => w.word === word));
+  };
 
   // Filter and sort vocabulary
   const filteredVocabulary = React.useMemo(() => {
@@ -116,7 +127,7 @@ const SavedVocabulary: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0">
+    <div className="min-h-screen pb-20 md:pb-0">
       <main className="container py-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -249,6 +260,35 @@ const SavedVocabulary: React.FC = () => {
                             className="text-muted-foreground hover:text-primary"
                           >
                             <Volume2 className="h-4 w-4" />
+                          </Button>
+
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={creatingCardId === vocab.id || isAlreadyInSRS(vocab.word)}
+                            onClick={async () => {
+                              setCreatingCardId(vocab.id);
+                              await saveToInbox({
+                                word: vocab.word,
+                                reading: vocab.reading || '',
+                                meaning: vocab.meaning,
+                                example_sentence: vocab.example_sentence || '',
+                              } as any);
+                              setCreatingCardId(null);
+                            }}
+                            className={cn(
+                              "text-muted-foreground",
+                              isAlreadyInSRS(vocab.word) ? "text-matcha bg-matcha/10" : "hover:text-primary"
+                            )}
+                            title={isAlreadyInSRS(vocab.word) ? "Đã có trong SRS" : "Thêm vào Flashcard SRS"}
+                          >
+                            {creatingCardId === vocab.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : isAlreadyInSRS(vocab.word) ? (
+                              <Check className="h-4 w-4" />
+                            ) : (
+                              <Plus className="h-4 w-4" />
+                            )}
                           </Button>
 
                           <AlertDialog>

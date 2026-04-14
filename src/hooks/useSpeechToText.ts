@@ -16,6 +16,7 @@ interface UseSpeechToTextReturn {
   resetTranscript: () => void;
   isSupported: boolean;
   error: string | null;
+  confidence: number;
 }
 
 // Check if SpeechRecognition is available
@@ -36,6 +37,7 @@ export const useSpeechToText = (options: UseSpeechToTextOptions = {}): UseSpeech
 
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
+  const [confidence, setConfidence] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<unknown>(null);
 
@@ -53,6 +55,7 @@ export const useSpeechToText = (options: UseSpeechToTextOptions = {}): UseSpeech
     recognition.onstart = () => {
       setIsListening(true);
       setError(null);
+      setConfidence(1);
     };
 
     recognition.onend = () => {
@@ -100,6 +103,12 @@ export const useSpeechToText = (options: UseSpeechToTextOptions = {}): UseSpeech
 
       const currentTranscript = finalTranscript + interimTranscript;
       const isNowFinal = interimTranscript === '' && finalTranscript !== '';
+      
+      // Get confidence from the first result if available
+      if (event.results.length > 0 && event.results[0][0]) {
+        setConfidence((event.results[0][0] as any).confidence || 1);
+      }
+
       setTranscript(currentTranscript);
       onResult?.(currentTranscript, isNowFinal);
     };
@@ -138,6 +147,7 @@ export const useSpeechToText = (options: UseSpeechToTextOptions = {}): UseSpeech
 
   const resetTranscript = useCallback(() => {
     setTranscript('');
+    setConfidence(1);
     setError(null);
   }, []);
 
@@ -149,6 +159,7 @@ export const useSpeechToText = (options: UseSpeechToTextOptions = {}): UseSpeech
     resetTranscript,
     isSupported,
     error,
+    confidence,
   };
 };
 
