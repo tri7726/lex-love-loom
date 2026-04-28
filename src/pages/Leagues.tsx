@@ -398,3 +398,4 @@ export const Leagues = () => {
     </div>
   );
 };
+export default Leagues;

@@ -201,3 +201,4 @@ export const Friends = () => {
     </div>
   );
 };
+export default Friends;

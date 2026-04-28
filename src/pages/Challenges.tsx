@@ -722,3 +722,4 @@ export const Challenges = () => {
     </div>
   );
 };
+export default Challenges;

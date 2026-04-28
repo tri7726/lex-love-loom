@@ -370,3 +370,4 @@ export const ModuleManager = () => {
 };
 
 // export default ModuleManager;
+export default ModuleManager;

@@ -312,3 +312,4 @@ export const MockTestCenter = () => {
     </div>
   );
 };
+export default MockTestCenter;

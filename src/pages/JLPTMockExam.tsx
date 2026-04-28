@@ -837,3 +837,4 @@ export const JLPTMockExam = () => {
     </QuickSelectionLookup>
   );
 };
+export default JLPTMockExam;

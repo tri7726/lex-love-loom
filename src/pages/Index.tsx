@@ -1,64 +1,38 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import {
-  BookOpen,
-  Brain,
-  Trophy,
-  Sparkles,
-  TrendingUp,
-  ChevronRight,
-  ArrowRight,
-  Loader2,
-  Book,
-  Search,
-  Settings,
-  Target,
-  Users,
-  MessageSquare,
-  Globe,
-  CheckCircle2,
-  Clock,
-  Sword,
-  Award,
-  Zap,
-  User,
-  Video,
-  FileText,
-  Flame,
-  Calendar,
-  Gift,
-  Timer
-} from 'lucide-react';
-import { DailyQuests } from '@/components/dashboard/DailyQuests';
-import { EvolvedSkillsSection } from '@/components/dashboard/EvolvedSkillsSection';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Navigation } from '@/components/Navigation';
+import { Loader2 } from 'lucide-react';
 import { StreakReminderBanner } from '@/components/StreakReminderBanner';
 import { DailyPractice } from '@/components/DailyPractice';
-import { SkillHeatmap } from '@/components/analytics/SkillHeatmap';
-import { JapaneseText } from '@/components/JapaneseText';
-import { StreakBadge, AchievementBadge, achievements } from '@/components/StreakBadge';
-import { Leaderboard } from '@/components/Leaderboard';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Link, useNavigate } from 'react-router-dom';
-import { SenseiInsights } from '@/components/dashboard/SenseiInsights';
+import { SectionErrorBoundary } from '@/components/SectionErrorBoundary';
+import { WelcomeHero, QuickModeBanner } from '@/components/dashboard';
+import { SkeletonHero, SkeletonWordOfTheDay, SkeletonCard, SkeletonSidebar } from '@/components/dashboard/Skeletons';
 import { useProfile } from '@/hooks/useProfile';
 import { useWordHistory } from '@/hooks/useWordHistory';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
-import { cn } from '@/lib/utils';
-import { useWritingLab } from '@/contexts/WritingLabContext';
-import { getLevelInfo } from '@/lib/leveling';
-import { Progress } from '@/components/ui/progress';
 import { useFriends } from '@/hooks/useFriends';
+import { useWritingLab } from '@/contexts/WritingLabContext';
+import { supabase } from '@/integrations/supabase/client';
 
-import { MINNA_N5_VOCAB } from '@/data/minna-n5';
+// Lazy-loaded below-fold components
+const WordOfTheDay = lazy(() => import('@/components/dashboard/WordOfTheDay').then(m => ({ default: m.WordOfTheDay })));
+const ReviewPreview = lazy(() => import('@/components/dashboard/ReviewPreview').then(m => ({ default: m.ReviewPreview })));
+const WritingRecs = lazy(() => import('@/components/dashboard/WritingRecs').then(m => ({ default: m.WritingRecs })));
+const AIToolsGrid = lazy(() => import('@/components/dashboard/AIToolsGrid').then(m => ({ default: m.AIToolsGrid })));
+const SocialSummary = lazy(() => import('@/components/dashboard/SocialSummary').then(m => ({ default: m.SocialSummary })));
+const DashboardSidebar = lazy(() => import('@/components/dashboard/DashboardSidebar').then(m => ({ default: m.DashboardSidebar })));
+const AchievementsSection = lazy(() => import('@/components/dashboard/AchievementsSection').then(m => ({ default: m.AchievementsSection })));
+const SenseiInsights = lazy(() => import('@/components/dashboard/SenseiInsights').then(m => ({ default: m.SenseiInsights })));
+const EvolvedSkillsSection = lazy(() => import('@/components/dashboard/EvolvedSkillsSection').then(m => ({ default: m.EvolvedSkillsSection })));
 
-// Daily Tasks will now be calculated dynamically in the component
-
-// wordOfTheDay logic is now inside the component using useMemo to ensure safety
+function SuspenseFallback({ type }: { type?: 'hero' | 'word' | 'card' | 'sidebar' }) {
+  switch (type) {
+    case 'hero': return <SkeletonHero />;
+    case 'word': return <SkeletonWordOfTheDay />;
+    case 'sidebar': return <SkeletonSidebar />;
+    default: return <SkeletonCard />;
+  }
+}
 
 export const Index = () => {
   const navigate = useNavigate();
@@ -66,28 +40,23 @@ export const Index = () => {
   const { openWritingLab } = useWritingLab();
   const { profile, loading: profileLoading, updateStreak } = useProfile();
   const { history, isLoading: historyLoading } = useWordHistory();
-  const [leaderboard, setLeaderboard] = React.useState<{ rank: number; userId: string; username: string; xp: number; streak: number; avatar?: string; isCurrentUser: boolean }[]>([]);
-  const [leaderboardLoading, setLeaderboardLoading] = React.useState(true);
-  const [dueCount, setDueCount] = useState(0);
-  const [dueCards, setDueCards] = useState<any[]>([]);
-  const [loadingDue, setLoadingDue] = useState(false);
-  const [writingRecs, setWritingRecs] = useState<any[]>([]);
-  const [loadingRecs, setLoadingRecs] = useState(false);
-  const [todayXP, setTodayXP] = useState(0);
   const { friends } = useFriends();
 
+  const [leaderboard, setLeaderboard] = useState<
+    { rank: number; userId: string; username: string; xp: number; streak: number; avatar?: string; isCurrentUser: boolean }[]
+  >([]);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(true);
+  const [dueCount, setDueCount] = useState(0);
+  const [dueCards, setDueCards] = useState<any[]>([]);
+  const [writingRecs, setWritingRecs] = useState<any[]>([]);
+  const [todayXP, setTodayXP] = useState(0);
+
+  // ── Data fetching ──────────────────────────────────────────────────────────
 
   const fetchDueCards = useCallback(async () => {
     if (!user) return;
-    setLoadingDue(true);
-    
-    // 1. Get total due count
-    const { data: countData } = await supabase.rpc('get_due_flashcards_count', { 
-      user_uuid: user.id 
-    });
+    const { data: countData } = await supabase.rpc('get_due_flashcards_count', { user_uuid: user.id });
     setDueCount(countData || 0);
-
-    // 2. Get a few cards for preview
     const { data } = await (supabase as any)
       .from('flashcards')
       .select('id, word, reading, meaning')
@@ -95,13 +64,10 @@ export const Index = () => {
       .lte('next_review_date', new Date().toISOString())
       .limit(5);
     setDueCards(data || []);
-    setLoadingDue(false);
   }, [user]);
 
   const fetchWritingRecommendations = useCallback(async () => {
     if (!user) return;
-    setLoadingRecs(true);
-    // Find Kanji/Words with low ease factor (struggling)
     const { data } = await (supabase as any)
       .from('flashcards')
       .select('id, word, reading, meaning, ease_factor')
@@ -109,7 +75,6 @@ export const Index = () => {
       .lt('ease_factor', 2.0)
       .limit(3);
     setWritingRecs(data || []);
-    setLoadingRecs(false);
   }, [user]);
 
   const fetchLeaderboard = useCallback(async () => {
@@ -119,20 +84,18 @@ export const Index = () => {
         .select('id, user_id, display_name, total_xp, current_streak, avatar_url')
         .order('total_xp', { ascending: false })
         .limit(5);
-
       if (error) throw error;
-      
-      const formatted = (data || []).map((p, i) => ({
-        rank: i + 1,
-        userId: p.user_id,
-        username: p.display_name || 'Anonymous',
-        xp: p.total_xp || 0,
-        streak: p.current_streak || 0,
-        avatar: p.avatar_url || undefined,
-        isCurrentUser: p.user_id === user?.id
-      }));
-
-      setLeaderboard(formatted);
+      setLeaderboard(
+        (data || []).map((p, i) => ({
+          rank: i + 1,
+          userId: p.user_id,
+          username: p.display_name || 'Anonymous',
+          xp: p.total_xp || 0,
+          streak: p.current_streak || 0,
+          avatar: p.avatar_url || undefined,
+          isCurrentUser: p.user_id === user?.id,
+        }))
+      );
     } catch (err) {
       console.error('Error fetching leaderboard:', err);
     } finally {
@@ -146,7 +109,6 @@ export const Index = () => {
       fetchLeaderboard();
       fetchDueCards();
       fetchWritingRecommendations();
-      // Fetch today's XP earned
       const today = new Date().toISOString().split('T')[0];
       (supabase as any)
         .from('xp_events')
@@ -154,152 +116,54 @@ export const Index = () => {
         .eq('user_id', user.id)
         .gte('created_at', `${today}T00:00:00`)
         .then(({ data }: { data: { amount: number }[] | null }) => {
-          const sum = (data || []).reduce((acc, e) => acc + (e.amount || 0), 0);
-          setTodayXP(sum);
+          setTodayXP((data || []).reduce((acc, e) => acc + (e.amount || 0), 0));
         });
     }
-  }, [user?.id]); // Only run on login or user change
+  }, [user?.id]);
 
-  const wordOfTheDay = useMemo(() => {
-    try {
-      const allWords = MINNA_N5_VOCAB.flat();
-      if (!allWords || allWords.length === 0) {
-        return {
-          word: '頑張る',
-          furigana: 'がんばる',
-          meaning: 'đang tải dữ liệu...',
-          example: '毎日頑張っています。',
-          exampleMeaning: 'Tôi đang nỗ lực mỗi ngày.',
-        };
-      }
-      
-      const today = new Date();
-      const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000);
-      const wordIndex = Math.max(0, dayOfYear % allWords.length);
-      const ẇ = allWords[wordIndex];
-      
-      if (!ẇ) throw new Error("Word selection failed");
-
-      return {
-        word: ẇ.word,
-        furigana: ẇ.reading || '',
-        meaning: ẇ.meaning,
-        example: ẇ.example || ẇ.example_sentence || null,
-        exampleMeaning: ẇ.exampleMeaning || ẇ.example_translation || null,
-      };
-    } catch (e) {
-      console.error("Error generating word of the day:", e);
-      return {
-        word: '頑張る',
-        furigana: 'がんばる',
-        meaning: 'cố gắng lên',
-        example: null,
-        exampleMeaning: null,
-      };
-    }
-  }, []);
-
-  const userStats = useMemo(() => {
-    const defaultStats = {
-      streak: 0,
-      totalXp: 0,
-      wordsLearned: 0,
-      quizzesCompleted: 0,
-      level: 'N5',
-      levelInfo: getLevelInfo(0),
-      jlptProgress: {
-        N5: 0,
-        N4: 0,
-        N3: 0,
-      }
-    };
-
-    if (!profile) return defaultStats;
-
-    try {
-      return {
-        streak: profile.current_streak || 0,
-        totalXp: profile.total_xp || 0,
-        wordsLearned: history?.length || 0,
-        quizzesCompleted: 0, // Placeholder
-        level: profile.jlpt_level || 'N5',
-        levelInfo: getLevelInfo(profile.total_xp || 0),
-        jlptProgress: {
-          N5: Math.min(100, ((profile.total_xp || 0) / 1000) * 100),
-          N4: Math.max(0, Math.min(100, (((profile.total_xp || 0) - 1000) / 2000) * 100)),
-          N3: 0,
-        }
-      };
-    } catch (err) {
-      console.error("Error calculating userStats:", err);
-      return defaultStats;
-    }
-  }, [profile, history]);
+  // ── Derived state ──────────────────────────────────────────────────────────
 
   const dynamicTasks = useMemo(() => {
-    const tasks = [];
-    
+    const tasks: any[] = [];
     if (dueCount > 0) {
       tasks.push({
         id: 'srs-review',
         type: 'vocabulary' as const,
         title: 'Ôn tập định kỳ',
         description: `${dueCount} thẻ vựng đang chờ bạn ôn tập`,
-        progress: 0,
-        total: dueCount,
-        xp: Math.min(dueCount * 5, 200),
-        completed: false,
-        estimatedTime: Math.ceil(dueCount * 0.2),
+        progress: 0, total: dueCount, xp: Math.min(dueCount * 5, 200), completed: false, estimatedTime: Math.ceil(dueCount * 0.2),
       });
     }
-
     if (writingRecs.length > 0) {
       tasks.push({
         id: 'kanji-writing',
         type: 'kanji' as const,
         title: 'Luyện viết Kanji',
         description: `Luyện lại ${writingRecs.map(r => r.word).join(', ')}`,
-        progress: 0,
-        total: writingRecs.length,
-        xp: 30,
-        completed: false,
-        estimatedTime: 10,
+        progress: 0, total: writingRecs.length, xp: 30, completed: false, estimatedTime: 10,
       });
     }
-
-    // Add default tasks if list is short
     if (tasks.length < 3) {
       tasks.push({
         id: 'ai-chat',
         type: 'quiz' as const,
         title: 'Hội thoại với Sensei',
         description: 'Luyện tập giao tiếp tự do 5 phút',
-        progress: 0,
-        total: 1,
-        xp: 50,
-        completed: false,
-        estimatedTime: 5,
+        progress: 0, total: 1, xp: 50, completed: false, estimatedTime: 5,
       });
     }
-
     return tasks;
-  }, [dueCards, writingRecs]);
+  }, [dueCount, writingRecs]);
 
-  const handleStartTask = (taskId: string) => {
+  const handleStartTask = useCallback((taskId: string) => {
     switch (taskId) {
-      case 'srs-review':
-        navigate('/review');
-        break;
-      case 'kanji-writing':
-        if (writingRecs.length > 0) openWritingLab(writingRecs[0].word);
-        break;
-      case 'ai-chat':
-        navigate('/sensei');
-        break;
-      default:
-        navigate('/');
+      case 'srs-review': navigate('/review'); break;
+      case 'kanji-writing': if (writingRecs.length > 0) openWritingLab(writingRecs[0].word); break;
+      case 'ai-chat': navigate('/sensei'); break;
     }
-  };
+  }, [navigate, writingRecs, openWritingLab]);
+
+  // ── Loading state ──────────────────────────────────────────────────────────
 
   if (profileLoading || historyLoading) {
     return (
@@ -309,662 +173,85 @@ export const Index = () => {
     );
   }
 
+  // ── Render ─────────────────────────────────────────────────────────────────
+
   return (
-      <motion.main 
-        variants={{
-          hidden: { opacity: 0 },
-          show: {
-            opacity: 1,
-            transition: {
-              staggerChildren: 0.1
-            }
-          }
-        }}
-        initial="hidden"
-        animate="show"
-        className="py-8 space-y-10"
-      >
-        {/* Streak Reminder */}
-        <motion.div variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
-          <StreakReminderBanner />
-        </motion.div>
+    <motion.main
+      variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } }}
+      initial="hidden"
+      animate="show"
+      className="py-8 space-y-10"
+    >
+      <StreakReminderBanner />
+      <QuickModeBanner />
 
-        {/* ⚡ Quick 5 Banner */}
-        <motion.section
-          variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
-        >
-          <Link to="/quick-mode">
-            <div className="relative overflow-hidden rounded-3xl p-5 flex items-center gap-5 cursor-pointer group shadow-soft hover:shadow-elevated transition-shadow"
-                 style={{ background: 'var(--gradient-sakura)' }}>
-              {/* BG decoration */}
-              <div className="absolute right-0 top-0 bottom-0 w-32 opacity-10 flex items-center justify-center">
-                <Zap className="h-24 w-24 text-white" />
-              </div>
-              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
-                <Zap className="h-6 w-6 text-white" />
-              </div>
-              <div className="flex-1">
-                <p className="font-black text-white text-sm">Quick 5 ⚡</p>
-                <p className="text-white/80 text-[10px] font-medium">5 câu hỏi xen kẽ · ~3 phút · Nhận XP ngay</p>
-              </div>
-              <div className="flex items-center gap-1 bg-white/20 px-3 py-1.5 rounded-xl group-hover:bg-white/30 transition-colors flex-shrink-0">
-                <span className="text-white text-[10px] font-black uppercase tracking-wider">Bắt đầu</span>
-                <ArrowRight className="h-3 w-3 text-white" />
-              </div>
-            </div>
-          </Link>
-        </motion.section>
+      <SectionErrorBoundary name="WelcomeHero">
+        <WelcomeHero profile={profile} history={history} />
+      </SectionErrorBoundary>
 
-        <motion.section
-          variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
-          className="sakura-bg rounded-[2.5rem] p-8 md:p-10 border border-sakura-light/50 shadow-card"
-        >
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="flex-1">
-              <h1 className="text-2xl md:text-3xl font-display font-bold mb-2">
-                Chào mừng trở lại! 🌸
-              </h1>
-              <div className="mb-6 space-y-2">
-                <p className="text-muted-foreground">
-                  Bạn đang ở cấp học thuật <strong>{userStats.level}</strong>. Hãy tiếp tục lộ trình chinh phục JLPT nhé!
-                </p>
-                
-                {/* Gamification Shimmer Bar */}
-                <div className="w-full max-w-sm space-y-1.5 mt-4">
-                  <div className="flex justify-between text-xs font-bold text-sakura-dark">
-                    <span>Level {userStats.levelInfo.level}</span>
-                    <span>{Math.floor(userStats.levelInfo.progressPercentage)}%</span>
-                  </div>
-                  <Progress value={userStats.levelInfo.progressPercentage} showShimmer={true} className="h-3" />
-                  <p className="text-[10px] text-muted-foreground text-right font-medium">
-                    Còn {userStats.levelInfo.xpRequiredForNextLevel - userStats.levelInfo.currentXpInLevel} XP để lên Lv.{userStats.levelInfo.level + 1}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-                {[
-                  { level: 'N5', progress: userStats.jlptProgress.N5, color: 'bg-sakura' },
-                  { level: 'N4', progress: userStats.jlptProgress.N4, color: 'bg-indigo-jp' },
-                  { level: 'N3', progress: userStats.jlptProgress.N3 || 0, color: 'bg-matcha' },
-                  { level: 'N2', progress: 0, color: 'bg-crimson' },
-                  { level: 'N1', progress: 0, color: 'bg-sumi/80' },
-                ].map((item) => (
-                  <Link key={item.level} to={`/learning-path/${item.level.toLowerCase()}`} className="group block space-y-1">
-                    <div className="flex justify-between text-[10px] items-end px-1 font-bold">
-                      <span>{item.level}</span>
-                      <span className="text-muted-foreground opacity-70">{Math.floor(item.progress)}%</span>
-                    </div>
-                    <div className="h-2 bg-background/50 rounded-full overflow-hidden">
-                      <motion.div
-                        className={cn("h-full", item.color)}
-                        initial={{ width: 0 }}
-                        animate={{ width: `${item.progress}%` }}
-                        transition={{ duration: 1, delay: 0.5 }}
-                      />
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-6 bg-background/40 p-6 rounded-xl backdrop-blur-sm self-start">
-              <div className="text-center">
-                <p className="text-4xl font-bold text-gradient-sakura">
-                  {userStats.levelInfo.level}
-                </p>
-                <p className="text-xs text-sakura-dark uppercase tracking-wider font-black">Level</p>
-              </div>
-              <div className="w-px h-12 bg-border/50" />
-              <div className="text-center">
-                <p className="text-4xl font-bold text-gradient-gold">
-                  {userStats.streak}
-                </p>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Chuỗi ngày</p>
-              </div>
-            </div>
-          </div>
-        </motion.section>
-
-        {/* Sensei Intelligence Insights */}
-        {user?.id && (
-          <motion.section
-            variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
-          >
+      {user?.id && (
+        <Suspense fallback={<SuspenseFallback type="card" />}>
+          <SectionErrorBoundary name="SenseiInsights">
             <SenseiInsights userId={user.id} />
-          </motion.section>
-        )}
-
-        {/* EvoSkill Section */}
-        {user?.id && (
-          <motion.section
-            variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
-          >
+          </SectionErrorBoundary>
+        </Suspense>
+      )}
+      {user?.id && (
+        <Suspense fallback={<SuspenseFallback type="card" />}>
+          <SectionErrorBoundary name="EvolvedSkills">
             <EvolvedSkillsSection />
-          </motion.section>
-        )}
+          </SectionErrorBoundary>
+        </Suspense>
+      )}
 
-        {/* Word of the Day */}
-        <motion.section
-          variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
-        >
-          <Card className="border-2 border-gold/20 bg-gradient-to-br from-gold-light/10 to-transparent shadow-soft">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Sparkles className="h-5 w-5 text-gold" />
-                Từ vựng của ngày
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="space-y-2">
-                  <JapaneseText
-                    text={wordOfTheDay.word}
-                    furigana={wordOfTheDay.furigana}
-                    meaning={wordOfTheDay.meaning}
-                    size="lg"
-                  />
-                  <p className="text-lg font-medium">{wordOfTheDay.meaning}</p>
-                </div>
-                {wordOfTheDay.example && (
-                  <div className="p-4 rounded-lg bg-muted/50">
-                    <p className="text-sm text-muted-foreground mb-1">Ví dụ:</p>
-                    <p className="font-jp text-lg">{wordOfTheDay.example}</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {wordOfTheDay.exampleMeaning}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </motion.section>
+      <Suspense fallback={<SuspenseFallback type="word" />}>
+        <SectionErrorBoundary name="WordOfTheDay"><WordOfTheDay /></SectionErrorBoundary>
+      </Suspense>
 
-        {/* SRS Review Section */}
-        {dueCards.length > 0 && (
-          <motion.section
-            variants={{ hidden: { opacity: 0, x: -20 }, show: { opacity: 1, x: 0 } }}
-            className="space-y-4"
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-black flex items-center gap-2">
-                <Brain className="h-5 w-5 text-sakura" />
-                Thẻ tới hạn ({dueCount})
-              </h2>
-              <Link to="/review">
-                <Button variant="ghost" size="sm" className="text-sakura font-bold text-xs uppercase tracking-widest gap-1">
-                  Bắt đầu Ôn ngay <ChevronRight className="h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              {dueCards.map((card) => (
-                <Card 
-                  key={card.id} 
-                  className="border-sakura/20 bg-sakura-light/5 hover:bg-sakura/5 transition-colors cursor-pointer group"
-                  onClick={() => navigate('/vocabulary')}
-                >
-                  <CardContent className="p-4 text-center space-y-1">
-                    <p className="font-jp text-lg font-bold group-hover:text-sakura transition-colors">{card.word}</p>
-                    <p className="text-[10px] text-muted-foreground line-clamp-1">{card.meaning}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </motion.section>
-        )}
+      <Suspense fallback={<SuspenseFallback type="card" />}>
+        <SectionErrorBoundary name="ReviewPreview">
+          <ReviewPreview dueCards={dueCards} dueCount={dueCount} />
+        </SectionErrorBoundary>
+      </Suspense>
 
-        {/* AI Writing Recommendations */}
-        {writingRecs.length > 0 && (
-          <motion.section
-            variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
-            className="p-8 rounded-[3rem] bg-gradient-to-br from-indigo-jp/5 to-sakura-light/10 border-2 border-indigo-jp/20 shadow-soft"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <div className="space-y-1">
-                <h2 className="text-xl font-black flex items-center gap-2 text-indigo-jp">
-                  <Sparkles className="h-5 w-5" />
-                  Gợi ý Luyện viết AI
-                </h2>
-                <p className="text-xs text-muted-foreground font-medium">Bạn đang gặp khó khăn với các chữ này. Luyện viết ngay để nhớ lâu hơn!</p>
-              </div>
-              <Badge className="bg-indigo-jp text-white uppercase tracking-widest text-[9px] px-3">Priority</Badge>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {writingRecs.map((rec) => (
-                <div 
-                  key={rec.id} 
-                  className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-indigo-jp/10 flex items-center justify-between group hover:border-indigo-jp/30 transition-all cursor-pointer"
-                  onClick={() => openWritingLab(rec.word)}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-xl bg-indigo-jp/5 flex items-center justify-center font-jp text-3xl font-black text-indigo-jp">
-                      {rec.word[0]}
-                    </div>
-                    <div>
-                      <p className="font-bold text-slate-800">{rec.word}</p>
-                      <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">{rec.reading}</p>
-                    </div>
-                  </div>
-                  <Button size="icon" variant="ghost" className="rounded-full group-hover:bg-indigo-jp group-hover:text-white transition-all">
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </motion.section>
-        )}
+      <Suspense fallback={<SuspenseFallback type="card" />}>
+        <SectionErrorBoundary name="WritingRecs">
+          <WritingRecs writingRecs={writingRecs} onStartWriting={openWritingLab} />
+        </SectionErrorBoundary>
+      </Suspense>
 
-        {/* Advanced AI Tools Section */}
-        <motion.section 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="space-y-6 !mt-12"
-        >
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold flex items-center gap-2">
-              <Sparkles className="h-6 w-6 text-primary" />
-              Công cụ AI nâng cao
-            </h2>
-          </div>
-          <div className="grid md:grid-cols-2 gap-6">
-            <Link to="/sensei?mode=roleplay">
-              <Card className="group overflow-hidden border-2 border-transparent hover:border-primary/20 transition-all hover:shadow-elevated bg-card/60">
-                <CardContent className="p-0 flex flex-col sm:flex-row h-full">
-                  <div className="sm:w-1/3 relative h-40 sm:h-auto overflow-hidden">
-                    <img 
-                      src="https://images.unsplash.com/photo-1543269865-cbf427effbad?w=800&auto=format&fit=crop" 
-                      alt="AI Roleplay" 
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    />
-                    <div className="absolute inset-0 bg-black/20" />
-                  </div>
-                  <div className="p-6 flex-1 space-y-4">
-                    <div className="space-y-2">
-                      <h3 className="text-xl font-bold flex items-center gap-2">
-                        <MessageSquare className="h-5 w-5 text-primary" />
-                        AI Roleplay Studio
-                      </h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        Nhập vai vào các tình huống thực tế tại Nhật Bản. Luyện tập phản xạ giao tiếp tự nhiên với Sensei.
-                      </p>
-                    </div>
-                    <Button variant="outline" className="w-full sm:w-auto font-bold text-xs uppercase tracking-widest gap-2">
-                      Bắt đầu ngay <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
+      <Suspense fallback={<SuspenseFallback type="card" />}>
+        <SectionErrorBoundary name="AIToolsGrid"><AIToolsGrid /></SectionErrorBoundary>
+      </Suspense>
 
-            <Link to="/news">
-              <Card className="group overflow-hidden border-2 border-transparent hover:border-primary/20 transition-all hover:shadow-elevated bg-card/60">
-                <CardContent className="p-0 flex flex-col sm:flex-row h-full">
-                  <div className="sm:w-1/3 relative h-40 sm:h-auto overflow-hidden">
-                    <img 
-                      src="https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800&auto=format&fit=crop" 
-                      alt="Japanese News" 
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    />
-                    <div className="absolute inset-0 bg-black/20" />
-                  </div>
-                  <div className="p-6 flex-1 space-y-4">
-                    <div className="space-y-2">
-                      <h3 className="text-xl font-bold flex items-center gap-2">
-                        <Globe className="h-5 w-5 text-indigo-jp" />
-                        Tin tức thời gian thực
-                      </h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        Cập nhật tin tức Nhật Bản phiên bản dễ nghe, đọc. Vừa học từ vựng vừa nắm bắt tình hình thế giới.
-                      </p>
-                    </div>
-                    <Button variant="outline" className="w-full sm:w-auto font-bold text-xs uppercase tracking-widest gap-2">
-                      Đọc tin tức <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          </div>
-        </motion.section>
+      <Suspense fallback={<SuspenseFallback type="card" />}>
+        <SectionErrorBoundary name="SocialSummary">
+          <SocialSummary leaderboard={leaderboard} leaderboardLoading={leaderboardLoading} friends={friends} />
+        </SectionErrorBoundary>
+      </Suspense>
 
-        {/* Social Activity Section */}
-        <section className="space-y-6 pt-4">
-          <div className="flex items-center justify-between px-1 border-l-4 border-primary pl-4">
-            <h2 className="text-2xl font-display font-bold">Cộng đồng & Mục tiêu</h2>
-            <Badge variant="outline" className="text-primary border-primary/20 bg-primary/5">Social Hub</Badge>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <DailyQuests />
-            
-            <Card className="lg:col-span-2 border-2 border-primary/20 bg-card/40 backdrop-blur-sm shadow-soft overflow-hidden flex flex-col group transition-all hover:bg-card/60">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-primary" />
-                  Hoạt động học tập
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex-1">
-                <SkillHeatmap />
-              </CardContent>
-            </Card>
-
-            <Card className="border-2 border-gold/20 bg-card/40 backdrop-blur-sm shadow-soft overflow-hidden flex flex-col group hover:shadow-elevated transition-all">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-gold" />
-                  Bảng xếp hạng
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex-1 space-y-4">
-                {(() => {
-                  const myEntry = leaderboard.find(e => e.isCurrentUser);
-                  const myRank = myEntry?.rank ?? null;
-                  const nextEntry = myRank && myRank > 1 ? leaderboard.find(e => e.rank === myRank - 1) : null;
-                  const xpGap = myEntry && nextEntry ? Math.max(0, nextEntry.xp - myEntry.xp) : null;
-                  const rankBadge = myRank === 1 ? 'GIẢI VÀNG' : myRank === 2 ? 'GIẢI BẠC' : myRank === 3 ? 'GIẢI ĐỒNG' : `Hạng ${myRank ?? '?'}`;
-                  const badgeColor = myRank === 1 ? 'bg-amber-400' : myRank === 2 ? 'bg-slate-400' : myRank === 3 ? 'bg-orange-600' : 'bg-muted-foreground';
-                  return (
-                    <div className="text-center py-2">
-                      <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Hạng hiện tại</p>
-                      <p className="text-4xl font-black text-gold">#{myRank ?? '?'}</p>
-                      <Badge className={`${badgeColor} mt-2 text-[10px] font-bold text-white`}>{rankBadge}</Badge>
-                      {nextEntry && xpGap !== null && xpGap > 0 && (
-                        <div className="space-y-2 mt-3">
-                          <div className="flex justify-between text-[10px] font-bold">
-                            <span>Lên TOP {myRank! - 1}</span>
-                            <span className="text-primary font-black">+{xpGap} XP</span>
-                          </div>
-                          <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-primary transition-all duration-500"
-                              style={{ width: `${Math.min(100, 100 - (xpGap / Math.max(1, nextEntry.xp)) * 100)}%` }}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-              </CardContent>
-              <CardFooter className="pt-0 border-t border-border/50 mt-auto">
-                <Link to="/leagues" className="w-full">
-                  <Button variant="ghost" className="w-full text-xs font-bold gap-2 hover:bg-gold/5">
-                    Ghé thăm League <ArrowRight className="h-3 w-3" />
-                  </Button>
-                </Link>
-              </CardFooter>
-            </Card>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="lg:col-span-2 border-2 border-primary/10 bg-card/40 backdrop-blur-sm overflow-hidden flex flex-col transition-all hover:bg-card/60">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Users className="h-5 w-5 text-primary" />
-                  Hoạt động Squad
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex-1 p-0">
-                <div className="divide-y divide-border/50">
-                  {[1, 2].map((i) => (
-                    <div key={i} className="flex gap-3 items-start p-4 hover:bg-muted/30 transition-colors">
-                      <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                        <Users className="h-4 w-4 text-primary" />
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-xs font-bold leading-none">N3 Warriors</p>
-                        <p className="text-[10px] text-muted-foreground leading-snug tracking-tight">Vũ Hải vừa cộng thêm 500 XP cho mục tiêu chung!</p>
-                        <p className="text-[9px] text-muted-foreground/60 uppercase">10 phút trước</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-              <CardFooter className="pt-0 border-t border-border/50">
-                <Link to="/squads" className="w-full pt-4">
-                  <Button variant="ghost" className="w-full text-xs font-bold gap-2 hover:bg-primary/5">
-                    Quản lý Squad <ArrowRight className="h-3 w-3" />
-                  </Button>
-                </Link>
-              </CardFooter>
-            </Card>
-
-            <Card className="border-2 border-secondary/10 bg-card/40 backdrop-blur-sm overflow-hidden flex flex-col transition-all hover:bg-card/60">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <User className="h-5 w-5 text-secondary" />
-                  Bạn bè
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex-1 space-y-6 pt-4">
-                <div className="flex -space-x-3 overflow-hidden justify-center py-2">
-                  {(friends || []).slice(0, 5).map((f, i) => (
-                    <Avatar key={f.user_id ?? i} className="inline-block h-12 w-12 rounded-2xl ring-4 ring-background shadow-md">
-                      {f.avatar_url && <AvatarImage src={f.avatar_url} />}
-                      <AvatarFallback className="text-xs bg-secondary/10 text-secondary font-bold">
-                        {(f.display_name ?? `U${i + 1}`).slice(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                  ))}
-                  {(friends?.length ?? 0) === 0 && [1,2,3].map((i) => (
-                    <Avatar key={i} className="inline-block h-12 w-12 rounded-2xl ring-4 ring-background shadow-md">
-                      <AvatarFallback className="text-xs bg-secondary/10 text-secondary font-bold">?</AvatarFallback>
-                    </Avatar>
-                  ))}
-                </div>
-                <div className="text-center space-y-1">
-                  <p className="text-sm font-medium">Bạn đang theo dõi <strong>{friends?.length ?? 0} người</strong></p>
-                  <p className="text-xs text-muted-foreground">Kết nối với bạn bè để cùng học!</p>
-                </div>
-              </CardContent>
-              <CardFooter className="pt-0 border-t border-border/50">
-                <Link to="/friends" className="w-full pt-4">
-                  <Button variant="ghost" className="w-full text-xs font-bold gap-2 hover:bg-secondary/5">
-                    Quản lý bạn bè <ArrowRight className="h-3 w-3" />
-                  </Button>
-                </Link>
-              </CardFooter>
-            </Card>
-          </div>
-        </section>
-
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Daily Practice - Takes 2 columns */}
-          <div className="lg:col-span-2 space-y-6">
-            <DailyPractice
-              tasks={dynamicTasks}
-              onStartTask={handleStartTask}
-              totalXpToday={todayXP}
-              dailyGoal={100}
-            />
-          </div>
-
-          {/* Sidebar */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="space-y-6"
-          >
-            {/* Quick Stats */}
-            <Card className="shadow-card">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-matcha" />
-                  Thống kê của bạn
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-4">
-                <div className="p-3 rounded-lg bg-sakura/10 text-center">
-                  <p className="text-2xl font-bold text-sakura">
-                    {userStats.streak}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Ngày liên tiếp</p>
-                </div>
-                <div className="p-3 rounded-lg bg-matcha/10 text-center">
-                  <p className="text-2xl font-bold text-matcha">
-                    {userStats.quizzesCompleted}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Bài tập đã làm</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Quick Actions */}
-            <Card className="shadow-card">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Luyện tập nhanh</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Link to="/vocabulary">
-                  <Button
-                    variant="outline"
-                    className="w-full justify-between h-auto py-3"
-                  >
-                    <span className="flex items-center gap-2">
-                      <BookOpen className="h-4 w-4 text-sakura" />
-                      Từ vựng
-                    </span>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </Link>
-                <Link to="/reading">
-                  <Button
-                    variant="outline"
-                    className="w-full justify-between h-auto py-3"
-                  >
-                    <span className="flex items-center gap-2">
-                      <Book className="h-4 w-4 text-indigo-500" />
-                      Luyện đọc
-                    </span>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </Link>
-                <Link to="/video-learning">
-                  <Button
-                    variant="outline"
-                    className="w-full justify-between h-auto py-3"
-                  >
-                    <span className="flex items-center gap-2">
-                      <Video className="h-4 w-4 text-sky-500" />
-                      Học qua Video
-                    </span>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </Link>
-                <Link to="/sensei">
-                  <Button
-                    variant="outline"
-                    className="w-full justify-between h-auto py-3"
-                  >
-                    <span className="flex items-center gap-2">
-                      <Brain className="h-4 w-4 text-matcha" />
-                      Sensei Hub
-                    </span>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </Link>
-                <Link to="/quiz">
-                  <Button
-                    variant="outline"
-                    className="w-full justify-between h-auto py-3"
-                  >
-                    <span className="flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-gold" />
-                      Kiểm tra nhanh
-                    </span>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-
-            {/* Tiện ích section */}
-            <Card className="shadow-card overflow-hidden border-sakura/20">
-              <CardHeader className="pb-2 bg-sakura/5">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-sakura" />
-                  Tiện ích VIP
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4 space-y-2">
-                <Link to="/kanji-worksheet">
-                  <Button
-                    variant="outline"
-                    className="w-full justify-between h-auto py-4 rounded-xl border-dashed border-sakura/30 hover:bg-sakura/5 hover:border-sakura transition-all"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-sakura/10 flex items-center justify-center">
-                        <FileText className="h-5 w-5 text-sakura" />
-                      </div>
-                      <div className="text-left">
-                        <p className="font-bold text-sm">Tạo Tập viết Kanji</p>
-                        <p className="text-[10px] text-muted-foreground">Xuất PDF Worksheet VIP</p>
-                      </div>
-                    </div>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-
-            {/* Mini Leaderboard */}
-            {leaderboardLoading ? (
-              <div className="flex justify-center p-4">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              </div>
-            ) : (
-              <Leaderboard entries={leaderboard} />
-            )}
-          </motion.div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <SectionErrorBoundary name="DailyPractice">
+            <DailyPractice tasks={dynamicTasks} onStartTask={handleStartTask} totalXpToday={todayXP} dailyGoal={100} />
+          </SectionErrorBoundary>
         </div>
+        <Suspense fallback={<SuspenseFallback type="sidebar" />}>
+          <SectionErrorBoundary name="DashboardSidebar">
+            <DashboardSidebar
+              streak={profile?.current_streak ?? 0}
+              quizzesCompleted={0}
+              leaderboard={leaderboard}
+              leaderboardLoading={leaderboardLoading}
+            />
+          </SectionErrorBoundary>
+        </Suspense>
+      </div>
 
-        {/* Achievements Section */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-        >
-          <Card className="shadow-card">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-gold" />
-                  Thành tích
-                </CardTitle>
-                <Link to="/achievements">
-                  <Button variant="ghost" size="sm">
-                    Xem tất cả
-                    <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
-                </Link>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {achievements.slice(0, 3).map((achievement, index) => (
-                  <AchievementBadge
-                    key={achievement.id}
-                    icon={achievement.icon}
-                    title={achievement.title}
-                    description={achievement.description}
-                    unlocked={index < 2}
-                    progress={index === 2 ? 45 : undefined}
-                    maxProgress={index === 2 ? 100 : undefined}
-                  />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </motion.section>
-      </motion.main>
+      <Suspense fallback={<SuspenseFallback type="card" />}>
+        <SectionErrorBoundary name="AchievementsSection"><AchievementsSection /></SectionErrorBoundary>
+      </Suspense>
+    </motion.main>
   );
 };
 
-
-// export default Index;

@@ -147,3 +147,4 @@ export const Vocabulary = () => {
     </div>
   );
 };
+export default Vocabulary;

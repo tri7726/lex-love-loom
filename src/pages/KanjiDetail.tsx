@@ -155,3 +155,4 @@ export const KanjiDetail: React.FC = () => {
 };
 
 // export default KanjiDetail;
+export default KanjiDetail;

@@ -47,10 +47,11 @@ export const GrammarWiki = () => {
   const { speak, isSpeaking, stop } = useTTS({ lang: 'ja-JP' });
   const { toast } = useToast();
   const { mastery } = useGrammarMastery();
-  const { explainDeep } = useAI();
+  const { explainDeep, streamExplainDeep } = useAI();
 
   const [deepExplainOpen, setDeepExplainOpen] = useState(false);
   const [deepExplainResult, setDeepExplainResult] = useState<DeepExplainResult | null>(null);
+  const [deepExplainStream, setDeepExplainStream] = useState('');
   const [isDeepExplaining, setIsDeepExplaining] = useState(false);
   const [activeExplainTitle, setActiveExplainTitle] = useState('');
 
@@ -73,18 +74,31 @@ export const GrammarWiki = () => {
     setActiveExplainTitle(point.title);
     setDeepExplainOpen(true);
     setIsDeepExplaining(true);
-    try {
-      const result = await explainDeep(point.title, point.explanation, 'grammar');
+    setDeepExplainStream('');
+    setDeepExplainResult(null);
+
+    const result = await streamExplainDeep(
+      point.title,
+      point.explanation,
+      'grammar',
+      (token) => setDeepExplainStream(prev => prev + token),
+    );
+
+    if (result) {
       setDeepExplainResult(result);
-    } catch (error) {
-       toast({
-         title: "Lỗi",
-         description: "Không thể nhận giải thích sâu vào lúc này.",
-         variant: "destructive"
-       });
-    } finally {
-      setIsDeepExplaining(false);
+    } else {
+      // fallback: try non-streaming
+      const fallback = await explainDeep(point.title, point.explanation, 'grammar');
+      setDeepExplainResult(fallback);
+      if (!fallback) {
+        toast({
+          title: "Lỗi",
+          description: "Không thể nhận giải thích sâu vào lúc này.",
+          variant: "destructive"
+        });
+      }
     }
+    setIsDeepExplaining(false);
   };
 
   return (
@@ -307,12 +321,13 @@ export const GrammarWiki = () => {
            />
         )}
 
-        <DeepExplanationSheet 
+        <DeepExplanationSheet
           isOpen={deepExplainOpen}
           onClose={() => setDeepExplainOpen(false)}
           result={deepExplainResult}
           isLoading={isDeepExplaining}
           title={activeExplainTitle}
+          streamingContent={isDeepExplaining && !deepExplainResult ? deepExplainStream : undefined}
         />
 
         <GrammarSensei />
@@ -321,3 +336,4 @@ export const GrammarWiki = () => {
   );
 };
 
+export default GrammarWiki;

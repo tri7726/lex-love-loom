@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  X, 
-  ChevronLeft, 
-  ChevronRight, 
-  CheckCircle2, 
-  RotateCcw, 
-  Target, 
+import {
+  X,
+  ChevronLeft,
+  ChevronRight,
+  CheckCircle2,
+  RotateCcw,
+  Target,
   Info,
   Brain,
   Pencil,
@@ -21,6 +21,7 @@ import { KanjiCanvas } from '@/components/kanji/KanjiCanvas';
 import { cn } from '@/lib/utils';
 import { KANJI_DB } from '@/data/kanji-db';
 import { KanjiWriterCanvas } from '@/components/kanji/KanjiWriterCanvas';
+import { useTimer } from '@/hooks/useTimer';
 
 interface KanjiStudyOverlayProps {
   isOpen: boolean;
@@ -29,7 +30,7 @@ interface KanjiStudyOverlayProps {
   onCompleteUnit?: () => void;
 }
 
-type StudyPhase = 'LEARN' | 'QUIZ' | 'WRITE_GUIDED' | 'WRITE_BLIND' | 'COMPLETE';
+type StudyPhase = 'LEARN' | 'QUIZ' | 'WRITE' | 'COMPLETE';
 
 export const KanjiStudyOverlay: React.FC<KanjiStudyOverlayProps> = ({
   isOpen,
@@ -43,10 +44,11 @@ export const KanjiStudyOverlay: React.FC<KanjiStudyOverlayProps> = ({
   const [quizOptions, setQuizOptions] = useState<string[]>([]);
   const [quizAnswered, setQuizAnswered] = useState(false);
   const [quizCorrect, setQuizCorrect] = useState<boolean | null>(null);
+  const [showGuide, setShowGuide] = useState(false);
   const [streak, setStreak] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(10);
-  const [timerActive, setTimerActive] = useState(false);
-  
+  const quizAnswerRef = React.useRef<(meaning: string) => void>(() => {});
+  const timer = useTimer(10, () => quizAnswerRef.current(''));
+
   // Shuffle kanji on mount
   React.useEffect(() => {
     if (unitKanji && unitKanji.length > 0) {
@@ -55,7 +57,26 @@ export const KanjiStudyOverlay: React.FC<KanjiStudyOverlayProps> = ({
   }, [unitKanji]);
 
   const currentKanji = shuffledKanji[currentIndex];
-  const progress = shuffledKanji.length > 0 ? ((currentIndex) / shuffledKanji.length) * 100 : 0;
+
+  const handleQuizAnswer = React.useCallback((meaning: string) => {
+    if (quizAnswered) return;
+    const isCorrect = meaning === currentKanji.meaning_vi;
+    setQuizAnswered(true);
+    setQuizCorrect(isCorrect);
+    timer.stop();
+
+    if (isCorrect) {
+      setStreak(prev => prev + 1);
+      setShowGuide(false);
+      setTimeout(() => setCurrentPhase('WRITE'), 1000);
+    } else {
+      setStreak(0);
+      // Let user see correct answer before they can retry or go back to learn
+      setTimeout(() => setCurrentPhase('LEARN'), 2000);
+    }
+  }, [quizAnswered, currentKanji]);
+
+  quizAnswerRef.current = handleQuizAnswer;
 
   // Generate quiz options
   const generateOptions = (correctMeaning: string) => {
@@ -72,46 +93,11 @@ export const KanjiStudyOverlay: React.FC<KanjiStudyOverlayProps> = ({
     setQuizOptions(generateOptions(currentKanji.meaning_vi));
     setQuizAnswered(false);
     setQuizCorrect(null);
-    setTimeLeft(10);
-    setTimerActive(true);
+    timer.start();
     setCurrentPhase('QUIZ');
   };
 
-  const handleQuizAnswer = React.useCallback((meaning: string) => {
-    if (quizAnswered) return;
-    const isCorrect = meaning === currentKanji.meaning_vi;
-    setQuizAnswered(true);
-    setQuizCorrect(isCorrect);
-    setTimerActive(false);
-    
-    if (isCorrect) {
-      setStreak(prev => prev + 1);
-      setTimeout(() => setCurrentPhase('WRITE_GUIDED'), 1000);
-    } else {
-      setStreak(0);
-      // Let user see correct answer before they can retry or go back to learn
-      setTimeout(() => setCurrentPhase('LEARN'), 2000);
-    }
-  }, [quizAnswered, currentKanji]);
-
-  // Timer logic
-  React.useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (timerActive && timeLeft > 0 && !quizAnswered) {
-      interval = setInterval(() => {
-        setTimeLeft(prev => prev - 1);
-      }, 1000);
-    } else if (timeLeft === 0 && !quizAnswered) {
-      handleQuizAnswer(''); // Fail for timeout
-    }
-    return () => clearInterval(interval);
-  }, [timerActive, timeLeft, quizAnswered, handleQuizAnswer]);
-
-  const handleWriteGuidedComplete = () => {
-    setCurrentPhase('WRITE_BLIND');
-  };
-
-  const handleWriteBlindComplete = () => {
+  const handleWriteComplete = () => {
     if (currentIndex < shuffledKanji.length - 1) {
       setCurrentIndex(prev => prev + 1);
       setCurrentPhase('LEARN');
@@ -125,8 +111,7 @@ export const KanjiStudyOverlay: React.FC<KanjiStudyOverlayProps> = ({
     switch (currentPhase) {
       case 'LEARN': return 'Ghi nhớ chữ cái';
       case 'QUIZ': return 'Kiểm tra nhận diện';
-      case 'WRITE_GUIDED': return 'Luyện viết (Có hướng dẫn)';
-      case 'WRITE_BLIND': return 'Thử thách: Viết từ trí nhớ';
+      case 'WRITE': return 'Thử thách: Viết từ trí nhớ';
       default: return 'Hoàn thành';
     }
   };
@@ -203,12 +188,12 @@ export const KanjiStudyOverlay: React.FC<KanjiStudyOverlayProps> = ({
           <div className="flex-1 max-w-md mx-8">
             <div className="flex items-center justify-between mb-2 px-1">
               <div className="flex gap-1">
-                {(['LEARN', 'QUIZ', 'WRITE_GUIDED', 'WRITE_BLIND'] as const).map((p, i) => (
-                  <div 
-                    key={p} 
+                {(['LEARN', 'QUIZ', 'WRITE'] as const).map((p, i) => (
+                  <div
+                    key={p}
                     className={cn(
                       "h-1.5 w-8 rounded-full transition-all duration-300",
-                      currentPhase === p ? "bg-rose-500 w-12" : (['LEARN', 'QUIZ', 'WRITE_GUIDED', 'WRITE_BLIND'] as string[]).indexOf(currentPhase as string) > i || (currentPhase as string) === 'COMPLETE' ? "bg-emerald-500" : "bg-rose-100"
+                      currentPhase === p ? "bg-rose-500 w-12" : (['LEARN', 'QUIZ', 'WRITE'] as string[]).indexOf(currentPhase as string) > i || (currentPhase as string) === 'COMPLETE' ? "bg-emerald-500" : "bg-rose-100"
                     )}
                   />
                 ))}
@@ -310,15 +295,15 @@ export const KanjiStudyOverlay: React.FC<KanjiStudyOverlayProps> = ({
                   <div className="flex flex-col items-center gap-4">
                     <div className="inline-flex items-center gap-2 px-4 py-2 bg-sakura/10 text-sakura rounded-full font-bold text-sm">
                       <Timer className="h-4 w-4" />
-                      CHỌN NGHĨA ĐÚNG: {timeLeft}s
+                      CHỌN NGHĨA ĐÚNG: {timer.timeLeft}s
                     </div>
                     <div className="w-64 h-2 bg-sakura/10 rounded-full overflow-hidden">
                       <motion.div 
                         initial={{ width: '100%' }}
-                        animate={{ width: `${(timeLeft / 10) * 100}%` }}
+                        animate={{ width: `${(timer.timeLeft / 10) * 100}%` }}
                         className={cn(
                           "h-full transition-colors",
-                          timeLeft < 4 ? "bg-destructive" : "bg-sakura"
+                          timer.timeLeft < 4 ? "bg-destructive" : "bg-sakura"
                         )}
                       />
                     </div>
@@ -350,9 +335,9 @@ export const KanjiStudyOverlay: React.FC<KanjiStudyOverlayProps> = ({
               </motion.div>
             )}
 
-            {(currentPhase === 'WRITE_GUIDED' || currentPhase === 'WRITE_BLIND') && (
+            {currentPhase === 'WRITE' && (
               <motion.div
-                key={currentPhase}
+                key="write"
                 initial={{ opacity: 0, x: 50 }}
                 animate={{ opacity: 1, x: 0 }}
                 className="flex flex-col lg:flex-row h-full items-stretch"
@@ -363,7 +348,7 @@ export const KanjiStudyOverlay: React.FC<KanjiStudyOverlayProps> = ({
                     <h2 className="text-6xl font-black text-sumi uppercase">{currentKanji.hanviet}</h2>
                     <p className="text-2xl text-muted-foreground italic">({currentKanji.meaning_vi})</p>
                   </div>
-                  
+
                   <div className="space-y-4">
                     <div className="flex items-center gap-3 p-4 bg-white rounded-2xl border border-sakura/10 shadow-sm">
                       <div className="h-10 w-10 rounded-xl bg-sakura/10 flex items-center justify-center text-sakura font-bold">1</div>
@@ -378,13 +363,20 @@ export const KanjiStudyOverlay: React.FC<KanjiStudyOverlayProps> = ({
 
                 <div className="flex-1 bg-white p-6 lg:p-12 flex flex-col items-center justify-center border-l border-sakura/10 relative">
                    <div className="w-full max-w-md space-y-8">
-                     <KanjiWriterCanvas 
-                      key={`${currentPhase}-${currentKanji.character}`}
-                      kanji={currentKanji.character} 
-                      showGuide={currentPhase === 'WRITE_GUIDED'}
-                      onSuccess={currentPhase === 'WRITE_GUIDED' ? handleWriteGuidedComplete : handleWriteBlindComplete}
+                     <KanjiWriterCanvas
+                      key={`write-${currentKanji.character}`}
+                      kanji={currentKanji.character}
+                      showGuide={showGuide}
+                      onSuccess={handleWriteComplete}
                       size={340}
                      />
+                     <Button
+                      variant="ghost"
+                      onClick={() => setShowGuide(prev => !prev)}
+                      className="w-full h-12 rounded-2xl text-sm font-bold text-muted-foreground hover:text-sakura border border-dashed border-sakura/20 hover:border-sakura/50 transition-all"
+                     >
+                      {showGuide ? 'Ẩn hướng dẫn' : 'Xem hướng dẫn nét vẽ'}
+                     </Button>
                    </div>
                 </div>
               </motion.div>

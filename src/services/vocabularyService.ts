@@ -68,3 +68,5 @@ export const vocabularyService = {
     return data;
   }
 };
+
+export type { InsertVocabulary, UpdateVocabulary } from '@/types/vocabulary';

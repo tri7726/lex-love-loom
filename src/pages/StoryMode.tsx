@@ -290,3 +290,4 @@ export const StoryMode = () => {
     </div>
   );
 };
+export default StoryMode;

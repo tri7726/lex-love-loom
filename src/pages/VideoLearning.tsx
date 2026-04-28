@@ -857,3 +857,4 @@ export const VideoLearning = () => {
 };
 
 // export default VideoLearning;
+export default VideoLearning;

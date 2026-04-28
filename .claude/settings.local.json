@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "mcp__ide__getDiagnostics",
+      "Bash(find /usr -name \"supabase\" -o -name \"supabase.exe\")",
+      "Bash(find /c -name \"supabase.exe\" -path \"*/node_modules/*\")",
+      "Bash(command -v supabase)",
+      "Read(//c/ProgramData/chocolatey/**)"
+    ]
+  }
+}

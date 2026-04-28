@@ -360,3 +360,4 @@ export const UnitContent = () => {
     </div>
   );
 };
+export default UnitContent;

@@ -17,47 +17,42 @@ import { XPGainToast } from "@/components/effects/XPGainToast";
 import { AppLayout } from "./components/layout/AppLayout";
 import { Index } from "./pages/Index";
 
-// Lazy-loaded pages
-const Vocabulary = React.lazy(() => import("./pages/Vocabulary").then(m => ({ default: m.Vocabulary })));
+// Lazy-loaded pages (all pages now use default exports — consistent pattern)
+const Vocabulary = React.lazy(() => import("./pages/Vocabulary"));
 const SavedVocabulary = React.lazy(() => import("./pages/SavedVocabulary"));
-const Auth = React.lazy(() => import("./pages/Auth").then(m => ({ default: m.Auth })));
-const NotFound = React.lazy(() => import("./pages/NotFound").then(m => ({ default: m.NotFound })));
-const EditProfile = React.lazy(() => import("./pages/EditProfile").then(m => ({ default: m.EditProfile })));
-const UserProfile = React.lazy(() => import("./pages/UserProfile").then(m => ({ default: m.UserProfile })));
-const Leagues = React.lazy(() => import("./pages/Leagues").then(m => ({ default: m.Leagues })));
+const Auth = React.lazy(() => import("./pages/Auth"));
+const NotFound = React.lazy(() => import("./pages/NotFound"));
+const EditProfile = React.lazy(() => import("./pages/EditProfile"));
+const UserProfile = React.lazy(() => import("./pages/UserProfile"));
+const Leagues = React.lazy(() => import("./pages/Leagues"));
 const LeaderboardPage = React.lazy(() => import("./pages/LeaderboardPage"));
-const Friends = React.lazy(() => import("./pages/Friends").then(m => ({ default: m.Friends })));
-const Challenges = React.lazy(() => import("./pages/Challenges").then(m => ({ default: m.Challenges })));
-const Messages = React.lazy(() => import("./pages/Messages").then(m => ({ default: m.Messages })));
-const Squads = React.lazy(() => import("./pages/Squads").then(m => ({ default: m.Squads })));
-const JLPTPortal = React.lazy(() => import("./pages/JLPTPortal").then(m => ({ default: m.JLPTPortal })));
-const JLPTLevelDetail = React.lazy(() => import("./pages/JLPTLevelDetail").then(m => ({ default: m.JLPTLevelDetail })));
-const MockTestCenter = React.lazy(() => import("./pages/MockTestCenter").then(m => ({ default: m.MockTestCenter })));
-const JLPTMockExam = React.lazy(() => import("./pages/JLPTMockExam").then(m => ({ default: m.JLPTMockExam })));
-const GrammarWiki = React.lazy(() => import("./pages/GrammarWiki").then(m => ({ default: m.GrammarWiki })));
-const Reading = React.lazy(() => import("./pages/Reading").then(m => ({ default: m.Reading })));
-const VideoLearning = React.lazy(() => import("./pages/VideoLearning").then(m => ({ default: m.VideoLearning })));
-const KanjiDetail = React.lazy(() => import("./pages/KanjiDetail").then(m => ({ default: m.KanjiDetail })));
-const KanjiWorksheet = React.lazy(() => import("./pages/KanjiWorksheet").then(m => ({ default: m.KanjiWorksheet })));
-const UnitContent = React.lazy(() => import("./pages/UnitContent").then(m => ({ default: m.UnitContent })));
-const ModuleManager = React.lazy(() => import("./pages/ModuleManager").then(m => ({ default: m.ModuleManager })));
+const Friends = React.lazy(() => import("./pages/Friends"));
+const Challenges = React.lazy(() => import("./pages/Challenges"));
+const Messages = React.lazy(() => import("./pages/Messages"));
+const Squads = React.lazy(() => import("./pages/Squads"));
+const JLPTPortal = React.lazy(() => import("./pages/JLPTPortal"));
+const JLPTLevelDetail = React.lazy(() => import("./pages/JLPTLevelDetail"));
+const MockTestCenter = React.lazy(() => import("./pages/MockTestCenter"));
+const JLPTMockExam = React.lazy(() => import("./pages/JLPTMockExam"));
+const GrammarWiki = React.lazy(() => import("./pages/GrammarWiki"));
+const Reading = React.lazy(() => import("./pages/Reading"));
+const VideoLearning = React.lazy(() => import("./pages/VideoLearning"));
+const KanjiDetail = React.lazy(() => import("./pages/KanjiDetail"));
+const KanjiWorksheet = React.lazy(() => import("./pages/KanjiWorksheet"));
+const UnitContent = React.lazy(() => import("./pages/UnitContent"));
+const ModuleManager = React.lazy(() => import("./pages/ModuleManager"));
 const SquadDetail = React.lazy(() => import("./pages/SquadDetail"));
-
-
-// Pages with mixed export styles (standardized below)
-const AdminImport = React.lazy(() => import("./pages/AdminImport").then(m => ({ default: m.AdminImport })));
-const StoryMode = React.lazy(() => import("./pages/StoryMode").then(m => ({ default: m.StoryMode })));
-const StoryModeFrame = React.lazy(() => import("./components/chat/SenseiChatHub/StoryModeFrame").then(m => ({ default: m.StoryModeFrame })));
-const AdminExamManager = React.lazy(() => import("./pages/AdminExamManager").then(m => ({ default: m.AdminExamManager })));
-
-// Default exports
+const AdminImport = React.lazy(() => import("./pages/AdminImport"));
+const StoryMode = React.lazy(() => import("./pages/StoryMode"));
+const StoryModeFrame = React.lazy(() => import("./components/chat/SenseiChatHub/StoryModeFrame"));
+const AdminExamManager = React.lazy(() => import("./pages/AdminExamManager"));
 const SenseiHub = React.lazy(() => import("./pages/SenseiHub"));
 const PvPBattle = React.lazy(() => import("./pages/PvPBattle"));
 const AdminDashboard = React.lazy(() => import("./pages/AdminDashboard"));
 const QuickMode = React.lazy(() => import("./pages/QuickMode"));
 const SRSReview = React.lazy(() => import("./pages/SRSReview"));
-const News = React.lazy(() => import("./pages/News").then(m => ({ default: m.News })));
-const Achievements = React.lazy(() => import("./pages/Achievements").then(m => ({ default: m.Achievements })));
+const News = React.lazy(() => import("./pages/News"));
+const Achievements = React.lazy(() => import("./pages/Achievements"));
 const CommunityDecks = React.lazy(() => import("./pages/CommunityDecks"));
 
 const queryClient = new QueryClient();

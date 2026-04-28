@@ -395,3 +395,4 @@ export const JLPTLevelDetail = () => {
     </div>
   );
 };
+export default JLPTLevelDetail;

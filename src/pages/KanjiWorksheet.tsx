@@ -775,3 +775,4 @@ export const KanjiWorksheet = () => {
     </div>
   );
 };
+export default KanjiWorksheet;

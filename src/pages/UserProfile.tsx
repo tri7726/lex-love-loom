@@ -259,3 +259,4 @@ export const UserProfile = () => {
       </motion.main>
   );
 };
+export default UserProfile;

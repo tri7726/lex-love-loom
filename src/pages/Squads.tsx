@@ -568,3 +568,4 @@ export const Squads = () => {
     </div>
   );
 };
+export default Squads;

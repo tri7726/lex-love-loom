@@ -51,6 +51,8 @@ export interface DeepExplainResult {
   difficulty: string;
   related_patterns: string[];
   model_used?: string;
+  mnemonics?: string;
+  common_mistakes?: string;
 }
 
 /**
@@ -78,6 +80,85 @@ export async function deepExplain(
     return data as DeepExplainResult;
   } catch (err) {
     console.error('deepExplain error:', err);
+    return null;
+  }
+}
+
+/**
+ * Streaming deep explain — returns real-time tokens via onToken callback,
+ * then resolves with the final structured result.
+ */
+export async function streamExplain(
+  question: string,
+  context: string | undefined,
+  explainType: ExplainType,
+  onToken: (token: string) => void,
+): Promise<DeepExplainResult | null> {
+  try {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+    // Use user's session JWT if available so RLS policies apply
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token || supabaseKey;
+
+    const response = await fetch(`${supabaseUrl}/functions/v1/ai-explain`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        question,
+        context,
+        explain_type: explainType,
+        stream: true,
+      }),
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.body) throw new Error('No response body');
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let result: DeepExplainResult | null = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data: ')) continue;
+        const payload = trimmed.slice(6);
+
+        try {
+          const event = JSON.parse(payload);
+          switch (event.type) {
+            case 'token':
+              onToken(event.content);
+              break;
+            case 'result':
+              result = event.data as DeepExplainResult;
+              break;
+            case 'error':
+              console.error('streamExplain error:', event.message);
+              break;
+            case 'done':
+              break;
+          }
+        } catch {}
+      }
+    }
+
+    return result;
+  } catch (err) {
+    console.error('streamExplain error:', err);
     return null;
   }
 }

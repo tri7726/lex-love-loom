@@ -581,3 +581,4 @@ export const AdminExamManager = () => {
     </div>
   );
 };
+export default AdminExamManager;

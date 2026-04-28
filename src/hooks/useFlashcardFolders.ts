@@ -4,6 +4,24 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
 import { VocabWord } from '@/types/vocabulary';
+import type { Database } from '@/integrations/supabase/types';
+
+type FlashcardRow = Database['public']['Tables']['flashcards']['Row'];
+
+function mapFlashcardToVocabWord(flashcard: FlashcardRow): VocabWord {
+  return {
+    id: flashcard.id,
+    word: flashcard.word,
+    reading: flashcard.reading,
+    hanviet: flashcard.hanviet,
+    meaning: flashcard.meaning,
+    example_sentence: flashcard.example_sentence,
+    example_translation: flashcard.example_translation,
+    jlpt_level: flashcard.jlpt_level,
+    word_type: flashcard.word_type,
+    created_at: flashcard.created_at ?? undefined,
+  };
+}
 
 export interface CustomFolder {
   id: string;
@@ -51,7 +69,8 @@ export const useFlashcardFolders = () => {
 
         const words: VocabWord[] = (itemData || [])
           .map(item => item.flashcards)
-          .filter(Boolean) as any;
+          .filter((f): f is FlashcardRow => f !== null)
+          .map(mapFlashcardToVocabWord);
 
         return {
           id: folder.id,
@@ -159,22 +178,11 @@ export const useFlashcardFolders = () => {
 
       if (linkError) throw linkError;
 
-      const fullWord: VocabWord = flashcard as any;
+      const fullWord: VocabWord = mapFlashcardToVocabWord(flashcard);
       
-      setFolders(prev => prev.map(f => 
+      setFolders(prev => prev.map(f =>
         f.id === folderId ? { ...f, words: [...f.words, fullWord] } : f
       ));
-
-      // RAG Indexing: log vocabulary saved to notebook
-      supabase.functions.invoke('sensei-rag', {
-        body: {
-          action: 'index',
-          user_id: user.id,
-          content: `Người dùng đã lưu từ vựng vào sổ tay: "${word.word}" (${word.reading || ''}) — nghĩa: ${word.meaning}. ${word.jlpt_level ? `JLPT ${word.jlpt_level}.` : ''}`,
-          source_type: 'vocabulary',
-          metadata: { word: word.word, folder_id: folderId }
-        }
-      }).catch(() => {}); // fire-and-forget
 
       toast.success('Đã lưu từ vào danh mục');
       return fullWord;

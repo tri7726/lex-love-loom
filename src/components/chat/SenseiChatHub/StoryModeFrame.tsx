@@ -664,3 +664,4 @@ export const StoryModeFrame = () => {
     </motion.div>
   );
 };
+export default StoryModeFrame;

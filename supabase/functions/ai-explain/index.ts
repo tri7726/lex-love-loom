@@ -1,22 +1,129 @@
-// @ts-nocheck: suppressing standard TS errors in Deno edge function
 // Supabase Edge Function: AI Explain (Reasoning Sensei)
 // Uses DeepSeek R1 (deepseek-r1-distill-llama-70b) for deep step-by-step
 // grammar explanations triggered by "Giải thích sâu" buttons in the UI.
-// @ts-ignore Deno imports
+//
+// Supports two modes:
+//   stream=false (default) — returns JSON response
+//   stream=true            — returns SSE streaming with real-time tokens + final result
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
+// ─── Config ───────────────────────────────────────────────────────────────────
+
+const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+const REQUEST_TIMEOUT_MS = 25_000;
+
+// ─── RAG Memory ────────────────────────────────────────────────────────────────
+
+function getClientFromRequest(req: Request) {
+  const authHeader = req.headers.get("Authorization");
+  const headers: Record<string, string> = {};
+  if (authHeader) {
+    headers["Authorization"] = authHeader;
+  }
+  return createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+    {
+      global: { headers },
+      auth: { persistSession: false, autoRefreshToken: false },
+    },
+  );
+}
+
+async function buildRAGContext(supabase: ReturnType<typeof createClient>): Promise<string> {
+  try {
+    const parts: string[] = [];
+
+    // 1. Weak vocabulary items (RLS filters by user's JWT automatically)
+    const { data: weakItems } = await supabase
+      .from("user_vocabulary_progress")
+      .select(`
+        incorrect_count, correct_count,
+        vocabulary:vocabulary_id (word, kana, meaning_vi)
+      `)
+      .gt("incorrect_count", 0)
+      .order("incorrect_count", { ascending: false })
+      .limit(5);
+
+    if (weakItems && weakItems.length > 0) {
+      parts.push("=== Từ vựng bạn hay nhầm / chưa vững ===");
+      for (const item of weakItems) {
+        const v = item.vocabulary as Record<string, unknown>;
+        parts.push(
+          `- ${v.word ?? ""} (${v.kana ?? ""}): ${v.meaning_vi ?? ""} — sai ${item.incorrect_count} lần, đúng ${item.correct_count} lần`,
+        );
+      }
+    }
+
+    if (parts.length === 0) return "";
+    return `\n\n=== Ngữ cảnh học tập của bạn (từ hệ thống ghi nhớ) ===\n${parts.join("\n")}`;
+  } catch (err) {
+    console.warn("RAG context fetch skipped (non-critical):", err);
+    return "";
+  }
+}
+
+// ─── Schema types ─────────────────────────────────────────────────────────────
+
+interface StepData {
+  step: number;
+  title: string;
+  explanation: string;
+  example?: string;
+}
+
+interface ExplanationResult {
+  reasoning_steps: StepData[];
+  conclusion: string;
+  difficulty: string;
+  related_patterns: string[];
+  mnemonics?: string;
+  common_mistakes?: string;
+}
+
+function isValidExplanationResult(value: unknown): value is ExplanationResult {
+  if (!value || typeof value !== "object") return false;
+  const obj = value as Record<string, unknown>;
+  if (!Array.isArray(obj.reasoning_steps)) return false;
+  if (typeof obj.conclusion !== "string") return false;
+  if (typeof obj.difficulty !== "string") return false;
+  if (!Array.isArray(obj.related_patterns)) return false;
+  for (const step of obj.reasoning_steps) {
+    if (typeof step !== "object" || !step) return false;
+    const s = step as Record<string, unknown>;
+    if (typeof s.step !== "number") return false;
+    if (typeof s.title !== "string") return false;
+    if (typeof s.explanation !== "string") return false;
+  }
+  return true;
+}
+
+function extractFirstJson(raw: string): string | null {
+  try {
+    JSON.parse(raw.trim());
+    return raw.trim();
+  } catch {}
+  const markdownMatch = raw.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+  if (markdownMatch?.[1]) return markdownMatch[1];
+  const jsonMatch = raw.match(/\{.*?\}/s);
+  if (jsonMatch) return jsonMatch[0];
+  return null;
+}
+
+// ─── Prompt ───────────────────────────────────────────────────────────────────
 
 const REASONING_SYSTEM_PROMPT = `Bạn là **Sensei Suy Luận** — chuyên gia giải thích ngữ pháp tiếng Nhật bằng cách suy nghĩ từng bước (step-by-step).
 
 PHONG CÁCH:
 - Luôn bắt đầu bằng "Hãy để tôi phân tích từng bước..."
 - Trình bày rõ từng bước suy luận, đánh số thứ tự
-- Dùng ví dụ cụ thể, ngắn gọn sau mỗi bước
+- Giọng điệu thân thiện, kiên nhẫn như người thầy dạy kèm 1-1
 - Kết thúc bằng tóm tắt 1-2 câu bằng tiếng Việt đơn giản
 
 ĐỊNH DẠNG OUTPUT (JSON):
@@ -26,138 +133,291 @@ PHONG CÁCH:
   ],
   "conclusion": "Tóm tắt ngắn gọn bằng tiếng Việt",
   "difficulty": "N5 | N4 | N3 | N2 | N1",
-  "related_patterns": ["Cấu trúc liên quan 1", "Cấu trúc liên quan 2"]
+  "related_patterns": ["Cấu trúc liên quan 1", "Cấu trúc liên quan 2"],
+  "mnemonics": "Mẹo ghi nhớ ngắn (1-2 câu) giúp học sinh Việt Nam nhớ cấu trúc này",
+  "common_mistakes": "Phân tích 1 lỗi sai phổ biến nhất mà học sinh Việt Nam hay mắc phải với cấu trúc này"
 }
 
 QUY TẮC:
-- Giải thích phải đủ sâu để người học hiểu TẠI SAO, không chỉ NHƯ THẾ NÀO
-- Nếu là lỗi sai, giải thích tại sao người học hay nhầm
-- Tất cả giải thích bằng tiếng Việt, ví dụ tiếng Nhật
+- Luôn dùng **Mẹo ghi nhớ (Mnemonics)** phù hợp với người Việt: liên tưởng bằng tiếng Việt, hình ảnh quen thuộc, âm thanh tương đồng
+- Nếu có cấu trúc dễ nhầm lẫn, hãy so sánh trực tiếp (ví dụ: は wa vs が ga, て-form vs た-form, のに vs ので)
+- Phân tích TẠI SAO người học hay nhầm, không chỉ nói NHƯ THẾ NÀO là đúng
+- Giải thích bằng tiếng Việt, ví dụ bằng tiếng Nhật có kèm furigana trong ngoặc nếu cần
+- Nếu là lỗi sai từ người dùng, chỉ ra chính xác bước nào trong suy luận của họ bị sai
 - Chỉ trả về JSON hợp lệ, không có văn bản thêm`;
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function getApiKeys(): string[] {
+  return [
+    Deno.env.get("GROQ_API_KEY_1"),
+    Deno.env.get("GROQ_API_KEY_2"),
+    Deno.env.get("GROQ_API_KEY_3"),
+    Deno.env.get("GROQ_API_KEY"),
+  ].filter(Boolean) as string[];
+}
+
+function buildUserPrompt(question: string, context?: string, explainType?: string, ragContext?: string): string {
+  return [
+    `Loại giải thích: ${explainType || 'grammar'}`,
+    `Câu hỏi / Điểm cần phân tích:\n"""${question}"""`,
+    context ? `Ngữ cảnh thêm:\n"""${context}"""` : "",
+    ragContext || "",
+  ].filter(Boolean).join("\n\n");
+}
+
+// ─── Streaming Handler ────────────────────────────────────────────────────────
+
+async function handleStreaming(
+  { question, context, explain_type }: Record<string, unknown>,
+  apiKey: string,
+  ragContext?: string,
+): Promise<Response> {
+  const model = "deepseek-r1-distill-llama-70b";
+
+  const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: "system", content: REASONING_SYSTEM_PROMPT },
+        { role: "user", content: buildUserPrompt(question as string, context as string, explain_type as string, ragContext) },
+      ],
+      stream: true,
+      temperature: 0.3,
+      max_tokens: 2048,
+    }),
+  });
+
+  if (!groqRes.ok) {
+    const errText = await groqRes.text();
+    throw new Error(`Groq streaming error (${groqRes.status}): ${errText.slice(0, 200)}`);
+  }
+
+  const encoder = new TextEncoder();
+  let fullText = "";
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      const reader = groqRes.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith("data: ")) continue;
+            const payload = trimmed.slice(6);
+            if (payload === "[DONE]") continue;
+
+            try {
+              const parsed = JSON.parse(payload);
+              const content: string = parsed.choices?.[0]?.delta?.content || "";
+              if (content) {
+                fullText += content;
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ type: "token", content })}\n\n`),
+                );
+              }
+            } catch {
+              // skip malformed JSON lines
+            }
+          }
+        }
+
+        // Parse and validate final JSON
+        const jsonStr = extractFirstJson(fullText);
+        if (jsonStr) {
+          try {
+            const parsed = JSON.parse(jsonStr) as unknown;
+            if (isValidExplanationResult(parsed)) {
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({ type: "result", data: { ...parsed, model_used: model } })}\n\n`,
+                ),
+              );
+            }
+          } catch {}
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ type: "error", message: msg })}\n\n`),
+        );
+      } finally {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`));
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+      ...CORS_HEADERS,
+    },
+  });
+}
+
+// ─── Non-Streaming Handler (existing logic) ──────────────────────────────────
+
+async function handleNonStreaming(
+  { question, context, explain_type }: Record<string, unknown>,
+  apiKeys: string[],
+  ragContext?: string,
+): Promise<Response> {
+  const userContent = [
+    `Loại giải thích: ${explain_type || 'grammar'}`,
+    `Câu hỏi / Điểm cần phân tích:\n"""${question}"""`,
+    context ? `Ngữ cảnh thêm:\n"""${context}"""` : "",
+    ragContext || "",
+  ].filter(Boolean).join("\n\n");
+
+  const MODEL_PRIORITY = [
+    "deepseek-r1-distill-llama-70b",
+    "llama-3.3-70b-versatile",
+  ];
+
+  let result: ExplanationResult | null = null;
+  let modelUsed: string | null = null;
+
+  outer: for (const model of MODEL_PRIORITY) {
+    for (const apiKey of apiKeys) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+      try {
+        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: REASONING_SYSTEM_PROMPT },
+              { role: "user", content: userContent },
+            ],
+            response_format: { type: "json_object" },
+            temperature: 0.3,
+            max_tokens: 2048,
+          }),
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          if (res.status === 429) {
+            console.warn(`ai-explain: ${model} rate limited, trying next key`);
+            continue;
+          }
+          if (res.status >= 400 && res.status < 500) {
+            console.warn(`ai-explain: ${model} auth error (${res.status}), skipping key`);
+            continue;
+          }
+          console.warn(`ai-explain: ${model} failed (${res.status}): ${errText.slice(0, 100)}`);
+          continue;
+        }
+
+        const data = await res.json() as Record<string, unknown>;
+        const choices = data.choices as Array<Record<string, unknown>>;
+        const raw = (choices?.[0]?.message as Record<string, unknown>)?.content as string;
+        if (!raw) continue;
+
+        const jsonStr = extractFirstJson(raw);
+        if (!jsonStr) {
+          console.warn(`ai-explain: ${model} no valid JSON found, trying next`);
+          continue;
+        }
+
+        const parsed = JSON.parse(jsonStr) as unknown;
+        if (!isValidExplanationResult(parsed)) {
+          console.warn(`ai-explain: ${model} returned invalid schema, trying next`);
+          continue;
+        }
+
+        result = parsed;
+        modelUsed = model;
+        console.log(`✅ ai-explain succeeded with ${model}`);
+        break outer;
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          console.warn(`ai-explain: ${model} timed out after ${REQUEST_TIMEOUT_MS}ms`);
+        } else {
+          console.error(`ai-explain: ${model} fetch error:`, err);
+        }
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+  }
+
+  if (!result || !modelUsed) {
+    throw new Error("All models failed to generate explanation");
+  }
+
+  return new Response(
+    JSON.stringify({ ...result, model_used: modelUsed }),
+    { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+  );
+}
+
+// ─── Main Handler ────────────────────────────────────────────────────────────
+
 serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
 
   try {
-    const {
-      question,      // Câu hỏi hoặc đoạn text cần giải thích
-      context,       // Ngữ cảnh (ví dụ: câu sai của user, ngữ pháp đang học)
-      explain_type = "grammar", // "grammar" | "vocab" | "error" | "pattern"
-    } = await req.json();
+    const body = await req.json() as Record<string, unknown>;
+    const { question } = body;
 
     if (!question) {
       return new Response(JSON.stringify({ error: "Missing question" }), {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
 
-    const apiKeys = [
-      Deno.env.get("GROQ_API_KEY_1"),
-      Deno.env.get("GROQ_API_KEY_2"),
-      Deno.env.get("GROQ_API_KEY_3"),
-      Deno.env.get("GROQ_API_KEY"),
-    ].filter(Boolean) as string[];
-
+    const apiKeys = getApiKeys();
     if (apiKeys.length === 0) throw new Error("No API keys configured");
 
-    // Build rich user prompt
-    const userContent = [
-      `Loại giải thích: ${explain_type}`,
-      `Câu hỏi / Điểm cần phân tích:\n"""${question}"""`,
-      context ? `Ngữ cảnh thêm:\n"""${context}"""` : "",
-    ].filter(Boolean).join("\n\n");
-
-    // Model priority: DeepSeek R1 for reasoning, 70B as fallback
-    const modelPriority = [
-      "deepseek-r1-distill-llama-70b",
-      "llama-3.3-70b-versatile",
-    ];
-
-    interface StepData {
-      step: number;
-      title: string;
-      explanation: string;
-      example?: string;
+    // ── RAG Memory: fetch user's weak areas ──
+    let ragContext = "";
+    try {
+      const supabase = getClientFromRequest(req);
+      ragContext = await buildRAGContext(supabase);
+    } catch {
+      // fail open — RAG is a nice-to-have
     }
 
-    interface ExplanationResult {
-      reasoning_steps: StepData[];
-      conclusion: string;
-      difficulty: string;
-      related_patterns: string[];
+    // Streaming mode
+    if (body.stream === true) {
+      return await handleStreaming(body, apiKeys[0], ragContext);
     }
 
-    let result: ExplanationResult | null = null;
-
-    outer: for (const model of modelPriority) {
-      for (const apiKey of apiKeys) {
-        try {
-          const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model,
-              messages: [
-                { role: "system", content: REASONING_SYSTEM_PROMPT },
-                { role: "user", content: userContent },
-              ],
-              response_format: { type: "json_object" },
-              temperature: 0.3, // Lower temp for reasoning — more deterministic
-              max_tokens: 2048,
-            }),
-          });
-
-          if (!res.ok) {
-            const errText = await res.text();
-            console.warn(`ai-explain: ${model} / key failed (${res.status}): ${errText.slice(0, 100)}`);
-            continue;
-          }
-
-          const data = await res.json() as Record<string, unknown>;
-          const choices = data.choices as Array<Record<string, unknown>>;
-          const raw = (choices?.[0]?.message as Record<string, unknown>)?.content as string;
-
-          if (!raw) continue;
-
-          try {
-            const parsed = JSON.parse(raw.trim()) as ExplanationResult;
-            result = parsed;
-            console.log(`✅ ai-explain generated with ${model}`);
-            break outer;
-          } catch (_parseErr) {
-            // Try to extract JSON from markdown block
-            const match = raw.match(/```json\s*([\s\S]*?)\s*```/) || raw.match(/\{[\s\S]*\}/);
-            if (match) {
-              result = JSON.parse(match[1] || match[0]) as ExplanationResult;
-              break outer;
-            }
-            console.warn("ai-explain: JSON parse failed, trying next model");
-          }
-        } catch (e) {
-          console.error("ai-explain fetch error:", e);
-        }
-      }
-    }
-
-    if (!result) {
-      throw new Error("All models failed to generate explanation");
-    }
-
-    return new Response(
-      JSON.stringify({ ...result, model_used: modelPriority[0] }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-
+    // Non-streaming mode (default, backward compatible)
+    return await handleNonStreaming(body, apiKeys, ragContext);
   } catch (error) {
     const err = error as Error;
     console.error("ai-explain critical error:", err);
     return new Response(
       JSON.stringify({ error: err.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
     );
   }
 });

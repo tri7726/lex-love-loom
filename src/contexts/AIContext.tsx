@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { checkContentSafety, deepExplain, DeepExplainResult, ExplainType } from '@/services/groqServices';
+import { checkContentSafety, deepExplain, streamExplain, DeepExplainResult, ExplainType } from '@/services/groqServices';
 
 interface AIContextType {
   isAnalyzing: boolean;
@@ -11,6 +11,7 @@ interface AIContextType {
   streamChat: (messages: { role: string; content: string }[], systemPrompt: string, user_id?: string, onChunk?: (chunk: string) => void) => Promise<void>;
   checkGrammar: (text: string) => Promise<any>;
   explainDeep: (question: string, context?: string, type?: ExplainType) => Promise<DeepExplainResult | null>;
+  streamExplainDeep: (question: string, context: string | undefined, type: ExplainType, onToken: (token: string) => void) => Promise<DeepExplainResult | null>;
 }
 
 const AIContext = createContext<AIContextType | undefined>(undefined);
@@ -189,6 +190,16 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     return deepExplain(question, context, type);
   }, []);
 
+  /** Streaming deep explain with real-time tokens */
+  const streamExplainDeep = useCallback(async (
+    question: string,
+    context: string | undefined,
+    type: ExplainType,
+    onToken: (token: string) => void,
+  ): Promise<DeepExplainResult | null> => {
+    return streamExplain(question, context, type, onToken);
+  }, []);
+
   return (
     <AIContext.Provider value={{
       isAnalyzing,
@@ -198,6 +209,7 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       streamChat,
       checkGrammar,
       explainDeep,
+      streamExplainDeep,
     }}>
       {children}
     </AIContext.Provider>

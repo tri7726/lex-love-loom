@@ -157,3 +157,4 @@ export function AdminImport() {
     </div>
   );
 }
+export default AdminImport;
