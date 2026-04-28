@@ -1,7 +1,7 @@
 // @ts-nocheck: suppressing standard TS errors in Deno edge function
 // Supabase Edge Function: Japanese Chat
 // @ts-ignore Deno imports
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "std/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -74,6 +74,62 @@ function hasConfidentContext(context: RAGContext[]): boolean {
     console.log(`CRAG: Context rejected — max similarity ${maxSimilarity.toFixed(3)} < 0.58`);
   }
   return isConfident;
+}
+
+function selectModel(queryClass: 'simple' | 'complex', hasImg: boolean): string[] {
+  if (hasImg) {
+    // Vision: Scout first (best), Maverick as fallback
+    return [
+      "meta-llama/llama-4-scout-17b-16e-instruct",
+      "meta-llama/llama-4-maverick-17b-128e-instruct",
+    ];
+  }
+  if (queryClass === 'simple') {
+    // Simple/chitchat: 8B is fast + high volume, Scout as fallback
+    return [
+      "llama-3.1-8b-instant",
+      "meta-llama/llama-4-scout-17b-16e-instruct",
+    ];
+  }
+  // Complex conversation: Scout primary, 70B as proven fallback
+  return [
+    "meta-llama/llama-4-scout-17b-16e-instruct",
+    "llama-3.3-70b-versatile",
+  ];
+}
+
+async function streamGroq(apiKeys: string[], modelPriority: string[], msgs: Message[], sysPrompt: string) {
+  // Try each model in priority order, with key rotation per model
+  for (const model of modelPriority) {
+    for (const apiKey of apiKeys) {
+      try {
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: "system", content: sysPrompt }, ...msgs],
+            stream: true,
+            temperature: 0.7,
+            max_tokens: model.includes("8b") ? 512 : 1024,
+          }),
+        });
+        if (response.ok) {
+          console.log(`✅ Using model: ${model}`);
+          return response;
+        }
+        const errText = await response.text();
+        // Rate limit (429) → try next key, then next model
+        console.warn(`Model ${model} / key failed (${response.status}): ${errText.slice(0, 120)}`);
+      } catch (e) {
+        console.error("Groq fetch error:", e);
+      }
+    }
+  }
+  return null;
 }
 
 serve(async (req: Request) => {
@@ -159,27 +215,6 @@ serve(async (req: Request) => {
       Array.isArray(m.content) && m.content.some((c: Record<string, unknown>) => c.type === 'image_url')
     );
 
-    function selectModel(queryClass: 'simple' | 'complex', hasImg: boolean): string[] {
-      if (hasImg) {
-        // Vision: Scout first (best), Maverick as fallback
-        return [
-          "meta-llama/llama-4-scout-17b-16e-instruct",
-          "meta-llama/llama-4-maverick-17b-128e-instruct",
-        ];
-      }
-      if (queryClass === 'simple') {
-        // Simple/chitchat: 8B is fast + high volume, Scout as fallback
-        return [
-          "llama-3.1-8b-instant",
-          "meta-llama/llama-4-scout-17b-16e-instruct",
-        ];
-      }
-      // Complex conversation: Scout primary, 70B as proven fallback
-      return [
-        "meta-llama/llama-4-scout-17b-16e-instruct",
-        "llama-3.3-70b-versatile",
-      ];
-    }
 
     const modelPriority = selectModel(queryClass, hasImage);
 
@@ -191,39 +226,6 @@ serve(async (req: Request) => {
       );
     }
 
-    async function streamGroq(msgs: Message[], sysPrompt: string) {
-      // Try each model in priority order, with key rotation per model
-      for (const model of modelPriority) {
-        for (const apiKey of apiKeys) {
-          try {
-            const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${apiKey}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                model,
-                messages: [{ role: "system", content: sysPrompt }, ...msgs],
-                stream: true,
-                temperature: 0.7,
-                max_tokens: model.includes("8b") ? 512 : 1024,
-              }),
-            });
-            if (response.ok) {
-              console.log(`✅ Using model: ${model}`);
-              return response;
-            }
-            const errText = await response.text();
-            // Rate limit (429) → try next key, then next model
-            console.warn(`Model ${model} / key failed (${response.status}): ${errText.slice(0, 120)}`);
-          } catch (e) {
-            console.error("Groq fetch error:", e);
-          }
-        }
-      }
-      return null;
-    }
 
     const SOCRATIC_INSTRUCTION = `
 🔍 **CHẾ ĐỘ THÁM TỬ (Socratic Mode) — ĐƯỢC BẬT**
@@ -247,7 +249,7 @@ Hãy dùng phong cách hỏi thân thiện, không phán xét.`;
       + ragContextContent
       + (isSocraticMode ? SOCRATIC_INSTRUCTION : '');
 
-    const groqRes = await streamGroq(finalMessages, finalSystemPrompt);
+    const groqRes = await streamGroq(apiKeys, modelPriority, finalMessages, finalSystemPrompt);
 
     if (groqRes && groqRes.body) {
       // Create a direct pass-through stream for SSE
@@ -255,7 +257,7 @@ Hãy dùng phong cách hỏi thân thiện, không phán xét.`;
       const writer = writable.getWriter();
       const reader = groqRes.body.getReader();
       const encoder = new TextEncoder();
-      const decoder = new TextDecoder();
+      const _decoder = new TextDecoder();
 
       (async () => {
         try {

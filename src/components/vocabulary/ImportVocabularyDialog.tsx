@@ -4,6 +4,8 @@ import { Upload, X, FileSpreadsheet, FileJson, Download, Eye, CheckCircle2 } fro
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { VocabWord } from '@/types/vocabulary';
+import { supabase } from '@/integrations/supabase/client';
+import { Sparkles, Image as ImageIcon, Type as TextIcon, Loader2 } from 'lucide-react';
 
 export interface ImportVocabularyDialogProps {
   showImportDialog: boolean;
@@ -16,11 +18,19 @@ export const ImportVocabularyDialog: React.FC<ImportVocabularyDialogProps> = ({
   setShowImportDialog,
   onImport,
 }) => {
-  const [importTab, setImportTab] = useState<'excel' | 'json'>('excel');
+  const [importTab, setImportTab] = useState<'excel' | 'json' | 'ai'>('excel');
   const [jsonInput, setJsonInput] = useState('');
   const [importPreview, setImportPreview] = useState<VocabWord[] | null>(null);
   const [importError, setImportError] = useState('');
+  
+  // AI Tab states
+  const [aiSource, setAiSource] = useState<'image' | 'text'>('image');
+  const [aiImage, setAiImage] = useState<string | null>(null);
+  const [aiText, setAiText] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const aiImageRef = useRef<HTMLInputElement>(null);
 
   const parseJsonImport = (text: string): VocabWord[] | null => {
     try {
@@ -92,6 +102,58 @@ export const ImportVocabularyDialog: React.FC<ImportVocabularyDialogProps> = ({
     XLSX.writeFile(wb, 'vocabulary_template.xlsx');
   };
 
+  const runAiExtraction = async () => {
+    setAiLoading(true);
+    setImportError('');
+    try {
+      const body = aiSource === 'image' 
+        ? { 
+            type: 'image_vocab', 
+            imageBase64: aiImage?.split(',')[1], 
+            imageType: aiImage?.split(';')[0].split(':')[1],
+            wordCount: 15
+          }
+        : { 
+            type: 'text_vocab', 
+            text: aiText 
+          };
+
+      const { data, error: fnError } = await supabase.functions.invoke('ai-explain', { body });
+      if (fnError) throw new Error(fnError.message);
+
+      const raw: string = data?.result ?? (typeof data === 'string' ? data : JSON.stringify(data));
+      const match = raw.match(/\[[\s\S]*\]/);
+      if (!match) throw new Error('AI không trả về danh sách từ vựng hợp lệ');
+
+      const extracted: any[] = JSON.parse(match[0]);
+      const words: VocabWord[] = extracted.map((item, idx) => ({
+        id: `ai-${Date.now()}-${idx}`,
+        word: String(item.word).trim(),
+        reading: item.reading ? String(item.reading).trim() : null,
+        hanviet: item.hanviet ? String(item.hanviet).trim() : null,
+        meaning: String(item.meaning).trim(),
+        jlpt_level: item.level || null,
+        example_sentence: item.example || null,
+        mastery_level: null,
+      }));
+
+      setImportPreview(words);
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Lỗi phân tích AI');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleAiImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setAiImage(ev.target?.result as string);
+    reader.readAsDataURL(file);
+    setImportPreview(null);
+  };
+
   const confirmImport = () => {
     if (!importPreview?.length) return;
     onImport(importPreview);
@@ -142,6 +204,12 @@ export const ImportVocabularyDialog: React.FC<ImportVocabularyDialogProps> = ({
               >
                 <FileJson className="h-4 w-4" /> JSON
               </button>
+              <button
+                className={cn('px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-all', importTab === 'ai' ? 'bg-gradient-to-r from-purple-100 to-rose-100 text-rose-700 ring-2 ring-rose-300' : 'bg-muted hover:bg-rose-50')}
+                onClick={() => { setImportTab('ai'); setImportPreview(null); setImportError(''); }}
+              >
+                <Sparkles className="h-4 w-4 text-purple-500" /> Phân tích AI
+              </button>
             </div>
 
             {/* Format Guide */}
@@ -182,17 +250,55 @@ export const ImportVocabularyDialog: React.FC<ImportVocabularyDialogProps> = ({
               </div>
             )}
 
-            {/* JSON tab */}
-            {importTab === 'json' && (
-              <div className="space-y-3">
-                <textarea
-                  value={jsonInput}
-                  onChange={(e) => setJsonInput(e.target.value)}
-                  placeholder={'[\n  { "word": "学校", "reading": "がっこう", "hanviet": "Học Hiệu", "meaning": "Trường học" }\n]'}
-                  className="w-full h-40 px-4 py-3 rounded-xl border border-rose-200 focus:ring-2 focus:ring-rose-300 outline-none text-sm font-mono bg-background resize-none"
-                />
-                <Button size="sm" className="gap-2 bg-gradient-to-r from-rose-400 to-pink-400 text-white" onClick={() => { const w = parseJsonImport(jsonInput); if (w) setImportPreview(w); }}>
-                  <Eye className="h-4 w-4" /> Preview
+            {/* AI tab */}
+            {importTab === 'ai' && (
+              <div className="space-y-4">
+                <div className="flex gap-2 p-1 bg-muted rounded-xl w-fit">
+                  <button 
+                    onClick={() => setAiSource('image')}
+                    className={cn("px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-2 transition-all", aiSource === 'image' ? "bg-background shadow-sm" : "text-muted-foreground")}
+                  >
+                    <ImageIcon className="h-3.5 w-3.5" /> Hình ảnh
+                  </button>
+                  <button 
+                    onClick={() => setAiSource('text')}
+                    className={cn("px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-2 transition-all", aiSource === 'text' ? "bg-background shadow-sm" : "text-muted-foreground")}
+                  >
+                    <TextIcon className="h-3.5 w-3.5" /> Đoạn văn
+                  </button>
+                </div>
+
+                {aiSource === 'image' ? (
+                  <div 
+                    onClick={() => aiImageRef.current?.click()}
+                    className="border-2 border-dashed border-rose-200 rounded-xl p-8 text-center cursor-pointer hover:bg-rose-50/50 transition-all group"
+                  >
+                    <input ref={aiImageRef} type="file" accept="image/*" className="hidden" onChange={handleAiImageUpload} />
+                    {aiImage ? (
+                      <img src={aiImage} alt="Preview" className="max-h-32 mx-auto rounded-lg shadow-sm" />
+                    ) : (
+                      <div className="space-y-2">
+                        <ImageIcon className="h-8 w-8 mx-auto text-rose-300 group-hover:scale-110 transition-transform" />
+                        <p className="text-xs text-muted-foreground font-medium">Nhấp hoặc kéo thả ảnh vào đây</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <textarea
+                    value={aiText}
+                    onChange={(e) => setAiText(e.target.value)}
+                    placeholder="Dán đoạn văn tiếng Nhật/Hàn/Anh... AI sẽ tự trích xuất từ vựng quan trọng."
+                    className="w-full h-32 px-4 py-3 rounded-xl border border-rose-200 focus:ring-2 focus:ring-rose-300 outline-none text-sm bg-background resize-none"
+                  />
+                )}
+
+                <Button 
+                  disabled={aiLoading || (aiSource === 'image' ? !aiImage : !aiText.trim())}
+                  onClick={runAiExtraction}
+                  className="w-full bg-gradient-to-r from-purple-500 to-rose-500 text-white gap-2 h-11"
+                >
+                  {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  Phân tích & Trích xuất từ vựng
                 </Button>
               </div>
             )}
@@ -213,7 +319,7 @@ export const ImportVocabularyDialog: React.FC<ImportVocabularyDialogProps> = ({
                         <th className="px-3 py-2 text-left">#</th>
                         <th className="px-3 py-2 text-left">word</th>
                         <th className="px-3 py-2 text-left">reading</th>
-                        <th className="px-3 py-2 text-left">hanviet</th>
+                        <th className="px-3 py-2 text-left">level</th>
                         <th className="px-3 py-2 text-left">meaning</th>
                       </tr>
                     </thead>
@@ -223,7 +329,13 @@ export const ImportVocabularyDialog: React.FC<ImportVocabularyDialogProps> = ({
                           <td className="px-3 py-1.5 text-muted-foreground">{i + 1}</td>
                           <td className="px-3 py-1.5 font-jp">{w.word}</td>
                           <td className="px-3 py-1.5 font-jp">{w.reading}</td>
-                          <td className="px-3 py-1.5">{w.hanviet}</td>
+                          <td className="px-3 py-1.5">
+                            {w.jlpt_level ? (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200">
+                                {w.jlpt_level}
+                              </span>
+                            ) : '—'}
+                          </td>
                           <td className="px-3 py-1.5">{w.meaning}</td>
                         </tr>
                       ))}

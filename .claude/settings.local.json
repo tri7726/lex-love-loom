@@ -6,7 +6,14 @@
       "Bash(find /usr -name \"supabase\" -o -name \"supabase.exe\")",
       "Bash(find /c -name \"supabase.exe\" -path \"*/node_modules/*\")",
       "Bash(command -v supabase)",
-      "Read(//c/ProgramData/chocolatey/**)"
+      "Read(//c/ProgramData/chocolatey/**)",
+      "Bash(npm run *)",
+      "Bash(sed -i '161,175d' \"C:/Users/Pheo/OneDrive/Documents/NetBeansProjects/lex-love-loom/supabase/functions/generate-video-quiz/index.ts\")",
+      "Bash(sed -i 's/catch \\(error: any\\)/catch \\(error: unknown\\)/' \"C:/Users/Pheo/OneDrive/Documents/NetBeansProjects/lex-love-loom/supabase/functions/generate-video-quiz/index.ts\")",
+      "Bash(sed -i 's/serve\\(async \\(req\\) {/serve\\(async \\(req: Request\\) {/' index.ts)",
+      "Bash(sed -i '127,141d' index.ts)",
+      "Bash(sed -i 's/catch \\(error: any\\)/catch \\(error: unknown\\)/' index.ts)",
+      "Bash(xargs grep *)"
     ]
   }
 }

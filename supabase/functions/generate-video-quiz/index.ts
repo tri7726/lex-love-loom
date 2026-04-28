@@ -1,11 +1,28 @@
-// @ts-nocheck
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// @ts-nocheck: Deno edge function — types resolved at runtime by import map
+import { serve } from "std/http/server.ts";
+import { createClient } from "@supabase/supabase-js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+// Helper to extract JSON from AI text
+function extractJSON(text: string) {
+  try {
+    return JSON.parse(text.trim());
+  } catch (_e) {
+    const match = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        return JSON.parse(match[1] || match[0]);
+      } catch (_e2) {
+        throw new Error("AI returned invalid JSON structure");
+      }
+    }
+    throw new Error("Could not find JSON in AI response");
+  }
+}
 
 const SYSTEM_PROMPT = `
 Bạn là chuyên gia thiết kế đề thi JLPT (N5–N3).
@@ -140,23 +157,6 @@ serve(async (req: Request) => {
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    // Helper to extract JSON from AI text
-    function extractJSON(text: string) {
-      try {
-        return JSON.parse(text.trim());
-      } catch (_e) {
-        const match = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
-        if (match) {
-          try {
-            return JSON.parse(match[1] || match[0]);
-          } catch (_e2) {
-            throw new Error("AI returned invalid JSON structure");
-          }
-        }
-        throw new Error("Could not find JSON in AI response");
-      }
-    }
-
     if (!resultData) throw new Error("AI quiz generation failed on all keys");
     
     // Standardize resultData from direct parsed content
@@ -202,7 +202,7 @@ serve(async (req: Request) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Quiz generation error:", error);
     return new Response(JSON.stringify({ success: false, error: error.message }), {
       status: 200,

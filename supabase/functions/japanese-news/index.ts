@@ -1,6 +1,6 @@
-// @ts-nocheck
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+// @ts-nocheck: Deno edge function — types resolved at runtime by import map
+import { serve } from "std/http/server.ts";
+import { createClient } from "@supabase/supabase-js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,7 +52,7 @@ serve(async (req: Request) => {
         "https://www3.nhk.or.jp/news/easy/top-list.json",
       ];
       
-      let newsList: any = null;
+      let newsList: unknown = null;
       let newsResponse: Response | null = null;
       
       for (const endpoint of nhkEndpoints) {
@@ -105,7 +105,7 @@ serve(async (req: Request) => {
           
           // CRITICAL: Save fallback article to database so frontend can see it
           console.log("Saving AI generated fallback to database...");
-          const { data: savedData, error: saveError } = await supabaseClient
+          const { data: _savedData, error: saveError } = await supabaseClient
             .from("reading_passages")
             .insert({
               title: aiData.title_vi || "Tin tức AI",
@@ -132,7 +132,7 @@ serve(async (req: Request) => {
               jlpt_level: "N3",
             },
             source: "ai_generated",
-            db_saved: !!savedData
+            db_saved: !!_savedData
           }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
@@ -142,7 +142,7 @@ serve(async (req: Request) => {
       }
 
       // Parse the news list - handle both array and object formats
-      let latestNews: any = null;
+      let latestNews: unknown = null;
       if (Array.isArray(newsList)) {
         latestNews = newsList[0];
       } else if (typeof newsList === 'object') {
@@ -232,7 +232,7 @@ serve(async (req: Request) => {
 
       // 4. Save to reading_passages
       console.log("Saving analyzed news to database...");
-      const { data: savedData, error: saveError } = await supabaseClient
+      const { data: _savedData, error: saveError } = await supabaseClient
         .from("reading_passages")
         .insert({
           title: analyzedData.title,
@@ -260,7 +260,7 @@ serve(async (req: Request) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Japanese News error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,

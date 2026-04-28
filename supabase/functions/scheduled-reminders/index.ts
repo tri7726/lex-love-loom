@@ -1,13 +1,18 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "std/http/server.ts";
+import { createClient } from "@supabase/supabase-js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
+interface ProfileForReminder {
+  user_id: string;
+  push_reminder_time: string | null;
+}
+
+serve(async (_req: Request) => {
+  if (_req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
@@ -38,44 +43,44 @@ serve(async (req) => {
     if (error) throw error;
 
     // Filter by reminder time in JS for more flexibility (or use SQL precision)
-    const usersToRemind = (profiles || []).filter(p => {
+    const usersToRemind = (profiles || []).filter((p: ProfileForReminder) => {
         if (!p.push_reminder_time) return false;
         // Simple comparison: e.g., "20:00" == "20:00"
         // We allow a window if needed, but here we match the slot.
-        return p.push_reminder_time.startsWith(currentHour); 
+        return p.push_reminder_time.startsWith(currentHour);
     });
 
     console.log(`Found ${usersToRemind.length} users to remind.`);
 
     // 3. Trigger push for each user
     const results = await Promise.all(
-      usersToRemind.map(async (p) => {
+      usersToRemind.map(async (p: ProfileForReminder) => {
         try {
           // Internal invocation to our push-notify function
-          const { data, error } = await supabase.functions.invoke("push-notify", {
+          const { error } = await supabase.functions.invoke("push-notify", {
             body: {
               userId: p.user_id,
               type: "daily_reminder",
             },
           });
           return { userId: p.user_id, success: !error };
-        } catch (e) {
+        } catch (e: unknown) {
           return { userId: p.user_id, success: false, error: String(e) };
         }
       })
     );
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         timestamp: now.toISOString(),
         checked_time: currentTimeStr,
-        notified: results.filter(r => r.success).length,
-        failed: results.filter(r => !r.success).length
+        notified: results.filter((r: { success: boolean }) => r.success).length,
+        failed: results.filter((r: { success: boolean }) => !r.success).length
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (err) {
+  } catch (err: unknown) {
     console.error("Scheduled reminders error:", err);
     return new Response(
       JSON.stringify({ error: String(err) }),

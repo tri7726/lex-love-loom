@@ -3,7 +3,7 @@
 // Uses Llama Guard 4 to screen messages for unsafe content.
 // Fails open (safe=true) on any error — never blocks legitimate learners.
 // @ts-ignore Deno imports
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "std/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

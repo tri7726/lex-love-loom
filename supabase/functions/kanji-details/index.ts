@@ -1,6 +1,6 @@
-// @ts-nocheck
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+// @ts-nocheck: Deno edge function — types resolved at runtime by import map
+import { serve } from "std/http/server.ts";
+import { createClient } from "@supabase/supabase-js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,6 +13,73 @@ interface KanjiDetailsRequest {
   include_vocabulary?: boolean;
   include_related?: boolean;
   user_id?: string;
+}
+
+interface VocabFromDb {
+  id: string;
+  word: string;
+  reading: string;
+  hanviet?: string;
+  meaning_vi?: string;
+  meaning_en?: string;
+  jlpt_level?: string;
+  part_of_speech?: string;
+  example_sentence?: string;
+  example_translation?: string;
+}
+
+interface JunctionResult {
+  position: number;
+  vocabulary: VocabFromDb | null;
+}
+
+interface TextbookResult {
+  vocabulary_id: string;
+  textbook: string;
+  lesson_number: number;
+  page_number?: number;
+}
+
+interface VocabWithTextbook extends VocabFromDb {
+  position?: number;
+  textbook_info?: Array<{ textbook: string; lesson_number: number; page_number?: number }>;
+}
+
+interface RelatedKanjiResult {
+  relationship_type: string;
+  strength: number;
+  reason?: string;
+  related_kanji: {
+    id: string;
+    character: string;
+    hanviet?: string;
+    meaning_vi?: string;
+    jlpt_level?: string;
+    stroke_count?: number;
+  };
+}
+
+interface RelatedByTypeItem {
+  id: string;
+  character: string;
+  hanviet?: string;
+  meaning_vi?: string;
+  jlpt_level?: string;
+  stroke_count?: number;
+  relationship_type: string;
+  strength: number;
+  reason?: string;
+}
+
+interface KanjiDetailsResponse {
+  kanji: unknown;
+  user_progress?: unknown;
+  vocabulary?: VocabWithTextbook[];
+  vocabulary_by_jlpt?: Record<string, VocabWithTextbook[]>;
+  textbook_vocabulary?: VocabWithTextbook[];
+  related_kanji?: RelatedByTypeItem[];
+  related_by_type?: Record<string, RelatedByTypeItem[]>;
+  stats: { vocabulary_count: number; related_kanji_count: number };
 }
 
 serve(async (req) => {
@@ -56,9 +123,8 @@ serve(async (req) => {
       );
     }
 
-    const result: any = {
-      kanji: kanjiData,
-    };
+    const result = {} as KanjiDetailsResponse;
+    result.kanji = kanjiData;
 
     // Get user progress if user_id provided
     if (user_id) {
@@ -97,8 +163,8 @@ serve(async (req) => {
       // Get textbook mappings for vocabulary
       if (vocabData && vocabData.length > 0) {
         const vocabIds = vocabData
-          .map((v: any) => v.vocabulary?.id)
-          .filter((id: string) => id);
+          .map((v: JunctionResult) => v.vocabulary?.id)
+          .filter((id: string | undefined): id is string => !!id);
 
         const { data: textbookData } = await supabase
           .from("textbook_vocabulary")
@@ -106,40 +172,40 @@ serve(async (req) => {
           .in("vocabulary_id", vocabIds);
 
         // Group by vocabulary_id
-        const textbookMap = new Map();
-        textbookData?.forEach((tb: any) => {
+        const textbookMap = new Map<string, Array<{ textbook: string; lesson_number: number; page_number?: number }>>();
+        (textbookData || []).forEach((tb: TextbookResult) => {
           if (!textbookMap.has(tb.vocabulary_id)) {
             textbookMap.set(tb.vocabulary_id, []);
           }
-          textbookMap.get(tb.vocabulary_id).push({
+          textbookMap.get(tb.vocabulary_id)!.push({
             textbook: tb.textbook,
             lesson_number: tb.lesson_number,
             page_number: tb.page_number,
           });
         });
 
-        result.vocabulary = vocabData.map((v: any) => ({
+        result.vocabulary = vocabData.map((v: JunctionResult) => ({
           ...v.vocabulary,
           position: v.position,
-          textbook_info: textbookMap.get(v.vocabulary?.id) || [],
-        }));
+          textbook_info: textbookMap.get(v.vocabulary?.id || '') || [],
+        } as VocabWithTextbook));
       } else {
         result.vocabulary = [];
       }
 
       // Separate by JLPT level
       result.vocabulary_by_jlpt = {
-        N5: result.vocabulary?.filter((v: any) => v.jlpt_level === "N5") || [],
-        N4: result.vocabulary?.filter((v: any) => v.jlpt_level === "N4") || [],
-        N3: result.vocabulary?.filter((v: any) => v.jlpt_level === "N3") || [],
-        N2: result.vocabulary?.filter((v: any) => v.jlpt_level === "N2") || [],
-        N1: result.vocabulary?.filter((v: any) => v.jlpt_level === "N1") || [],
+        N5: (result.vocabulary || []).filter(v => v.jlpt_level === "N5"),
+        N4: (result.vocabulary || []).filter(v => v.jlpt_level === "N4"),
+        N3: (result.vocabulary || []).filter(v => v.jlpt_level === "N3"),
+        N2: (result.vocabulary || []).filter(v => v.jlpt_level === "N2"),
+        N1: (result.vocabulary || []).filter(v => v.jlpt_level === "N1"),
       };
 
       // Separate textbook vocabulary
-      result.textbook_vocabulary = result.vocabulary?.filter(
-        (v: any) => v.textbook_info && v.textbook_info.length > 0
-      ) || [];
+      result.textbook_vocabulary = (result.vocabulary || []).filter(
+        v => v.textbook_info && v.textbook_info.length > 0
+      );
     }
 
     // Get related kanji if requested
@@ -162,19 +228,19 @@ serve(async (req) => {
         .eq("kanji_id", kanjiData.id)
         .order("strength", { ascending: false });
 
-      result.related_kanji = relatedData?.map((r: any) => ({
+      result.related_kanji = (relatedData || []).map((r: RelatedKanjiResult) => ({
         ...r.related_kanji,
         relationship_type: r.relationship_type,
         strength: r.strength,
         reason: r.reason,
-      })) || [];
+      } as RelatedByTypeItem));
 
       // Group by relationship type
       result.related_by_type = {
-        radical: result.related_kanji.filter((k: any) => k.relationship_type === "radical"),
-        reading: result.related_kanji.filter((k: any) => k.relationship_type === "reading"),
-        meaning: result.related_kanji.filter((k: any) => k.relationship_type === "meaning"),
-        component: result.related_kanji.filter((k: any) => k.relationship_type === "component"),
+        radical: (result.related_kanji || []).filter(k => k.relationship_type === "radical"),
+        reading: (result.related_kanji || []).filter(k => k.relationship_type === "reading"),
+        meaning: (result.related_kanji || []).filter(k => k.relationship_type === "meaning"),
+        component: (result.related_kanji || []).filter(k => k.relationship_type === "component"),
       };
     }
 

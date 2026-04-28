@@ -1,5 +1,5 @@
-// @ts-nocheck
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// @ts-nocheck: Deno edge function — types resolved at runtime by import map
+import { serve } from "std/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -58,6 +58,23 @@ interface ReadingResponse {
   }>;
 }
 
+// Helper to extract JSON from AI text
+function extractJSON(text: string): ReadingResponse {
+  try {
+    return JSON.parse(text.trim());
+  } catch (_e) {
+    const match = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        return JSON.parse(match[1] || match[0]);
+      } catch (_e2) {
+        throw new Error("AI returned invalid JSON structure");
+      }
+    }
+    throw new Error("Could not find JSON in AI response");
+  }
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -66,26 +83,9 @@ serve(async (req: Request) => {
 
     let resultData: ReadingResponse | null = null;
 
-    const userPrompt = content 
+    const userPrompt = content
       ? `Analyze this content for level ${level}: ${content}`
       : `Generate a new ${level} reading about "${topic || 'daily life'}"`;
-
-    // Helper to extract JSON from AI text
-    function extractJSON(text: string): ReadingResponse {
-      try {
-        return JSON.parse(text.trim());
-      } catch (e) {
-        const match = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
-        if (match) {
-          try {
-            return JSON.parse(match[1] || match[0]);
-          } catch (e2) {
-            throw new Error("AI returned invalid JSON structure");
-          }
-        }
-        throw new Error("Could not find JSON in AI response");
-      }
-    }
 
     const apiKeys = [
       Deno.env.get("GROQ_API_KEY_2"),

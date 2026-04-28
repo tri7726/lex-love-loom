@@ -1,6 +1,6 @@
-// @ts-nocheck
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+// @ts-nocheck: Deno edge function — types resolved at runtime by import map
+import { serve } from "std/http/server.ts";
+import { createClient } from "@supabase/supabase-js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,6 +11,20 @@ interface RelatedRequest {
   kanji_id: string;
   types?: string[]; // radical, reading, meaning, component
   limit?: number;
+}
+
+interface RelationshipRow {
+  relationship_type: string;
+  strength: number;
+  reason?: string;
+  related_kanji: unknown;
+}
+
+interface RelatedItem {
+  kanji: unknown;
+  relationship_type: string;
+  strength: number;
+  reason?: string;
 }
 
 serve(async (req) => {
@@ -67,7 +81,7 @@ serve(async (req) => {
       throw error;
     }
 
-    const related = relatedData?.map((r: any) => ({
+    const related = (relatedData as RelationshipRow[] | undefined)?.map((r: RelationshipRow) => ({
       kanji: r.related_kanji,
       relationship_type: r.relationship_type,
       strength: r.strength,
@@ -75,7 +89,7 @@ serve(async (req) => {
     })) || [];
 
     // Group by relationship type
-    const groupedByType: any = {
+    const groupedByType: Record<string, RelatedItem[]> = {
       radical: [],
       reading: [],
       meaning: [],
@@ -85,7 +99,7 @@ serve(async (req) => {
       synonym: [],
     };
 
-    related.forEach((item: any) => {
+    related.forEach((item: RelatedItem) => {
       if (groupedByType[item.relationship_type]) {
         groupedByType[item.relationship_type].push(item);
       }

@@ -161,6 +161,7 @@ export const useFlashcardFolders = () => {
           hanviet: word.hanviet,
           example_sentence: word.example_sentence,
           example_translation: word.example_translation,
+          jlpt_level: word.jlpt_level,
           user_id: user.id
         })
         .select()

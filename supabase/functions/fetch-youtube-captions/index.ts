@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "std/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,18 +12,62 @@ interface SubtitleSegment {
 }
 
 // Parse transcript from innertube response
-function parseTranscriptSegments(transcriptData: unknown): SubtitleSegment[] {
+interface YouTubeTranscriptAction {
+  updateEngagementPanelAction?: {
+    content?: {
+      transcriptRenderer?: {
+        body?: {
+          transcriptBodyRenderer?: {
+            cueGroups?: Array<{
+              transcriptCueGroupRenderer?: {
+                cues?: Array<{
+                  transcriptCueRenderer?: {
+                    startOffsetMs?: string;
+                    durationMs?: string;
+                    cue?: {
+                      simpleText?: string;
+                      runs?: Array<{ text: string }>;
+                    };
+                  };
+                }>;
+              };
+            }>;
+          };
+        };
+        content?: {
+          transcriptSearchPanelRenderer?: {
+            body?: {
+              transcriptSegmentListRenderer?: {
+                initialSegments?: Array<{
+                  transcriptSegmentRenderer?: {
+                    startMs?: string;
+                    endMs?: string;
+                    snippet?: {
+                      runs?: Array<{ text: string }>;
+                    };
+                  };
+                }>;
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+}
+
+function _parseTranscriptSegments(transcriptData: unknown): SubtitleSegment[] {
   const segments: SubtitleSegment[] = [];
   
   try {
-    const data = transcriptData as { actions?: unknown[] };
-    const actions = (data?.actions?.[0] as any)?.updateEngagementPanelAction?.content
+    const data = transcriptData as { actions?: YouTubeTranscriptAction[] };
+    const actions = data?.actions?.[0]?.updateEngagementPanelAction?.content
       ?.transcriptRenderer?.content?.transcriptSearchPanelRenderer?.body
       ?.transcriptSegmentListRenderer?.initialSegments;
     
     if (!actions) {
       // Try alternative path
-      const altActions = (transcriptData as any)?.actions;
+      const altActions = data?.actions;
       if (altActions) {
         for (const action of altActions) {
           const segments_data = action?.updateEngagementPanelAction?.content
@@ -33,8 +77,8 @@ function parseTranscriptSegments(transcriptData: unknown): SubtitleSegment[] {
             for (const cueGroup of segments_data) {
               const cue = cueGroup?.transcriptCueGroupRenderer?.cues?.[0]?.transcriptCueRenderer;
               if (cue) {
-                const startMs = parseInt(cue.startOffsetMs || '0');
-                const durationMs = parseInt(cue.durationMs || '3000');
+                const startMs = parseInt(String(cue.startOffsetMs ?? '0'));
+                const durationMs = parseInt(String(cue.durationMs ?? '3000'));
                 const text = cue.cue?.simpleText || 
                   cue.cue?.runs?.map((r: { text: string }) => r.text).join('') || '';
                 
@@ -54,8 +98,8 @@ function parseTranscriptSegments(transcriptData: unknown): SubtitleSegment[] {
       for (const segment of actions) {
         const cue = segment?.transcriptSegmentRenderer;
         if (cue) {
-          const startMs = parseInt(cue.startMs || '0');
-          const endMs = parseInt(cue.endMs || startMs + 3000);
+          const startMs = parseInt(`${cue.startMs ?? '0'}`);
+          const endMs = parseInt(`${cue.endMs ?? '3000'}`);
           const text = cue.snippet?.runs?.map((r: { text: string }) => r.text).join('') || '';
           
           if (text.trim()) {
@@ -238,7 +282,7 @@ function parseContent(content: string): SubtitleSegment[] {
         console.log('Parsed JSON3 format:', segments.length, 'segments');
         return segments;
       }
-    } catch (e) {
+    } catch (_e) {
       console.log('Not valid JSON3, trying XML...');
     }
   }

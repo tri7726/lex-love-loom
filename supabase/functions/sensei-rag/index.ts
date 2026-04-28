@@ -1,6 +1,6 @@
 // Supabase Edge Function: Sensei RAG — 100% Groq, no Gemini
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "std/http/server.ts";
+import { createClient } from "@supabase/supabase-js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -51,6 +51,17 @@ async function callGroq(
     }
   }
   return null;
+}
+
+interface KnowledgeItem {
+  content: string;
+  source_type: string;
+  metadata?: Record<string, unknown>;
+  created_at?: string;
+}
+
+interface ScoredItem extends KnowledgeItem {
+  similarity: number;
 }
 
 // ── PROMPTS ───────────────────────────────────────────────────────
@@ -143,7 +154,7 @@ serve(async (req: Request) => {
       }
 
       const historyText = recentKnowledge
-        .map((k: any, i: number) => `[${i + 1}] (${k.source_type}) ${k.content}`)
+        .map((k: KnowledgeItem, i: number) => `[${i + 1}] (${k.source_type}) ${k.content}`)
         .join("\n");
 
       const profileSnapshot = await callGroq(PROFILE_PROMPT, historyText, {
@@ -213,7 +224,7 @@ serve(async (req: Request) => {
       const queryLower = query.toLowerCase();
       const queryWords = queryLower.split(/\s+/).filter((w: string) => w.length > 1);
 
-      const scored = (allKnowledge || []).map((item: any) => {
+      const scored = (allKnowledge || []).map((item: KnowledgeItem) => {
         const contentLower = item.content.toLowerCase();
         let score = 0;
 
@@ -226,7 +237,8 @@ serve(async (req: Request) => {
         }
 
         // Recency boost
-        const ageMs = Date.now() - new Date(item.created_at).getTime();
+        const createdAt = item.created_at;
+        const ageMs = createdAt ? Date.now() - new Date(createdAt as string).getTime() : 0;
         const ageDays = ageMs / (1000 * 60 * 60 * 24);
         if (ageDays < 7) score *= 1.3;
         else if (ageDays < 30) score *= 1.15;
@@ -236,8 +248,8 @@ serve(async (req: Request) => {
       });
 
       // Sort by score, take top 5
-      scored.sort((a: any, b: any) => b.similarity - a.similarity);
-      const topResults = scored.filter((s: any) => s.similarity > 0).slice(0, 5);
+      scored.sort((a: ScoredItem, b: ScoredItem) => b.similarity - a.similarity);
+      const topResults = scored.filter((s: ScoredItem) => s.similarity > 0).slice(0, 5);
 
       const context: Record<string, unknown>[] = [];
       if (profileData && profileData.length > 0) {

@@ -1,8 +1,8 @@
 // @ts-nocheck: suppressing standard TS errors in Deno edge function
 // @ts-ignore Deno imports
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "std/http/server.ts";
 // @ts-ignore Deno imports
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "@supabase/supabase-js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

@@ -54,6 +54,7 @@ const SRSReview = React.lazy(() => import("./pages/SRSReview"));
 const News = React.lazy(() => import("./pages/News"));
 const Achievements = React.lazy(() => import("./pages/Achievements"));
 const CommunityDecks = React.lazy(() => import("./pages/CommunityDecks"));
+const MinnaVocabulary = React.lazy(() => import("./pages/MinnaVocabulary"));
 
 const queryClient = new QueryClient();
 
@@ -124,6 +125,7 @@ const App = () => (
                             <Route path="/review" element={<SRSReview />} />
                             <Route path="/news" element={<News />} />
                             <Route path="/achievements" element={<Achievements />} />
+                            <Route path="/minna" element={<MinnaVocabulary />} />
                             <Route path="*" element={<NotFound />} />
                           </Route>
                         </Routes>

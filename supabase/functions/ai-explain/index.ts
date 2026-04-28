@@ -5,8 +5,8 @@
 // Supports two modes:
 //   stream=false (default) — returns JSON response
 //   stream=true            — returns SSE streaming with real-time tokens + final result
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "std/http/server.ts";
+import { createClient } from "@supabase/supabase-js";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -71,6 +71,17 @@ async function buildRAGContext(supabase: ReturnType<typeof createClient>): Promi
 
 // ─── Schema types ─────────────────────────────────────────────────────────────
 
+interface GeminiResponse {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{
+        text?: string;
+      }>;
+    };
+    finishReason?: string;
+  }>;
+}
+
 interface StepData {
   step: number;
   title: string;
@@ -108,7 +119,9 @@ function extractFirstJson(raw: string): string | null {
   try {
     JSON.parse(raw.trim());
     return raw.trim();
-  } catch {}
+  } catch {
+    // intentional — null handled by callers
+  }
   const markdownMatch = raw.match(/```json\s*(\{[\s\S]*?\})\s*```/);
   if (markdownMatch?.[1]) return markdownMatch[1];
   const jsonMatch = raw.match(/\{.*?\}/s);
@@ -249,7 +262,9 @@ async function handleStreaming(
                 ),
               );
             }
-          } catch {}
+          } catch {
+            // intentional — parser error, skip to next tick
+          }
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";
@@ -377,6 +392,165 @@ async function handleNonStreaming(
   );
 }
 
+// ─── Vocab Extraction: Text ──────────────────────────────────────────────────
+
+async function handleTextVocab(
+  body: Record<string, unknown>,
+  _apiKeys: string[],
+): Promise<Response> {
+  const { text, prompt } = body;
+  if (!text) throw new Error("Missing text");
+
+  const systemPrompt = `You are a multilingual vocabulary extraction expert.
+Extract all important vocabulary words from the given text.
+Return ONLY a valid JSON array (no markdown, no explanation) with objects:
+[
+  {
+    "word": "original form",
+    "reading": "pronunciation/furigana if Japanese/Chinese, else omit",
+    "meaning": "meaning in Vietnamese",
+    "language": "Japanese|Korean|Chinese|English|Vietnamese",
+    "part_of_speech": "noun|verb|adjective|adverb|phrase",
+    "example": "short example sentence",
+    "level": "JLPT level (N5-N1) if Japanese, CEFR level (A1-C2) for other languages, or empty string if uncertain"
+  }
+]`;
+
+  const userMsg = (prompt as string) || `Extract vocabulary from: "${text as string}"`;
+
+  // Use Google AI Studio directly
+  const GOOGLE_AI_KEY = "AIzaSyDcv5Y4-f0f7UYsgebSJTm4T10FrfADwXo"; 
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GOOGLE_AI_KEY}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: systemPrompt + "\n\n" + userMsg },
+            ],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.2,
+        },
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Google AI Studio text failed: ${errText.slice(0, 200)}`);
+    }
+
+    const json = await res.json() as GeminiResponse;
+    const raw = json.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    const match = raw.match(/\[[\s\S]*\]/);
+    if (!match) throw new Error("Text model did not return JSON array");
+
+    return new Response(
+      JSON.stringify({ result: match[0] }),
+      { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+    );
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
+  }
+}
+
+// ─── Vocab Extraction: Image ──────────────────────────────────────────────────
+
+async function handleImageVocab(
+  body: Record<string, unknown>,
+  apiKeys: string[],
+): Promise<Response> {
+  const { imageBase64, imageType, wordCount, prompt } = body;
+  if (!imageBase64) throw new Error("Missing imageBase64");
+
+  const count = wordCount === "auto" ? "all visible" : `exactly ${wordCount}`;
+  const systemPrompt = `You are a multilingual vocabulary extraction expert for language learners.
+Analyze the provided image and extract ${count} vocabulary words related to objects, text, scenes, or themes visible.
+Return ONLY a valid JSON array (no markdown, no extra text):
+[
+  {
+    "word": "word in its source language",
+    "reading": "pronunciation if Japanese/Chinese",
+    "meaning": "meaning in Vietnamese",
+    "language": "Japanese|Korean|Chinese|English|Vietnamese",
+    "part_of_speech": "noun|verb|adjective|phrase",
+    "example": "short example sentence using the word",
+    "level": "JLPT level (N5-N1) if Japanese, CEFR level (A1-C2) for other languages, or empty string if uncertain"
+  }
+]`;
+
+  const userMsg = (prompt as string) || `Extract vocabulary from this image.`;
+
+  // Use Google AI Studio directly
+  const GOOGLE_AI_KEY = "AIzaSyDcv5Y4-f0f7UYsgebSJTm4T10FrfADwXo"; // Provided directly from user
+  
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GOOGLE_AI_KEY}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: systemPrompt + "\\n\\n" + userMsg },
+              {
+                inline_data: {
+                  mime_type: imageType ?? "image/jpeg",
+                  data: imageBase64,
+                },
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.2,
+        },
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.warn("Google AI Studio vision failed:", errText.slice(0, 200));
+      return handleTextVocab(
+        { text: `Describe objects/words seen in an image and extract vocabulary. Context: ${userMsg}`, ...body },
+        apiKeys,
+      );
+    }
+
+    const json = await res.json() as GeminiResponse;
+    const raw = json.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    const match = raw.match(/\[[\s\S]*\]/);
+    if (!match) throw new Error("Vision model did not return JSON array");
+
+    return new Response(
+      JSON.stringify({ result: match[0] }),
+      { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+    );
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
+  }
+}
+
 // ─── Main Handler ────────────────────────────────────────────────────────────
 
 serve(async (req: Request) => {
@@ -384,17 +558,27 @@ serve(async (req: Request) => {
 
   try {
     const body = await req.json() as Record<string, unknown>;
-    const { question } = body;
+    const { type } = body;
 
+    const apiKeys = getApiKeys();
+    if (apiKeys.length === 0) throw new Error("No API keys configured");
+
+    // ── Route by type ──
+    if (type === "text_vocab") {
+      return await handleTextVocab(body, apiKeys);
+    }
+    if (type === "image_vocab") {
+      return await handleImageVocab(body, apiKeys);
+    }
+
+    // ── Default: grammar explanation (existing flow) ──
+    const { question } = body;
     if (!question) {
       return new Response(JSON.stringify({ error: "Missing question" }), {
         status: 400,
         headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
-
-    const apiKeys = getApiKeys();
-    if (apiKeys.length === 0) throw new Error("No API keys configured");
 
     // ── RAG Memory: fetch user's weak areas ──
     let ragContext = "";

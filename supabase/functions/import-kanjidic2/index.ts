@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from '@supabase/supabase-js'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,7 +7,7 @@ const corsHeaders = {
 
 // Simple XML parser for kanjidic2 format (no dependencies needed)
 function parseKanjidic2(xmlText: string) {
-  const entries: any[] = [];
+  const entries: Record<string, unknown>[] = [];
   const characterRegex = /<character>([\s\S]*?)<\/character>/g;
   let match;
 
@@ -21,7 +21,7 @@ function parseKanjidic2(xmlText: string) {
 
     // Extract meanings (English only - no m_lang attribute)
     const meanings: string[] = [];
-    const meaningRegex = /<meaning>([^<]+)<\/meaning>/g;
+    const _meaningRegex = /<meaning>([^<]+)<\/meaning>/g;
     const rmgroupMatch = block.match(/<rmgroup>([\s\S]*?)<\/rmgroup>/);
     if (rmgroupMatch) {
       const rmgroup = rmgroupMatch[1];

@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from '@supabase/supabase-js'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -42,7 +42,7 @@ async function queryNotebook(cookies: string, notebookId: string, queryText: str
   return data
 }
 
-async function listNotebooks(cookies: string): Promise<any> {
+async function listNotebooks(cookies: string): Promise<unknown> {
   const url = `${NOTEBOOKLM_API}/v1/notebooks`
   
   const response = await fetch(url, {

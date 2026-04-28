@@ -1,5 +1,5 @@
-// @ts-nocheck
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// @ts-nocheck: Deno edge function — types resolved at runtime by import map
+import { serve } from "std/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -53,7 +53,7 @@ serve(async (req: Request) => {
     console.log(`Lookup request for "${word}" using key rotation (${apiKeys.length} keys total)...`);
 
     let resultData = null;
-    let engineUsed = "groq";
+    const engineUsed = "groq";
     
     for (const apiKey of apiKeys) {
       try {
@@ -90,7 +90,7 @@ serve(async (req: Request) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Lookup error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 200,

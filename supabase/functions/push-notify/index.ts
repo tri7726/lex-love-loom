@@ -1,5 +1,5 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "std/http/server.ts";
+import { createClient } from "@supabase/supabase-js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,7 +22,7 @@ const NOTIFICATION_TEMPLATES: Record<PushPayload["type"], { title: string; body:
   challenge_update: { title: "⚔️ Thách đấu mới!", body: "Có người vừa thách đấu bạn. Chấp nhận không?" },
 };
 
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -84,9 +84,6 @@ serve(async (req) => {
         auth: profile.push_auth,
       },
     };
-
-    // Build the push message
-    const pushMessage = JSON.stringify(notification);
 
     // For production, use a proper web-push library or implement VAPID signing
     // This is a placeholder that logs the intent — replace with actual push sending

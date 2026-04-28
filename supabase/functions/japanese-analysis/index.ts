@@ -1,9 +1,9 @@
 // @ts-nocheck: suppressing standard TS errors in Deno edge function
 // Japanese Analysis Edge Function
 // @ts-ignore Deno imports
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "std/http/server.ts";
 // @ts-ignore Deno imports
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "@supabase/supabase-js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -195,6 +195,60 @@ function extractJSON(text: string) {
   }
 }
 
+// ── Smart Analysis Model Router ────────────────────────────────
+// DeepSeek R1  → Hard grammar (step-by-step reasoning)
+// Llama 4 Scout → Vision analysis
+// Llama 3.3 70B → Standard text analysis (proven, stable)
+function selectAnalysisModel(taskType: string, textContent: string): string {
+  if (taskType === 'vision') {
+    return "meta-llama/llama-4-scout-17b-16e-instruct";
+  }
+  if (taskType === 'grammar') {
+    const isHardGrammar = /keigo|passive|causative|potential|conditional|volitional|こそあど|接続詞|て形|た形|ない形|る形|敬語|謙譲|丁寧|接続|ても|たら|なら|れば|させ|られ/i.test(textContent);
+    if (isHardGrammar) {
+      return "deepseek-r1-distill-llama-70b"; // Reasoning model
+    }
+  }
+  return "llama-3.3-70b-versatile"; // Default: battle-tested
+}
+
+// Helper to call Groq with rotation
+async function fetchGroqWithRotation(apiKeys: string[], model: string, system: string, user: string | Record<string, unknown>[], json = true, history: Array<{ role: string; content: string }> = []) {
+  let lastError = null;
+  for (const apiKey of apiKeys) {
+    try {
+      const messages: Array<{ role: string; content: string | Record<string, unknown>[] }> = [{ role: "system", content: system }];
+      if (history && history.length > 0) {
+        history.forEach(m => messages.push({ role: m.role, content: m.content }));
+      }
+      messages.push({ role: "user", content: Array.isArray(user) ? user as Record<string, unknown>[] : user });
+
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          messages,
+          response_format: json ? { type: "json_object" } : undefined,
+          temperature: 0.7
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        return data.choices?.[0]?.message?.content || "";
+      } else {
+        const err = await response.text();
+        lastError = new Error(`Groq API error: ${response.status} ${err}`);
+        console.warn(`Key failed, trying next... ${lastError.message}`);
+      }
+    } catch (e) {
+      lastError = e;
+      console.error("Fetch error, trying next key...", e);
+    }
+  }
+  throw lastError || new Error("All Groq keys failed");
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -237,66 +291,12 @@ serve(async (req: Request) => {
 
     if (apiKeys.length === 0) throw new Error("No Groq API keys are configured.");
 
-    // Helper to call Groq with rotation
-    async function fetchGroqWithRotation(model: string, system: string, user: string | Record<string, unknown>[], json = true, history: Array<{ role: string; content: string }> = []) {
-      let lastError = null;
-      for (const apiKey of apiKeys) {
-        try {
-          const messages: Array<{ role: string; content: any }> = [{ role: "system", content: system }];
-          if (history && history.length > 0) {
-            history.forEach(m => messages.push({ role: m.role, content: m.content }));
-          }
-          messages.push({ role: "user", content: Array.isArray(user) ? user as Record<string, unknown>[] : user });
-
-          const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              model,
-              messages,
-              response_format: json ? { type: "json_object" } : undefined,
-              temperature: 0.7
-            }),
-          });
-          if (response.ok) {
-            const data = await response.json();
-            return data.choices?.[0]?.message?.content || "";
-          } else {
-            const err = await response.text();
-            lastError = new Error(`Groq API error: ${response.status} ${err}`);
-            console.warn(`Key failed, trying next... ${lastError.message}`);
-          }
-        } catch (e) {
-          lastError = e;
-          console.error("Fetch error, trying next key...", e);
-        }
-      }
-      throw lastError || new Error("All Groq keys failed");
-    }
-
     let resultData: { format: string; result?: GrammarAnalysis | VisionAnalysis; analysis?: StructuredAnalysis; text?: string; engine: string } | null = null;
-
-    // ── Smart Analysis Model Router ────────────────────────────────
-    // DeepSeek R1  → Hard grammar (step-by-step reasoning)
-    // Llama 4 Scout → Vision analysis
-    // Llama 3.3 70B → Standard text analysis (proven, stable)
-    function selectAnalysisModel(taskType: string, textContent: string): string {
-      if (taskType === 'vision') {
-        return "meta-llama/llama-4-scout-17b-16e-instruct";
-      }
-      if (taskType === 'grammar') {
-        const isHardGrammar = /keigo|passive|causative|potential|conditional|volitional|こそあど|接続詞|て形|た形|ない形|る形|敬語|謙譲|丁寧|接続|ても|たら|なら|れば|させ|られ/i.test(textContent);
-        if (isHardGrammar) {
-          return "deepseek-r1-distill-llama-70b"; // Reasoning model
-        }
-      }
-      return "llama-3.3-70b-versatile"; // Default: battle-tested
-    }
 
     if (task === 'chat') {
       console.log("Handling Chat Task using Groq...");
       const systemPrompt = prompt || "You are a helpful Japanese Sensei.";
-      const rawChat = await fetchGroqWithRotation("llama-3.3-70b-versatile", systemPrompt, content, false, history);
+      const rawChat = await fetchGroqWithRotation(apiKeys, "llama-3.3-70b-versatile", systemPrompt, content, false, history);
       resultData = { format: 'chat', text: rawChat, engine: "groq" };
     } else if (isImageAnalysis && image) {
       const visionModel = selectAnalysisModel('vision', '');
@@ -305,7 +305,7 @@ serve(async (req: Request) => {
         { type: "text", text: "Analyze the Japanese content in this image and return JSON." },
         { type: "image_url", image_url: { url: `data:image/jpeg;base64,${image}` } }
       ];
-      const rawVision = await fetchGroqWithRotation(visionModel, VISION_SYSTEM_PROMPT, userContent);
+      const rawVision = await fetchGroqWithRotation(apiKeys, visionModel, VISION_SYSTEM_PROMPT, userContent);
       resultData = { format: 'vision', result: extractJSON(rawVision) as VisionAnalysis, engine: "groq" };
     } else {
       const typeLabel = (isGrammar || task === 'grammar') ? "grammar" : "text";
@@ -316,7 +316,7 @@ serve(async (req: Request) => {
       if (prompt) {
         userContent += `\n\nUser Instruction/Context:\n"""\n${prompt}\n"""`;
       }
-      const raw = await fetchGroqWithRotation(chosenModel, systemPrompt, userContent, true);
+      const raw = await fetchGroqWithRotation(apiKeys, chosenModel, systemPrompt, userContent, true);
       const parsed = extractJSON(raw);
       resultData = (isGrammar || task === 'grammar')
         ? { format: 'grammar', result: parsed as GrammarAnalysis, engine: "groq" }

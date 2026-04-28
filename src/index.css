@@ -534,3 +534,87 @@
 .animate-progress-shimmer {
   animation: progress-shimmer 2s infinite linear;
 }
+
+
+/* ===== Ink Loading Animations (Sumi-e style) ===== */
+@keyframes ink-spread {
+  0% {
+    transform: scale(0) rotate(0deg);
+    opacity: 0.45;
+    filter: blur(8px);
+  }
+  60% {
+    opacity: 0.2;
+    filter: blur(3px);
+  }
+  100% {
+    transform: scale(1.5) rotate(25deg);
+    opacity: 0;
+    filter: blur(1px);
+  }
+}
+
+@keyframes ink-ripple {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.1;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+@keyframes ink-pulse-slow {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: scale(1.03);
+    opacity: 1;
+  }
+}
+
+@keyframes brush-stroke {
+  0% {
+    transform: scaleX(0);
+    opacity: 0;
+    transform-origin: left;
+  }
+  30% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 0.15;
+    transform-origin: left;
+  }
+}
+
+.animate-ink-spread {
+  animation: ink-spread 2.8s ease-out infinite;
+}
+
+.animate-ink-spread-delayed {
+  animation: ink-spread 2.8s ease-out 1.4s infinite;
+}
+
+.animate-ink-ripple {
+  animation: ink-ripple 3.2s ease-out infinite;
+}
+
+.animate-ink-ripple-delayed {
+  animation: ink-ripple 3.2s ease-out 1.6s infinite;
+}
+
+.animate-ink-pulse-slow {
+  animation: ink-pulse-slow 2.4s ease-in-out infinite;
+}
+
+.animate-brush-stroke {
+  animation: brush-stroke 1.5s ease-out forwards;
+}

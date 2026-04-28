@@ -1,11 +1,28 @@
-// @ts-nocheck
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// @ts-nocheck: Deno edge function — types resolved at runtime by import map
+import { serve } from "std/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+// Helper to extract JSON from AI text
+function extractJSON(text: string) {
+  try {
+    return JSON.parse(text.trim());
+  } catch (_e) {
+    const match = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        return JSON.parse(match[1] || match[0]);
+      } catch (_e2) {
+        throw new Error("AI returned invalid JSON structure");
+      }
+    }
+    throw new Error("Could not find JSON in AI response");
+  }
+}
 
 const CHECK_PROMPT = `あなたは日本語の文法チェッカーです。
 ユーザーが入力した日本語の文法をチェックし、以下のJSON形式で返答してください。
@@ -20,7 +37,7 @@ const CHECK_PROMPT = `あなたは日本語の文法チェッカーです。
 }
 `;
 
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
@@ -73,11 +90,11 @@ Hãy so sánh hai cấu trúc ngữ pháp được cung cấp và trả về k�
 
     const messages = [{ role: "system", content: systemPrompt }];
     if (mode === 'chat' && body.history) {
-      body.history.forEach((msg: any) => messages.push({ role: msg.role, content: msg.content }));
+      body.history.forEach((msg: { role: string; content: string }) => messages.push({ role: msg.role, content: msg.content }));
     }
     messages.push({ role: "user", content: userPrompt });
 
-    const requestBody: any = {
+    const requestBody: Record<string, unknown> = {
       model: "llama-3.3-70b-versatile",
       messages: messages,
       temperature: temperature,
@@ -106,23 +123,6 @@ Hãy so sánh hai cấu trúc ngữ pháp được cung cấp và trả về k�
       }
     }
 
-    // Helper to extract JSON from AI text
-    function extractJSON(text: string) {
-      try {
-        return JSON.parse(text.trim());
-      } catch (_e) {
-        const match = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
-        if (match) {
-          try {
-            return JSON.parse(match[1] || match[0]);
-          } catch (_e2) {
-            throw new Error("AI returned invalid JSON structure");
-          }
-        }
-        throw new Error("Could not find JSON in AI response");
-      }
-    }
-
     if (!resultText) throw new Error("AI failed on all Groq keys");
 
     if (mode === 'chat') {
@@ -138,7 +138,7 @@ Hãy so sánh hai cấu trúc ngữ pháp được cung cấp và trả về k�
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Grammar error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 200,

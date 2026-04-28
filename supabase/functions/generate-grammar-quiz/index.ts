@@ -1,5 +1,5 @@
-// @ts-nocheck
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// @ts-nocheck: Deno edge function — types resolved at runtime by import map
+import { serve } from "std/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,7 +37,7 @@ serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { grammar_point, level, explanation } = await req.json();
+    const { grammar_point: _grammar_point, level: _level, explanation: _explanation } = await req.json();
     const apiKeys = [
       Deno.env.get("GROQ_API_KEY_3"),
       Deno.env.get("GROQ_API_KEY_2"),
@@ -80,7 +80,7 @@ serve(async (req: Request) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error generating grammar quiz:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 200,
