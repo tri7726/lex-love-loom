@@ -1,17 +1,3 @@
-﻿-- ============================================================
--- UNIFIED SCHEMA (auto-generated)
--- Generated: 2026-05-09T07:47:13Z
--- Source: supabase/migrations/*.sql (chronological)
---
--- DO NOT EDIT BY HAND. Re-run scripts/regenerate-unified-schema.sh
--- This file is a snapshot for reference / fresh installs only.
--- Supabase deploys run from supabase/migrations, not from here.
--- ============================================================
-
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260508000000_full_clean_schema_reset.sql
--- ------------------------------------------------------------
 
 -- ===== supabase/clean_schema/00_init/00_reset.sql =====
 -- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -1386,6 +1372,157 @@ VALUES (
   'Tr? t?'
 );
 
+
+-- ===== supabase/clean_schema/02_learning/00_curriculum_and_lessons.sql =====
+-- ==============================================================================
+-- DOMAIN: CURRICULUM & LESSONS — Roadmap, Slides, Progress
+-- ==============================================================================
+
+-- ── 1. ENUMS ────────────────────────────────────────────────────────────────
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'lesson_type') THEN
+        CREATE TYPE lesson_type AS ENUM ('presentation', 'assessment', 'video', 'paragraph');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'lesson_status') THEN
+        CREATE TYPE lesson_status AS ENUM ('draft', 'published');
+    END IF;
+END $$;
+
+-- ── 2. LESSON SYSTEM (Live Sessions / Slides) ────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.lessons (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    teacher_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    description TEXT,
+    type lesson_type DEFAULT 'presentation',
+    status lesson_status DEFAULT 'draft',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.lesson_slides (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    lesson_id UUID NOT NULL REFERENCES public.lessons(id) ON DELETE CASCADE,
+    order_index INTEGER NOT NULL,
+    slide_type TEXT DEFAULT 'content',
+    title TEXT,
+    body TEXT,
+    image_url TEXT,
+    image_caption TEXT,
+    question_text TEXT,
+    options TEXT[],
+    correct_index INTEGER,
+    explanation TEXT,
+    settings JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.lesson_progress (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    lesson_id UUID NOT NULL REFERENCES public.lessons(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    last_slide_index INTEGER DEFAULT 0,
+    answers JSONB DEFAULT '{}',
+    completed_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(lesson_id, user_id)
+);
+
+-- ── 3. CURRICULUM SYSTEM (Roadmap) ──────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.curriculum_levels (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code TEXT NOT NULL UNIQUE, 
+    title TEXT NOT NULL,
+    description TEXT,
+    xp_required INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.curriculum_units (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    level_id UUID NOT NULL REFERENCES public.curriculum_levels(id) ON DELETE CASCADE,
+    order_index INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    status lesson_status DEFAULT 'draft',
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.curriculum_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    unit_id UUID NOT NULL REFERENCES public.curriculum_units(id) ON DELETE CASCADE,
+    order_index INTEGER NOT NULL,
+    type TEXT NOT NULL, 
+    title TEXT NOT NULL,
+    content_link TEXT,
+    is_required BOOLEAN DEFAULT true,
+    status lesson_status DEFAULT 'published',
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.curriculum_progress (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+    item_id uuid REFERENCES public.curriculum_items(id) ON DELETE CASCADE,
+    is_completed boolean DEFAULT true,
+    completed_at timestamp with time zone DEFAULT now(),
+    UNIQUE(user_id, item_id)
+);
+
+-- ── 4. SECURITY (RLS) ────────────────────────────────────────────────────────
+ALTER TABLE public.lessons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.lesson_slides ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.lesson_progress ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.curriculum_levels ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.curriculum_units ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.curriculum_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.curriculum_progress ENABLE ROW LEVEL SECURITY;
+
+-- Lesson Policies
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Teachers can manage their own lessons') THEN
+        CREATE POLICY "Teachers can manage their own lessons" ON public.lessons FOR ALL USING (auth.uid() = teacher_id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Everyone can view published lessons') THEN
+        CREATE POLICY "Everyone can view published lessons" ON public.lessons FOR SELECT USING (status = 'published');
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Teachers can manage slides of their lessons') THEN
+        CREATE POLICY "Teachers can manage slides of their lessons" ON public.lesson_slides FOR ALL USING (EXISTS (SELECT 1 FROM public.lessons WHERE id = lesson_slides.lesson_id AND teacher_id = auth.uid()));
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Everyone can view slides of published lessons') THEN
+        CREATE POLICY "Everyone can view slides of published lessons" ON public.lesson_slides FOR SELECT USING (EXISTS (SELECT 1 FROM public.lessons WHERE id = lesson_slides.lesson_id AND status = 'published'));
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can manage their own lesson progress') THEN
+        CREATE POLICY "Users can manage their own lesson progress" ON public.lesson_progress FOR ALL USING (auth.uid() = user_id);
+    END IF;
+END $$;
+
+-- Curriculum Policies
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public can view levels') THEN
+        CREATE POLICY "Public can view levels" ON public.curriculum_levels FOR SELECT USING (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public can view units') THEN
+        CREATE POLICY "Public can view units" ON public.curriculum_units FOR SELECT USING (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public can view items') THEN
+        CREATE POLICY "Public can view items" ON public.curriculum_items FOR SELECT USING (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can manage curriculum progress') THEN
+        CREATE POLICY "Users can manage curriculum progress" ON public.curriculum_progress FOR ALL USING (auth.uid() = user_id);
+    END IF;
+END $$;
+
+-- ── 5. INITIAL DATA ─────────────────────────────────────────────────────────
+INSERT INTO public.curriculum_levels (id, code, title, description, xp_required)
+VALUES ('550e8400-e29b-41d4-a716-446655440000', 'N5', 'JLPT N5 - Sơ cấp 1', 'Hành trình bắt đầu từ những điều cơ bản nhất. Làm quen với bảng chữ cái và các mẫu câu sơ đẳng.', 0)
+ON CONFLICT (code) DO UPDATE SET title = EXCLUDED.title, description = EXCLUDED.description;
 
 -- ===== supabase/clean_schema/02_learning/01_minna_no_nihongo.sql =====
 -- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -4185,13 +4322,6 @@ CREATE POLICY "Anyone view bosses" ON public.bosses FOR SELECT USING (true);
 CREATE POLICY "Users view own boss progress" ON public.user_boss_progress FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users manage own boss progress" ON public.user_boss_progress FOR ALL USING (auth.uid() = user_id);
 
-
-
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260508211214_4d82da61-e82a-4f25-afec-21df3ca293bc.sql
--- ------------------------------------------------------------
-
 -- ===== 00_init/00_reset.sql =====
 DROP SCHEMA IF EXISTS public CASCADE;
 CREATE SCHEMA public;
@@ -4547,13 +4677,6 @@ INSERT INTO public.achievements (id, title, description, icon, category, conditi
   ('pet_feeder','Äáº§u báº¿p Pet','Cho Pet Äƒn 5 láº§n','ðŸ±','pet','pet_feeds',5,60,NULL),
   ('pet_evolved','Tiáº¿n hÃ³a!','Pet tiáº¿n hÃ³a láº§n Ä‘áº§u','âœ¨','pet','pet_evolution',1,200,'Tiáº¿n HÃ³a SÆ°')
 ON CONFLICT (id) DO NOTHING;
-
-
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260508212429_850a84e5-a123-41ae-a717-b24fbc86328f.sql
--- ------------------------------------------------------------
-
 -- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 -- DOMAIN: LEARNING â€” Kanji, Vocab, Flashcards, Exams, AI Content
 -- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -5195,13 +5318,6 @@ CREATE INDEX IF NOT EXISTS idx_video_segments_video_id ON public.video_segments(
 CREATE INDEX IF NOT EXISTS idx_user_video_progress_user ON public.user_video_progress(user_id);
 CREATE INDEX IF NOT EXISTS idx_saved_sentences_user ON public.saved_sentences(user_id);
 CREATE INDEX IF NOT EXISTS idx_favorite_videos_user ON public.favorite_videos(user_id);
-
-
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260508212921_67c124ea-6bf5-45a4-b7a9-3e2784fdfc19.sql
--- ------------------------------------------------------------
-
 -- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 -- DOMAIN: CLASSROOM & LESSONS
 -- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -5505,13 +5621,6 @@ $$;
 
 DROP TRIGGER IF EXISTS trg_sync_exam_to_assignment ON public.mock_exam_results;
 CREATE TRIGGER trg_sync_exam_to_assignment AFTER INSERT ON public.mock_exam_results FOR EACH ROW EXECUTE FUNCTION public.sync_exam_result_to_assignment();
-
-
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260508213531_1dbdb63c-1f1a-4ab2-95ab-625b2a541047.sql
--- ------------------------------------------------------------
-
 -- Drop existing stub if exists with old signature
 DROP FUNCTION IF EXISTS public.check_achievements(uuid, text);
 CREATE OR REPLACE FUNCTION public.check_achievements(p_user_id uuid, p_event text DEFAULT NULL)
@@ -6014,13 +6123,6 @@ END; $$;
 
 DROP TRIGGER IF EXISTS trg_pet_achievement_check ON public.user_pets;
 CREATE TRIGGER trg_pet_achievement_check AFTER UPDATE OF evolution_level ON public.user_pets FOR EACH ROW EXECUTE FUNCTION public.trigger_check_pet_achievements();
-
-
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260508213817_90e07fd5-5e67-4117-b3df-98324236803b.sql
--- ------------------------------------------------------------
-
 -- Part 4.2: RPG Combat & Adventure
 -- â”€â”€ 1. MATERIALS â”€â”€
 CREATE TABLE IF NOT EXISTS public.pet_materials (
@@ -6314,13 +6416,6 @@ BEGIN
   RETURN v_pet;
 END;
 $$;
-
-
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260508213927_a7f4694a-d99a-4d85-a81b-2f27a2871f45.sql
--- ------------------------------------------------------------
-
 -- Part 4.3: PvP & Squad Goals (challenges/squad_goals tables already exist; just indexes & realtime)
 CREATE INDEX IF NOT EXISTS idx_challenges_users ON public.challenges(challenger_id, opponent_id);
 CREATE INDEX IF NOT EXISTS idx_challenges_status ON public.challenges(status);
@@ -6454,13 +6549,6 @@ FOR EACH ROW EXECUTE FUNCTION public.handle_new_message();
 
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.messages; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.conversations; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-
-
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260508214059_879b5d8c-924b-4f08-ae38-a86cc0443ab1.sql
--- ------------------------------------------------------------
-
 -- â”€â”€ PART 5.1: SECURITY & RATE LIMITS â”€â”€
 CREATE TABLE IF NOT EXISTS public.rate_limits (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -6595,13 +6683,6 @@ BEGIN
   FROM public.profiles p LEFT JOIN weekly_xp w ON p.user_id = w.user_id
   ORDER BY total_xp DESC LIMIT 50;
 END; $$;
-
-
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260508214420_824acae5-67f3-458d-a7b9-1a6cb1f5397d.sql
--- ------------------------------------------------------------
-
 DROP FUNCTION IF EXISTS public.clone_public_deck(uuid);
 DROP FUNCTION IF EXISTS public.publish_deck(uuid, text, text);
 DROP FUNCTION IF EXISTS public.unpublish_deck(uuid);
@@ -6913,13 +6994,6 @@ CREATE POLICY "Anyone view bosses" ON public.bosses FOR SELECT USING (true);
 CREATE POLICY "Users view own boss progress" ON public.user_boss_progress FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users manage own boss progress" ON public.user_boss_progress FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
-
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260508214840_44e5b7e8-575f-41de-b981-29e3990027fe.sql
--- ------------------------------------------------------------
-
-
 -- 1. grammar_mistakes: missing columns
 ALTER TABLE public.grammar_mistakes
   ADD COLUMN IF NOT EXISTS difficulty TEXT,
@@ -7009,13 +7083,6 @@ SELECT
 FROM public.kanji;
 GRANT SELECT ON public.kanji_details TO anon, authenticated;
 
-
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260508215109_70cf1a27-b4df-41f4-9d96-b35305ad808a.sql
--- ------------------------------------------------------------
-
-
 -- saved_vocabulary
 CREATE TABLE IF NOT EXISTS public.saved_vocabulary (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -7087,13 +7154,6 @@ AS $$
 $$;
 REVOKE EXECUTE ON FUNCTION public.get_due_flashcards_count(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.get_due_flashcards_count(uuid) TO authenticated;
-
-
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260508215613_5c4fc2c7-26da-49ab-9bf5-7ed0cbbda977.sql
--- ------------------------------------------------------------
-
 -- Add mock_exam_questions table referenced by JLPTMockExam and ExamManager
 CREATE TABLE IF NOT EXISTS public.mock_exam_questions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -7150,13 +7210,6 @@ CREATE POLICY "Admin manage mock exam questions"
   FOR ALL
   USING (public.has_role(auth.uid(), 'admin'::app_role))
   WITH CHECK (public.has_role(auth.uid(), 'admin'::app_role));
-
-
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260508220718_6d3b3809-eaa4-4a78-81b1-d23fbcf22d5f.sql
--- ------------------------------------------------------------
-
 -- ============================================================
 -- PHASE 1.1 â€” WEAKNESS HEATMAP
 -- ============================================================
@@ -7426,13 +7479,6 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.get_experiment_funnel(text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.get_experiment_funnel(text) TO authenticated;
 
-
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260508221248_719905a9-3470-4376-a6e8-3af51affc075.sql
--- ------------------------------------------------------------
-
-
 CREATE TABLE IF NOT EXISTS public.user_weakness_patterns (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
@@ -7530,13 +7576,6 @@ BEGIN
 END;
 $$;
 
-
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260508221816_e2ca5968-caff-449d-b1c8-044de89a4ae2.sql
--- ------------------------------------------------------------
-
-
 CREATE TABLE IF NOT EXISTS public.listening_exercises (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title text NOT NULL,
@@ -7594,13 +7633,6 @@ CREATE POLICY "ula_update_own" ON public.user_listening_attempts
   FOR UPDATE TO authenticated USING (auth.uid() = user_id);
 CREATE POLICY "ula_delete_own" ON public.user_listening_attempts
   FOR DELETE TO authenticated USING (auth.uid() = user_id);
-
-
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260508222318_fc55327b-99ac-4686-aee6-c459fb8658df.sql
--- ------------------------------------------------------------
-
 
 -- Reader articles
 CREATE TABLE IF NOT EXISTS public.reader_articles (
@@ -7720,13 +7752,6 @@ BEGIN
   LIMIT _limit;
 END;
 $$;
-
-
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260508224945_8f267dd4-ec20-4cbf-b0d5-009351660dde.sql
--- ------------------------------------------------------------
-
 -- 1. Cáº¥p láº¡i quyá»n báº£ng cho cÃ¡c role PostgREST (RLS váº«n kiá»ƒm soÃ¡t á»Ÿ má»©c row)
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 
@@ -7758,13 +7783,6 @@ FOR ALL
 TO authenticated
 USING (public.has_role(auth.uid(), 'admin'))
 WITH CHECK (public.has_role(auth.uid(), 'admin'));
-
-
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260508231312_9b7e2ca0-2176-4e50-8a1a-65f66f857c62.sql
--- ------------------------------------------------------------
-
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS onboarded boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS target_jlpt_level text,
@@ -7775,25 +7793,11 @@ COMMENT ON COLUMN public.profiles.onboarded IS 'ÄÃ£ hoÃ n táº¥t luá»
 COMMENT ON COLUMN public.profiles.target_jlpt_level IS 'Má»¥c tiÃªu JLPT mong muá»‘n (N5..N1)';
 COMMENT ON COLUMN public.profiles.daily_goal_minutes IS 'Má»¥c tiÃªu sá»‘ phÃºt há»c má»—i ngÃ y';
 COMMENT ON COLUMN public.profiles.learning_goal IS 'LÃ½ do há»c (work, travel, anime, exam, culture, other)';
-
-
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260508232910_dcb5ee9a-317f-44cd-9a9a-21a6e066fe7d.sql
--- ------------------------------------------------------------
-
 -- Drop parent dashboard policy on profiles if it exists
 DROP POLICY IF EXISTS "Parents can view linked student profiles" ON public.profiles;
 
 -- Drop the parent_student_links table (cascades policies + indexes)
 DROP TABLE IF EXISTS public.parent_student_links CASCADE;
-
-
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260508233431_ecb0e029-86ef-4293-a7be-869eede84004.sql
--- ------------------------------------------------------------
-
 -- Äáº£m báº£o cÃ¡c thay Ä‘á»•i Ä‘Æ°á»£c phÃ¡t báº£n Ä‘áº§y Ä‘á»§ (gá»­i cáº£ OLD row khi UPDATE/DELETE)
 ALTER TABLE public.class_assignments REPLICA IDENTITY FULL;
 ALTER TABLE public.class_assignment_progress REPLICA IDENTITY FULL;
@@ -7824,13 +7828,6 @@ BEGIN
     END IF;
   END LOOP;
 END $$;
-
-
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260509000000_lesson_system.sql
--- ------------------------------------------------------------
-
 
 -- Create lesson types enum
 DO $$ BEGIN
@@ -7952,20 +7949,15 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+DROP TRIGGER IF EXISTS trigger_handle_updated_at ON public.lessons;
 CREATE TRIGGER trigger_handle_updated_at
 BEFORE UPDATE ON public.lessons
 FOR EACH ROW EXECUTE PROCEDURE handle_updated_at();
 
+DROP TRIGGER IF EXISTS trigger_handle_progress_updated_at ON public.lesson_progress;
 CREATE TRIGGER trigger_handle_progress_updated_at
 BEFORE UPDATE ON public.lesson_progress
 FOR EACH ROW EXECUTE PROCEDURE handle_updated_at();
-
-
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260509002918_2c5f5dea-9c53-4484-8faf-ab12ca5df0a6.sql
--- ------------------------------------------------------------
-
 -- Add user_id to reading_passages for personal vs system passages
 ALTER TABLE public.reading_passages
   ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
@@ -7997,13 +7989,6 @@ CREATE POLICY "Update own passages"
 CREATE POLICY "Delete own passages"
   ON public.reading_passages FOR DELETE
   USING (user_id = auth.uid() OR public.has_role(auth.uid(), 'admin'));
-
-
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260509010000_curriculum_system.sql
--- ------------------------------------------------------------
-
 
 -- Curriculum Levels (N5, N4, etc.)
 CREATE TABLE IF NOT EXISTS public.curriculum_levels (
@@ -8068,12 +8053,15 @@ ON CONFLICT DO NOTHING;
 
 -- Trigger for ordering (Optional, for now manually managed)
 
+-- Insert Unit 2 for N5
+INSERT INTO public.curriculum_units (id, level_id, order_index, title, description)
+VALUES ('550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440000', 2, 'Unit 2: Äá»“ váº­t vÃ  Sá»Ÿ há»¯u', 'Há»c cÃ¡ch há»i vÃ  tráº£ lá»i vá» Ä‘á»“ váº­t, quyá»n sá»Ÿ há»¯u (kore, sore, are).')
+ON CONFLICT (id) DO NOTHING;
 
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260509012357_915bfd20-7b0d-4b47-9598-c39029690cb8.sql
--- ------------------------------------------------------------
-
+-- Insert Unit 3 for N5
+INSERT INTO public.curriculum_units (id, level_id, order_index, title, description)
+VALUES ('550e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440000', 3, 'Unit 3: Äá»‹a Ä‘iá»ƒm vÃ  PhÆ°Æ¡ng hÆ°á»›ng', 'Há»i Ä‘Æ°á»ng, xÃ¡c Ä‘á»‹nh vá»‹ trÃ­ cá»§a Ä‘á»‹a Ä‘iá»ƒm (koko, soko, asoko).')
+ON CONFLICT (id) DO NOTHING;
 
 CREATE OR REPLACE FUNCTION public.set_updated_at_now()
 RETURNS trigger LANGUAGE plpgsql AS $$
@@ -8133,13 +8121,6 @@ END; $$;
 DROP TRIGGER IF EXISTS trg_auto_grant_admin ON auth.users;
 CREATE TRIGGER trg_auto_grant_admin AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.auto_grant_admin_to_seed_emails();
 
-
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260509012724_7305c149-dc8f-42bd-bbfd-c2ffefc4506d.sql
--- ------------------------------------------------------------
-
-
 CREATE OR REPLACE FUNCTION public.auto_grant_admin_to_seed_emails()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -8149,13 +8130,6 @@ BEGIN
   END IF;
   RETURN NEW;
 END; $$;
-
-
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260509014048_36f9a787-347c-4877-8652-01c7fd98f67e.sql
--- ------------------------------------------------------------
-
 
 -- 1. analysis_history: dedupe + tÄƒng tá»‘c cache lookup
 CREATE UNIQUE INDEX IF NOT EXISTS uq_analysis_history_user_content_ver
@@ -8218,13 +8192,6 @@ $$;
 REVOKE ALL ON FUNCTION public.purge_old_telemetry(int) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.purge_old_telemetry(int) TO authenticated;
 
-
-
--- ------------------------------------------------------------
--- >>> supabase/migrations/20260509015029_7d7e4091-69f2-4da7-8f46-7fbb9ee87708.sql
--- ------------------------------------------------------------
-
-
 -- Table for admin-uploaded documents
 CREATE TABLE IF NOT EXISTS public.admin_docs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -8283,5 +8250,3 @@ CREATE POLICY "Admins update sensei-docs" ON storage.objects
 CREATE POLICY "Admins delete sensei-docs" ON storage.objects
   FOR DELETE TO authenticated
   USING (bucket_id = 'sensei-docs' AND public.has_role(auth.uid(), 'admin'));
-
-

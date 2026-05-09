@@ -77,38 +77,31 @@ ALTER TABLE public.lesson_slides ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.lesson_progress ENABLE ROW LEVEL SECURITY;
 
 -- Policies for lessons
-CREATE POLICY "Teachers can manage their own lessons"
-ON public.lessons
-FOR ALL
-USING (auth.uid() = teacher_id);
-
-CREATE POLICY "Everyone can view published lessons"
-ON public.lessons
-FOR SELECT
-USING (status = 'published');
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Teachers can manage their own lessons') THEN
+        CREATE POLICY "Teachers can manage their own lessons" ON public.lessons FOR ALL USING (auth.uid() = teacher_id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Everyone can view published lessons') THEN
+        CREATE POLICY "Everyone can view published lessons" ON public.lessons FOR SELECT USING (status = 'published');
+    END IF;
+END $$;
 
 -- Policies for lesson_slides
-CREATE POLICY "Teachers can manage slides of their lessons"
-ON public.lesson_slides
-FOR ALL
-USING (EXISTS (
-    SELECT 1 FROM public.lessons
-    WHERE id = lesson_slides.lesson_id AND teacher_id = auth.uid()
-));
-
-CREATE POLICY "Everyone can view slides of published lessons"
-ON public.lesson_slides
-FOR SELECT
-USING (EXISTS (
-    SELECT 1 FROM public.lessons
-    WHERE id = lesson_slides.lesson_id AND status = 'published'
-));
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Teachers can manage slides of their lessons') THEN
+        CREATE POLICY "Teachers can manage slides of their lessons" ON public.lesson_slides FOR ALL USING (EXISTS (SELECT 1 FROM public.lessons WHERE id = lesson_slides.lesson_id AND teacher_id = auth.uid()));
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Everyone can view slides of published lessons') THEN
+        CREATE POLICY "Everyone can view slides of published lessons" ON public.lesson_slides FOR SELECT USING (EXISTS (SELECT 1 FROM public.lessons WHERE id = lesson_slides.lesson_id AND status = 'published'));
+    END IF;
+END $$;
 
 -- Policies for lesson_progress
-CREATE POLICY "Users can manage their own progress"
-ON public.lesson_progress
-FOR ALL
-USING (auth.uid() = user_id);
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can manage their own progress') THEN
+        CREATE POLICY "Users can manage their own progress" ON public.lesson_progress FOR ALL USING (auth.uid() = user_id);
+    END IF;
+END $$;
 
 -- Function to handle updated_at
 CREATE OR REPLACE FUNCTION handle_updated_at()
@@ -119,10 +112,12 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+DROP TRIGGER IF EXISTS trigger_handle_updated_at ON public.lessons;
 CREATE TRIGGER trigger_handle_updated_at
 BEFORE UPDATE ON public.lessons
 FOR EACH ROW EXECUTE PROCEDURE handle_updated_at();
 
+DROP TRIGGER IF EXISTS trigger_handle_progress_updated_at ON public.lesson_progress;
 CREATE TRIGGER trigger_handle_progress_updated_at
 BEFORE UPDATE ON public.lesson_progress
 FOR EACH ROW EXECUTE PROCEDURE handle_updated_at();

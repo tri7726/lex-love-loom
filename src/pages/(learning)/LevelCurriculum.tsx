@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronLeft, 
@@ -57,10 +58,12 @@ interface LevelInfo {
 export const LevelCurriculum = () => {
   const { level } = useParams<{ level: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [units, setUnits] = useState<CurriculumUnit[]>([]);
   const [levelInfo, setLevelInfo] = useState<LevelInfo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [overallProgress, setOverallProgress] = useState(16); // Mock progress for demo
+  const [completedItemIds, setCompletedItemIds] = useState<Set<string>>(new Set());
+  const [overallProgress, setOverallProgress] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -88,13 +91,30 @@ export const LevelCurriculum = () => {
 
         if (unitsError) throw unitsError;
 
-        const mapped: CurriculumUnit[] = (unitsData || []).map((u: any) => ({
-          id: u.id,
-          title: u.title,
-          description: u.description,
-          order_index: u.order_index,
-          items: (u.curriculum_items || []).sort((a: any, b: any) => a.order_index - b.order_index)
-        }));
+        const mapped: CurriculumUnit[] = (unitsData || [])
+          .filter((u: any) => u.status === 'published')
+          .map((u: any) => ({
+            id: u.id,
+            title: u.title,
+            description: u.description,
+            order_index: u.order_index,
+            status: u.status,
+            items: (u.curriculum_items || [])
+              .filter((i: any) => i.status === 'published')
+              .sort((a: any, b: any) => a.order_index - b.order_index)
+          }));
+
+        // 3. Fetch User Progress
+        if (user) {
+          const { data: progData } = await (supabase as any)
+            .from('curriculum_progress')
+            .select('item_id')
+            .eq('user_id', user.id);
+          
+          if (progData) {
+            setCompletedItemIds(new Set(progData.map((p: any) => p.item_id)));
+          }
+        }
 
         setUnits(mapped);
       } catch (err) {
@@ -105,15 +125,32 @@ export const LevelCurriculum = () => {
     };
 
     fetchData();
-  }, [level]);
+  }, [level, user]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#faf9f6] flex items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin text-sakura" />
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (units.length > 0) {
+      const totalItems = units.reduce((acc, u) => acc + u.items.length, 0);
+      if (totalItems === 0) {
+        setOverallProgress(0);
+      } else {
+        const completedCount = Array.from(completedItemIds).filter(id => 
+          units.some(u => u.items.some(i => i.id === id))
+        ).length;
+        setOverallProgress(Math.round((completedCount / totalItems) * 100));
+      }
+    }
+  }, [units, completedItemIds]);
+
+  const handleItemClick = async (item: CurriculumItem) => {
+    if (user && !completedItemIds.has(item.id)) {
+      await (supabase as any)
+        .from('curriculum_progress')
+        .insert({ user_id: user.id, item_id: item.id });
+      
+      setCompletedItemIds(prev => new Set([...Array.from(prev), item.id]));
+    }
+    navigate(item.content_link);
+  };
 
   return (
     <div className="min-h-screen bg-[#faf9f6] pb-20">
@@ -154,7 +191,7 @@ export const LevelCurriculum = () => {
               </div>
               <Progress value={overallProgress} className="h-3 rounded-full bg-slate-100" />
               <p className="text-[10px] uppercase font-black text-muted-foreground mt-3 tracking-widest text-center">
-                Bạn đã hoàn thành 2/12 mục học tập
+                Bạn đã hoàn thành {completedItemIds.size} mục học tập
               </p>
             </Card>
           </div>
@@ -194,10 +231,10 @@ export const LevelCurriculum = () => {
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: iIdx * 0.05 }}
-                        onClick={() => navigate(item.content_link)}
+                        onClick={() => handleItemClick(item)}
                         className={cn(
                           "flex items-center justify-between p-4 rounded-2xl border-2 transition-all cursor-pointer group/item",
-                          iIdx < 2 
+                          completedItemIds.has(item.id)
                             ? "bg-matcha/5 border-matcha/10 hover:border-matcha/30" 
                             : "bg-slate-50 border-slate-100 hover:border-sakura-light/30"
                         )}
@@ -205,9 +242,9 @@ export const LevelCurriculum = () => {
                          <div className="flex items-center gap-4">
                             <div className={cn(
                               "h-10 w-10 rounded-xl flex items-center justify-center shadow-sm",
-                              iIdx < 2 ? "bg-matcha text-white" : "bg-white text-muted-foreground group-hover/item:text-sakura"
+                              completedItemIds.has(item.id) ? "bg-matcha text-white" : "bg-white text-muted-foreground group-hover/item:text-sakura"
                             )}>
-                               {iIdx < 2 ? <CheckCircle2 className="h-5 w-5" /> : (
+                               {completedItemIds.has(item.id) ? <CheckCircle2 className="h-5 w-5" /> : (
                                  item.type === 'vocabulary' ? <BookOpen className="h-5 w-5" /> :
                                  item.type === 'grammar' ? <Brain className="h-5 w-5" /> :
                                  item.type === 'listening' ? <Headphones className="h-5 w-5" /> :
@@ -217,13 +254,13 @@ export const LevelCurriculum = () => {
                             </div>
                             <span className={cn(
                               "font-black text-lg",
-                              iIdx < 2 ? "text-matcha-dark" : "text-sumi group-hover/item:text-sakura"
+                              completedItemIds.has(item.id) ? "text-matcha-dark" : "text-sumi group-hover/item:text-sakura"
                             )}>
                                {item.title}
                             </span>
                          </div>
                          <div className="flex items-center gap-2">
-                            {iIdx < 2 && <Badge className="bg-matcha/20 text-matcha border-0 font-bold uppercase text-[9px] tracking-widest">Đã học</Badge>}
+                            {completedItemIds.has(item.id) && <Badge className="bg-matcha/20 text-matcha border-0 font-bold uppercase text-[9px] tracking-widest">Đã học</Badge>}
                             <div className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground group-hover/item:text-sakura group-hover/item:translate-x-1 transition-all">
                                <ArrowRight className="h-4 w-4" />
                             </div>

@@ -15,7 +15,10 @@ import {
   ChevronLeft,
   Loader2,
   Layers,
-  Settings2
+  Settings2,
+  Eye,
+  EyeOff,
+  CheckCircle2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -47,6 +50,7 @@ interface CurriculumItem {
   title: string;
   content_link: string;
   order_index: number;
+  status: string;
 }
 
 interface CurriculumUnit {
@@ -54,6 +58,7 @@ interface CurriculumUnit {
   title: string;
   description: string;
   order_index: number;
+  status: string;
   curriculum_items: CurriculumItem[];
 }
 
@@ -62,12 +67,14 @@ export const CurriculumManager = () => {
   const [levels, setLevels] = useState<any[]>([]);
   const [selectedLevelId, setSelectedLevelId] = useState<string>('');
   const [units, setUnits] = useState<CurriculumUnit[]>([]);
+  const [mockExams, setMockExams] = useState<{id: string, title: string, level: string}[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Dialog states
   const [unitDialogOpen, setUnitDialogOpen] = useState(false);
   const [editingUnit, setEditingUnit] = useState<any>(null);
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
+  const [selectedItemType, setSelectedItemType] = useState<string>('vocabulary');
   const [editingItem, setEditingItem] = useState<any>(null);
   const [targetUnitId, setTargetUnitId] = useState<string>('');
 
@@ -97,7 +104,21 @@ export const CurriculumManager = () => {
         .order('order_index');
       
       if (error) throw error;
-      setUnits(data || []);
+      
+      const sortedUnits = (data || []).map((unit: any) => ({
+        ...unit,
+        curriculum_items: (unit.curriculum_items || []).sort((a: any, b: any) => a.order_index - b.order_index)
+      }));
+      
+      setUnits(sortedUnits);
+
+      // Also fetch mock exams for linking
+      const { data: examsData } = await (supabase as any)
+        .from('mock_exams')
+        .select('id, title, level')
+        .eq('is_published', true);
+      
+      if (examsData) setMockExams(examsData);
     } catch (err) {
       toast.error('Lỗi tải lộ trình');
     } finally {
@@ -112,7 +133,8 @@ export const CurriculumManager = () => {
       title: formData.get('title'),
       description: formData.get('description'),
       level_id: selectedLevelId,
-      order_index: editingUnit ? editingUnit.order_index : units.length + 1
+      order_index: editingUnit ? editingUnit.order_index : units.length + 1,
+      status: editingUnit ? editingUnit.status : 'published'
     };
 
     try {
@@ -137,7 +159,8 @@ export const CurriculumManager = () => {
       type: formData.get('type'),
       content_link: formData.get('content_link'),
       unit_id: targetUnitId,
-      order_index: editingItem ? editingItem.order_index : 10 // Simplification for demo
+      order_index: editingItem ? editingItem.order_index : 10,
+      status: editingItem ? editingItem.status : 'published'
     };
 
     try {
@@ -162,6 +185,20 @@ export const CurriculumManager = () => {
 
   const deleteItem = async (id: string) => {
     await (supabase as any).from('curriculum_items').delete().eq('id', id);
+    fetchCurriculum();
+  };
+
+  const toggleUnitStatus = async (unit: CurriculumUnit) => {
+    const newStatus = unit.status === 'published' ? 'draft' : 'published';
+    await (supabase as any).from('curriculum_units').update({ status: newStatus }).eq('id', unit.id);
+    toast.success(`Đã ${newStatus === 'published' ? 'mở' : 'đóng'} Unit`);
+    fetchCurriculum();
+  };
+
+  const toggleItemStatus = async (item: CurriculumItem) => {
+    const newStatus = item.status === 'published' ? 'draft' : 'published';
+    await (supabase as any).from('curriculum_items').update({ status: newStatus }).eq('id', item.id);
+    toast.success(`Đã ${newStatus === 'published' ? 'mở' : 'đóng'} mục học phần`);
     fetchCurriculum();
   };
 
@@ -229,6 +266,17 @@ export const CurriculumManager = () => {
                        </div>
                     </div>
                     <div className="flex items-center gap-2">
+                       <Button 
+                          variant="ghost" size="sm" 
+                          onClick={() => toggleUnitStatus(unit)}
+                          className={cn(
+                            "rounded-xl gap-2 font-bold px-3",
+                            unit.status === 'published' ? "text-emerald-600 bg-emerald-50 hover:bg-emerald-100" : "text-amber-600 bg-amber-50 hover:bg-amber-100"
+                          )}
+                       >
+                          {unit.status === 'published' ? <CheckCircle2 className="h-4 w-4" /> : <Settings2 className="h-4 w-4" />}
+                          {unit.status === 'published' ? 'Đã mở' : 'Bản nháp'}
+                       </Button>
                        <Button 
                           variant="ghost" size="icon" 
                           onClick={() => { setEditingUnit(unit); setUnitDialogOpen(true); }}
@@ -330,7 +378,6 @@ export const CurriculumManager = () => {
            </DialogContent>
         </Dialog>
 
-        {/* Item Dialog */}
         <Dialog open={itemDialogOpen} onOpenChange={setItemDialogOpen}>
            <DialogContent className="rounded-[2.5rem]">
               <form onSubmit={handleSaveItem}>
@@ -339,12 +386,12 @@ export const CurriculumManager = () => {
                  </DialogHeader>
                  <div className="py-6 space-y-4">
                     <div className="space-y-2">
-                       <label className="text-sm font-bold text-sumi px-1">Tên mục</label>
-                       <Input name="title" defaultValue={editingItem?.title} placeholder="Ví dụ: Từ vựng Unit 1" required className="h-12 rounded-xl" />
-                    </div>
-                    <div className="space-y-2">
                        <label className="text-sm font-bold text-sumi px-1">Loại nội dung</label>
-                       <Select name="type" defaultValue={editingItem?.type || 'vocabulary'}>
+                       <Select 
+                         name="type" 
+                         defaultValue={editingItem?.type || 'vocabulary'}
+                         onValueChange={(val) => setSelectedItemType(val)}
+                       >
                           <SelectTrigger className="h-12 rounded-xl font-bold">
                              <SelectValue />
                           </SelectTrigger>
@@ -356,6 +403,37 @@ export const CurriculumManager = () => {
                              <SelectItem value="video">Video bài giảng</SelectItem>
                           </SelectContent>
                        </Select>
+                    </div>
+
+                    {selectedItemType === 'assignment' && (
+                      <div className="space-y-2 p-4 bg-sakura/5 rounded-2xl border border-sakura/10">
+                        <label className="text-xs font-black text-sakura uppercase tracking-widest">Chọn đề thi từ hệ thống</label>
+                        <Select 
+                          onValueChange={(examId) => {
+                            const exam = mockExams.find(ex => ex.id === examId);
+                            if (exam) {
+                              const titleInput = document.getElementsByName('title')[0] as HTMLInputElement;
+                              const linkInput = document.getElementsByName('content_link')[0] as HTMLInputElement;
+                              if (titleInput) titleInput.value = `Thi thử: ${exam.title}`;
+                              if (linkInput) linkInput.value = `/mock-tests/${examId}`;
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-10 rounded-xl font-bold bg-white">
+                            <SelectValue placeholder="-- Chọn đề thi --" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {mockExams.map(ex => (
+                              <SelectItem key={ex.id} value={ex.id}>[{ex.level}] {ex.title}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                       <label className="text-sm font-bold text-sumi px-1">Tiêu đề hiển thị</label>
+                       <Input name="title" defaultValue={editingItem?.title} placeholder="Ví dụ: Từ vựng Unit 1" required className="h-12 rounded-xl" />
                     </div>
                     <div className="space-y-2">
                        <label className="text-sm font-bold text-sumi px-1">Đường dẫn nội dung (Link)</label>

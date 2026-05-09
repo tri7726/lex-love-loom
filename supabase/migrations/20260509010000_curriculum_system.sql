@@ -37,9 +37,17 @@ ALTER TABLE public.curriculum_units ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.curriculum_items ENABLE ROW LEVEL SECURITY;
 
 -- Policies (Public can view, Admins/Teachers can manage)
-CREATE POLICY "Public can view curriculum levels" ON public.curriculum_levels FOR SELECT USING (true);
-CREATE POLICY "Public can view curriculum units" ON public.curriculum_units FOR SELECT USING (true);
-CREATE POLICY "Public can view curriculum items" ON public.curriculum_items FOR SELECT USING (true);
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public can view curriculum levels') THEN
+        CREATE POLICY "Public can view curriculum levels" ON public.curriculum_levels FOR SELECT USING (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public can view curriculum units') THEN
+        CREATE POLICY "Public can view curriculum units" ON public.curriculum_units FOR SELECT USING (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public can view curriculum items') THEN
+        CREATE POLICY "Public can view curriculum items" ON public.curriculum_items FOR SELECT USING (true);
+    END IF;
+END $$;
 
 -- Insert initial N5 Level
 INSERT INTO public.curriculum_levels (id, code, title, description, xp_required)
@@ -61,3 +69,13 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- Trigger for ordering (Optional, for now manually managed)
+
+-- Insert Unit 2 for N5
+INSERT INTO public.curriculum_units (id, level_id, order_index, title, description)
+VALUES ('550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440000', 2, 'Unit 2: Đồ vật và Sở hữu', 'Học cách hỏi và trả lời về đồ vật, quyền sở hữu (kore, sore, are).')
+ON CONFLICT (id) DO NOTHING;
+
+-- Insert Unit 3 for N5
+INSERT INTO public.curriculum_units (id, level_id, order_index, title, description)
+VALUES ('550e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440000', 3, 'Unit 3: Địa điểm và Phương hướng', 'Hỏi đường, xác định vị trí của địa điểm (koko, soko, asoko).')
+ON CONFLICT (id) DO NOTHING;

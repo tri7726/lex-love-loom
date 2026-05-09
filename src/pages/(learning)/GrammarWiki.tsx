@@ -156,7 +156,12 @@ export const GrammarWiki = () => {
     const matchesSearch = point.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          point.explanation.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesLevel = !selectedLevel || point.level === selectedLevel;
-    return matchesSearch && matchesLevel;
+    
+    // Support lesson filter from URL if provided
+    const lessonParam = searchParams.get('lesson');
+    const matchesLesson = !lessonParam || point.lesson?.toString() === lessonParam;
+    
+    return matchesSearch && matchesLevel && matchesLesson;
   });
 
   const handleCopy = (text: string) => {

@@ -111,6 +111,53 @@ export function useVocabulary() {
     return map;
   }, [savedHistory]);
 
+  // Handle URL Parameters for synchronization with Curriculum
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const seriesId = params.get('series');
+    const levelCode = params.get('level');
+    const lessonId = params.get('lesson');
+
+    if (seriesId && levelCode) {
+      // Logic to find and set series/level from params
+      // This is a simplified version, in a real app you'd fetch metadata first
+      // Assuming 'mina' for now as it's the primary series
+      if (seriesId === 'mina') {
+        const series: TextbookSeries = { 
+          id: 'mina', 
+          name: 'Minna no Nihongo', 
+          nameJp: 'みんなの日本語',
+          emoji: '📕',
+          levels: [] 
+        };
+        const level: JLPTLevel = { 
+          level: levelCode as JLPTLevel['level'], 
+          totalWords: 0,
+          description: `Giáo trình Minna no Nihongo ${levelCode}`,
+          lessons: [] 
+        };
+        
+        setSelectedSeries(series);
+        setSelectedLevel(level);
+        
+        if (lessonId) {
+          // If lesson is provided, we try to set it up
+          // Note: Full implementation would need the actual lesson data
+          // For now, we've set the state which will trigger the UI to show the right level
+          setView('lessons');
+          
+          // Set lesson range based on lesson ID if it's a number
+          const lessonNum = parseInt(lessonId);
+          if (!isNaN(lessonNum)) {
+            setLessonRange([lessonNum, lessonNum]);
+          }
+        } else {
+          setView('lessons');
+        }
+      }
+    }
+  }, []);
+
   // Update display words: shuffle + smart review sorting
   useEffect(() => {
     if (view === 'detail' && selectedLesson) {

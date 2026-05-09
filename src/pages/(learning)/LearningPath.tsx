@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Lock, Check, Sparkles, BookOpen, Brain, Edit3, Headphones, Mic, Trophy, Loader2 } from "lucide-react";
+import { Lock, Check, Sparkles, BookOpen, Brain, Edit3, Headphones, Mic, Trophy, Loader2, ChevronRight } from "lucide-react";
 import { PageSkeleton } from "@/components/common";
 import { cn } from "@/lib/utils";
 
@@ -161,100 +161,100 @@ export const LearningPath: React.FC = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.08 }}
-                  className="relative md:max-w-2xl md:mx-auto"
+                  className="relative"
                 >
                   <Link to={`/learning-path/${node.level.toLowerCase()}`}>
                     <Card
                       className={cn(
-                        "border-2 overflow-hidden transition-all cursor-pointer group",
-                        unlocked
-                          ? "border-sakura/30 bg-card hover:shadow-lg hover:border-sakura"
-                          : "border-border/40 bg-muted/20 opacity-60",
-                        isCurrent && "ring-2 ring-sakura ring-offset-2 ring-offset-background shadow-lg"
+                        "border-none rounded-[2.5rem] overflow-hidden transition-all cursor-pointer group shadow-card hover:shadow-elevated bg-white",
+                        !unlocked && "opacity-70 grayscale-[0.5]"
                       )}
                     >
-                    <CardContent className="p-5 md:p-6 space-y-4">
-                      <div className="flex items-start gap-4">
-                        <div
-                          className={cn(
-                            "w-16 h-16 rounded-2xl flex items-center justify-center font-black text-xl shrink-0 relative",
-                            completed
-                              ? "bg-green-500 text-white"
-                              : unlocked
-                              ? "bg-sakura text-white"
-                              : "bg-muted text-muted-foreground"
-                          )}
-                        >
-                          {completed ? <Check className="h-7 w-7" /> : !unlocked ? <Lock className="h-6 w-6" /> : node.level}
-                          {isCurrent && (
-                            <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-sakura animate-ping" />
-                          )}
-                        </div>
-
-                        <div className="flex-1 min-w-0 text-left">
-                          <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <h3 className="text-xl font-black font-display">{node.title}</h3>
-                            {completed && <Badge className="bg-green-500/15 text-green-700 border-0">Hoàn thành</Badge>}
-                            {isCurrent && <Badge className="bg-sakura/15 text-sakura border-0 gap-1"><Sparkles className="h-3 w-3" /> Đang học</Badge>}
-                            {!unlocked && (
-                              <Badge variant="outline" className="text-xs">
-                                Cần {node.xpRequired.toLocaleString()} XP
-                              </Badge>
+                    <CardContent className="p-8 space-y-8">
+                      {/* Level Header */}
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-5">
+                          <div
+                            className={cn(
+                              "w-16 h-16 rounded-[1.5rem] flex items-center justify-center font-black text-2xl shrink-0 shadow-sm",
+                              completed
+                                ? "bg-green-500 text-white"
+                                : unlocked
+                                ? "bg-sakura-light/10 text-sakura border-2 border-sakura-light/20"
+                                : "bg-muted text-muted-foreground"
                             )}
+                          >
+                            {completed ? <Check className="h-8 w-8" /> : !unlocked ? <Lock className="h-7 w-7" /> : node.level}
                           </div>
-                          <p className="text-sm text-muted-foreground">{node.description}</p>
+                          <div>
+                            <h3 className="text-2xl font-black text-sumi mb-1">{node.title}</h3>
+                            <p className="text-xs font-black text-sakura tracking-widest uppercase">25 Bài học</p>
+                          </div>
+                        </div>
+                        {isCurrent && (
+                          <Badge className="bg-sakura text-white border-0 py-1.5 px-4 rounded-full gap-2 shadow-sakura animate-pulse">
+                            <Sparkles className="h-3.5 w-3.5 fill-white" /> Đang học
+                          </Badge>
+                        )}
+                      </div>
+
+                      <p className="text-muted-foreground font-medium text-lg leading-relaxed line-clamp-2">
+                        {node.description}
+                      </p>
+
+                      {/* Stats Grid */}
+                      <div className="grid grid-cols-3 gap-4 py-4 border-y border-slate-50">
+                        <div className="text-center space-y-1">
+                          <p className="text-xl font-black text-sumi">{idx === 0 ? '800+' : idx === 1 ? '1500+' : '3000+'}</p>
+                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Từ vựng</p>
+                        </div>
+                        <div className="text-center space-y-1 border-x border-slate-100">
+                          <p className="text-xl font-black text-sumi">{idx === 0 ? '100+' : idx === 1 ? '300+' : '600+'}</p>
+                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Kanji</p>
+                        </div>
+                        <div className="text-center space-y-1">
+                          <p className="text-xl font-black text-sumi">10+</p>
+                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Mock Test</p>
                         </div>
                       </div>
 
                       {unlocked && (
-                        <>
+                        <div className="space-y-6">
                           {/* Progress bar */}
-                          <div className="space-y-1.5">
-                            <div className="flex justify-between text-xs font-bold">
-                              <span className="text-muted-foreground">Tiến độ từ vựng</span>
-                              <span className="text-sakura">
-                                {learned} / {target} ({pct}%)
-                              </span>
+                          <div className="space-y-3">
+                            <div className="flex justify-between text-xs font-black">
+                              <span className="text-muted-foreground uppercase tracking-tighter">{learned} / {target} từ đã học</span>
+                              <span className="text-sakura">{pct}%</span>
                             </div>
-                            <div className="h-2 rounded-full bg-muted overflow-hidden">
+                            <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden">
                               <div
                                 className={cn(
                                   "h-full transition-all duration-700 rounded-full",
-                                  completed ? "bg-green-500" : "bg-sakura"
+                                  completed ? "bg-green-500" : "bg-sakura shadow-sakura"
                                 )}
                                 style={{ width: `${pct}%` }}
                               />
                             </div>
                           </div>
 
-                          {/* Modules */}
-                          <div className="flex flex-wrap gap-2 pt-1">
-                            {node.modules.map((m) => (
-                              <Button
-                                key={m.label}
-                                asChild
-                                variant="outline"
-                                size="sm"
-                                className="rounded-xl gap-2 hover:border-sakura hover:text-sakura"
-                              >
-                                <Link to={m.href}>
-                                  <m.icon className="h-3.5 w-3.5" />
-                                  {m.label}
-                                </Link>
-                              </Button>
-                            ))}
-                          </div>
-                        </>
+                          {/* Action Button */}
+                          <Button 
+                            className={cn(
+                              "w-full h-14 rounded-2xl text-lg font-black transition-all group-hover:scale-[1.02]",
+                              completed ? "bg-green-500 hover:bg-green-600" : "bg-sakura hover:bg-sakura-dark shadow-sakura"
+                            )}
+                          >
+                            Tiếp tục học tập <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+                          </Button>
+                        </div>
                       )}
 
                       {!unlocked && (
-                        <p className="text-xs text-muted-foreground italic">
-                          🔒 Đạt {node.xpRequired.toLocaleString()} XP để mở khoá. Bạn còn thiếu{" "}
-                          <span className="font-bold text-foreground">
-                            {(node.xpRequired - totalXP).toLocaleString()} XP
-                          </span>
-                          .
-                        </p>
+                        <div className="pt-4">
+                           <Button variant="secondary" disabled className="w-full h-14 rounded-2xl font-black text-muted-foreground bg-slate-100">
+                              Cần {node.xpRequired.toLocaleString()} XP để mở khóa
+                           </Button>
+                        </div>
                       )}
                     </CardContent>
                   </Card>
