@@ -285,7 +285,10 @@ const BossBattle = () => {
                      </div>
                      <Progress value={userHp} className="h-3 bg-white/5" indicatorClassName="bg-sakura" />
                   </div>
-                <div className="space-y-6">
+               </div>
+
+               {/* Right: Quiz Area */}
+               <div className="space-y-6">
                   <Card className="bg-white/5 border-white/10 backdrop-blur-2xl rounded-[2.5rem] overflow-hidden shadow-2xl">
                      <CardContent className="p-8 space-y-8">
                         <div className="text-center space-y-4">
@@ -313,8 +316,6 @@ const BossBattle = () => {
                              </button>
                            ))}
                         </div>
-                     </CardContent>
-                  </Card>                      </div>
                      </CardContent>
                   </Card>
                   
