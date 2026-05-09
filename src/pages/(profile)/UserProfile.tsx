@@ -48,7 +48,6 @@ export const UserProfile = () => {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const isOwnProfile = currentUser?.id === userId;
   
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -61,78 +60,80 @@ export const UserProfile = () => {
   });
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchData = async () => {
+      if (!userId) return;
       setLoading(true);
       try {
-        const { data: profileData, error: profileError } = await (supabase as any)
+        // Use a simpler query first
+        const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('user_id', userId)
-          .single();
+          .maybeSingle();
 
         if (profileError) throw profileError;
-        setProfile(profileData);
-
-        if (currentUser && !isOwnProfile) {
-          const { data: friendData } = await (supabase as any)
-            .from('friendships')
-            .select('*')
-            .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${currentUser.id})`)
-            .maybeSingle();
-          setFriendship(friendData);
+        
+        if (isMounted) {
+          setProfile(profileData);
         }
 
-        const { data: activityData } = await (supabase as any)
+        if (profileData && currentUser && currentUser.id !== userId) {
+          const { data: friendData } = await supabase
+            .from('friendships')
+            .select('*')
+            .or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`)
+            .then(res => {
+              // Manual filter to avoid complex .or logic that might fail
+              const match = res.data?.find((f: any) => 
+                (f.sender_id === currentUser.id && f.receiver_id === userId) ||
+                (f.sender_id === userId && f.receiver_id === currentUser.id)
+              );
+              return { data: match };
+            });
+          
+          if (isMounted) setFriendship(friendData);
+        }
+
+        // Fetch activities safely
+        const { data: activityData } = await supabase
           .from('user_activities')
           .select('*')
           .eq('user_id', userId)
           .order('created_at', { ascending: false })
-          .limit(10);
-        setActivities(activityData || []);
-
-        const { count: vocabCount } = await (supabase as any)
-          .from('flashcards')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', userId);
+          .limit(5);
         
-        setStats(prev => ({ ...prev, vocabCount: vocabCount || 0 }));
+        if (isMounted) setActivities(activityData || []);
 
       } catch (err) {
-        console.error('Error fetching data:', err);
+        console.error('Profile Fetch Error:', err);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
-    if (userId) fetchData();
-  }, [userId, currentUser, isOwnProfile, toast]);
+    fetchData();
+    return () => { isMounted = false; };
+  }, [userId, currentUser?.id]);
 
   const handleFriendAction = async () => {
-    if (!currentUser) return;
-    
+    if (!currentUser || !userId) return;
     try {
       if (!friendship) {
-        const { error } = await (supabase as any)
+        const { error } = await supabase
           .from('friendships')
           .insert({ sender_id: currentUser.id, receiver_id: userId, status: 'pending' });
         if (error) throw error;
-        toast({ title: "Đã gửi lời mời", description: "Đang chờ đối phương chấp nhận." });
+        toast("Đã gửi lời mời kết bạn");
         setFriendship({ sender_id: currentUser.id, receiver_id: userId, status: 'pending' });
-      } else if (friendship.status === 'pending' && friendship.receiver_id === currentUser.id) {
-        const { error } = await (supabase as any)
-          .from('friendships')
-          .update({ status: 'accepted' })
-          .eq('id', friendship.id);
-        if (error) throw error;
-        toast({ title: "Đã kết bạn", description: "Bây giờ hai bạn đã là bạn bè!" });
-        setFriendship({ ...friendship, status: 'accepted' });
       } else {
-        const { error } = await (supabase as any)
+        const { error } = await supabase
           .from('friendships')
           .delete()
           .eq('id', friendship.id);
         if (error) throw error;
-        toast({ title: "Đã hủy kết bạn", variant: "destructive" });
+        toast("Đã hủy kết bạn/yêu cầu");
         setFriendship(null);
       }
     } catch (err: any) {
@@ -140,206 +141,129 @@ export const UserProfile = () => {
     }
   };
 
-  const handleStartChat = async () => {
-    if (!currentUser || !userId) return;
-    
-    try {
-      // 1. Check if conversation already exists
-      const { data: existing, error: fetchError } = await (supabase as any)
-        .from('conversations')
-        .select('id')
-        .or(`and(user_1.eq.${currentUser.id},user_2.eq.${userId}),and(user_1.eq.${userId},user_2.eq.${currentUser.id})`)
-        .maybeSingle();
-
-      if (fetchError) throw fetchError;
-
-      let convId = existing?.id;
-
-      // 2. If not, create it
-      if (!convId) {
-        const { data: created, error: createError } = await (supabase as any)
-          .from('conversations')
-          .insert({
-            user_1: currentUser.id,
-            user_2: userId,
-            last_message_preview: 'Bắt đầu cuộc hội thoại...',
-            last_message_at: new Date().toISOString()
-          })
-          .select()
-          .single();
-        
-        if (createError) throw createError;
-        convId = created.id;
-      }
-
-      // 3. Navigate to chat page
-      navigate(`/chat?id=${convId}`);
-    } catch (err: any) {
-      toast({ title: "Lỗi chat", description: err.message, variant: "destructive" });
-    }
+  const handleStartChat = () => {
+    if (!userId) return;
+    navigate(`/chat?id=new&with=${userId}`);
   };
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
-          <Sparkles className="h-10 w-10 text-sakura" />
-        </motion.div>
+        <Loader2 className="h-10 w-10 text-sakura animate-spin" />
       </div>
     );
   }
 
-  if (!profile) return null;
+  if (!profile) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+        <h2 className="text-xl font-bold mb-4">Không tìm thấy hồ sơ</h2>
+        <Button onClick={() => navigate('/')}>Quay lại trang chủ</Button>
+      </div>
+    );
+  }
+
+  const isOwnProfile = currentUser?.id === userId;
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      {/* Banner Section */}
-      <section className="relative h-[300px] w-full overflow-hidden">
-        <div className={cn(
-          "absolute inset-0 bg-gradient-to-r transition-all duration-700",
-          profile.banner_url ? "" : "from-sakura-light/30 via-accent/20 to-sakura-light/30"
-        )}>
-          {profile.banner_url && <img src={profile.banner_url} alt="Banner" className="w-full h-full object-cover" />}
-          <div className="absolute inset-0 bg-black/10 backdrop-blur-[2px]" />
+      {/* Banner */}
+      <div className="h-48 bg-sakura-light/20 relative">
+        {profile.banner_url && <img src={profile.banner_url} alt="Banner" className="w-full h-full object-cover" />}
+        <div className="container max-w-4xl relative h-full">
+           <Button 
+             variant="ghost" 
+             onClick={() => navigate(-1)}
+             className="absolute top-4 left-4 bg-white/50 backdrop-blur-sm"
+           >
+             <ChevronLeft className="h-4 w-4 mr-2" /> Quay lại
+           </Button>
         </div>
-        <div className="container relative h-full max-w-6xl">
-          <Link to="/friends" className="absolute top-8 left-4 z-20">
-            <Button variant="secondary" size="sm" className="rounded-xl gap-2 bg-white/40 hover:bg-white/60 backdrop-blur-md border-white/20 text-sumi shadow-soft font-bold">
-              <ChevronLeft className="h-4 w-4" /> Khám phá
-            </Button>
-          </Link>
-          {isOwnProfile && (
-            <Link to="/edit-profile" className="absolute top-8 right-4 z-20">
-              <Button variant="secondary" size="sm" className="rounded-xl gap-2 bg-white/40 hover:bg-white/60 backdrop-blur-md border-white/20 text-sumi shadow-soft font-bold">
-                <Settings className="h-4 w-4" /> Cài đặt
-              </Button>
-            </Link>
-          )}
-        </div>
-      </section>
+      </div>
 
-      <main className="container max-w-6xl -mt-24 relative z-10 space-y-8 px-4">
-        {/* Info Card */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          className="bg-white/80 backdrop-blur-2xl border-2 border-sakura-light/30 rounded-[3rem] shadow-card p-8 md:p-10"
-        >
-          <div className="flex flex-col md:flex-row gap-10 items-center md:items-end">
-            <div className="relative group -mt-20 md:-mt-32">
-              <Avatar className="h-40 w-40 md:h-52 md:w-52 border-8 border-white shadow-elevated rounded-[3rem]">
+      <div className="container max-w-4xl -mt-12 px-4">
+        <Card className="rounded-3xl border-2 border-sakura-light/30 shadow-xl overflow-hidden bg-white">
+          <CardContent className="pt-0 p-6 md:p-10">
+            <div className="flex flex-col md:flex-row gap-6 items-center md:items-start text-center md:text-left">
+              <Avatar className="h-32 w-32 md:h-40 md:w-40 border-4 border-white shadow-lg">
                 <AvatarImage src={profile.avatar_url} />
-                <AvatarFallback className="text-4xl bg-sakura-light text-sakura"><User className="h-20 w-20" /></AvatarFallback>
+                <AvatarFallback className="bg-sakura-light text-sakura text-4xl"><User /></AvatarFallback>
               </Avatar>
-              {profile.role === 'admin' && (
-                <div className="absolute -top-4 -right-4 bg-sakura text-white p-3 rounded-2xl shadow-lg ring-4 ring-white">
-                  <ShieldCheck className="h-6 w-6" />
+              
+              <div className="flex-1 space-y-2">
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                  <h1 className="text-3xl font-bold text-sumi">{profile.display_name || profile.username || 'Người dùng'}</h1>
+                  <Badge variant="secondary">JLPT {profile.jlpt_level || 'N5'}</Badge>
                 </div>
+                {profile.username && <p className="text-sakura font-medium">@{profile.username}</p>}
+                {profile.bio && <p className="text-sumi/70 mt-2 max-w-xl">{profile.bio}</p>}
+                
+                <div className="flex flex-wrap justify-center md:justify-start gap-4 text-xs text-muted-foreground pt-2">
+                  {profile.location && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {profile.location}</span>}
+                  <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> Tham gia {profile.created_at ? new Date(profile.created_at).toLocaleDateString() : '---'}</span>
+                </div>
+              </div>
+
+              <div className="flex gap-4 bg-sakura-light/5 p-4 rounded-2xl border border-sakura-light/10">
+                <div className="text-center px-2">
+                  <p className="text-xl font-bold text-sakura">{profile.total_xp || 0}</p>
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground">XP</p>
+                </div>
+                <div className="text-center px-2">
+                  <p className="text-xl font-bold text-orange-500">{profile.current_streak || 0}</p>
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground">Streak</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 flex flex-wrap gap-4 justify-center md:justify-start">
+              {isOwnProfile ? (
+                <Button asChild className="rounded-2xl h-14 px-10 shadow-elevated bg-sakura hover:bg-sakura-dark text-white font-black gap-2 text-lg transition-all active:scale-95">
+                  <Link to="/edit-profile"><Settings className="h-5 w-5" /> Chỉnh sửa hồ sơ</Link>
+                </Button>
+              ) : (
+                <>
+                  <Button 
+                    onClick={handleFriendAction}
+                    className={cn(
+                      "rounded-2xl h-14 px-10 shadow-elevated font-black gap-2 text-lg transition-all active:scale-95",
+                      friendship?.status === 'accepted' ? "bg-matcha text-white" : "bg-sakura text-white"
+                    )}
+                  >
+                    {friendship?.status === 'accepted' ? <><UserCheck className="h-5 w-5" /> Bạn bè</> : <><UserPlus className="h-5 w-5" /> Kết bạn</>}
+                  </Button>
+                  <Button variant="outline" onClick={handleStartChat} className="rounded-2xl h-14 px-10 border-2 border-sakura-light/30 text-sakura font-black gap-2 text-lg transition-all hover:bg-sakura-light/10">
+                    <Mail className="h-5 w-5" /> Nhắn tin
+                  </Button>
+                </>
               )}
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="flex-1 text-center md:text-left space-y-4">
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
-                  <h1 className="text-4xl md:text-5xl font-display font-black text-sumi tracking-tight">{profile.display_name || profile.username}</h1>
-                  <Badge className="bg-sakura text-white font-black px-4 py-1.5 rounded-full shadow-sm text-xs">JLPT {profile.jlpt_level}</Badge>
-                </div>
-                {profile.username && <p className="text-sakura font-bold opacity-70">@{profile.username}</p>}
-              </div>
-              {profile.bio && <p className="text-lg text-sumi/80 font-medium leading-relaxed max-w-2xl">{profile.bio}</p>}
-              
-              <div className="flex flex-wrap justify-center md:justify-start gap-6 pt-2 opacity-80 text-sumi/60 font-medium">
-                {profile?.location && <div className="flex items-center gap-2 text-sm"><MapPin className="h-4 w-4 text-sakura" /> {profile.location}</div>}
-                {profile?.website && <a href={profile.website} target="_blank" className="flex items-center gap-2 text-sm text-sakura hover:underline font-bold"><Globe className="h-4 w-4" /> Website</a>}
-                <div className="flex items-center gap-2 text-sm">
-                  <Calendar className="h-4 w-4 text-sakura" /> 
-                  Tham gia {profile?.created_at ? new Date(profile.created_at).toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' }) : '---'}
-                </div>
-              </div>
-            </div>
-
-            {/* Stats Desktop */}
-            <div className="hidden lg:flex items-center gap-8 bg-sakura-light/10 p-6 rounded-[2rem] border border-sakura-light/20 shadow-soft">
-              <div className="text-center">
-                <p className="text-3xl font-black text-sakura leading-none">{profile.total_xp}</p>
-                <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest mt-1">XP</p>
-              </div>
-              <div className="h-10 w-px bg-sakura-light/30" />
-              <div className="text-center">
-                <p className="text-3xl font-black text-orange-500 flex items-center gap-1 justify-center leading-none">
-                  <Flame className="h-6 w-6 fill-orange-500" /> {profile.current_streak}
-                </p>
-                <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest mt-1">Streak</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="mt-10 flex flex-wrap gap-4">
-            {isOwnProfile ? (
-              <Button asChild className="rounded-2xl h-14 px-10 shadow-elevated bg-sakura hover:bg-sakura-dark text-white font-black gap-2 text-lg">
-                <Link to="/edit-profile"><Settings className="h-5 w-5" /> Chỉnh sửa hồ sơ</Link>
-              </Button>
-            ) : (
-              <>
-                <Button 
-                  onClick={handleFriendAction}
-                  className={cn(
-                    "rounded-2xl h-14 px-10 shadow-elevated font-black gap-2 text-lg transition-all",
-                    friendship?.status === 'accepted' ? "bg-matcha text-white hover:bg-matcha-dark" : "bg-sakura text-white hover:bg-sakura-dark"
-                  )}
-                >
-                  {friendship?.status === 'accepted' ? (
-                    <><UserCheck className="h-5 w-5" /> Bạn bè</>
-                  ) : friendship?.status === 'pending' ? (
-                    friendship.sender_id === currentUser?.id ? (
-                      <><Clock className="h-5 w-5" /> Đã gửi yêu cầu</>
-                    ) : (
-                      <><UserPlus className="h-5 w-5" /> Chấp nhận kết bạn</>
-                    )
-                  ) : (
-                    <><UserPlus className="h-5 w-5" /> Kết bạn</>
-                  )}
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={handleStartChat}
-                  className="rounded-2xl h-14 px-10 border-2 border-sakura-light/30 text-sakura font-black gap-2 text-lg"
-                >
-                  <Mail className="h-5 w-5" /> Gửi tin nhắn
-                </Button>
-              </>
-            )}
-          </div>
-        </motion.div>
-
-        <div className="grid lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
-            {/* Activity Feed */}
-            <Card className="rounded-[2.5rem] border-2 border-sakura-light/20 shadow-card bg-white/80 backdrop-blur-md overflow-hidden">
-              <CardHeader className="p-8 pb-4 bg-sakura-light/10 border-b border-sakura-light/10">
-                <CardTitle className="flex items-center gap-2 text-2xl font-display font-black text-sumi">
-                  <History className="h-6 w-6 text-sakura" /> Hoạt động gần đây
+        <div className="grid md:grid-cols-3 gap-6 mt-8">
+          <div className="md:col-span-2 space-y-6">
+            <Card className="rounded-3xl border-sakura-light/20 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <History className="h-5 w-5 text-sakura" /> Hoạt động gần đây
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-8 space-y-6">
+              <CardContent className="space-y-4">
                 {activities.length > 0 ? (
-                  activities.map((act, i) => (
-                    <div key={act.id} className="flex gap-4 group relative">
-                      <div className="relative flex flex-col items-center">
-                        <div className="h-10 w-10 rounded-xl bg-sakura-light/20 flex items-center justify-center text-sakura z-10 shadow-soft">
-                          {act.type === 'achievement_unlocked' ? <Award className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
-                        </div>
-                        {i !== activities.length - 1 && <div className="w-0.5 bg-sakura-light/20 grow mt-2" />}
+                  activities.map((act) => (
+                    <div key={act.id} className="flex gap-3 items-start border-b border-muted pb-3 last:border-0">
+                      <div className="h-8 w-8 rounded-lg bg-sakura-light/10 flex items-center justify-center text-sakura shrink-0">
+                        <CheckCircle2 className="h-4 w-4" />
                       </div>
-                      <div className="pb-8 space-y-1">
-                        <p className="font-bold text-lg text-sumi">{act.content?.title || act.type || 'Hoạt động'}</p>
-                        <p className="text-xs font-medium text-muted-foreground">
-                          {act.created_at ? new Date(act.created_at).toLocaleString('vi-VN') : ''}
-                        </p>
+                      <div>
+                        <p className="text-sm font-medium text-sumi">{act.content?.title || act.type || 'Hoạt động học tập'}</p>
+                        <p className="text-[10px] text-muted-foreground">{new Date(act.created_at).toLocaleString()}</p>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-10 opacity-50 font-medium">Chưa có hoạt động nào được ghi lại.</div>
+                  <p className="text-center py-6 text-sm text-muted-foreground">Chưa có hoạt động nào.</p>
                 )}
               </CardContent>
             </Card>
@@ -347,59 +271,36 @@ export const UserProfile = () => {
             <SkillHeatmap />
           </div>
 
-          <aside className="space-y-8">
-            <Card className="rounded-[2.5rem] border-2 border-sakura-light/20 shadow-card p-8 space-y-6 bg-white/80 backdrop-blur-md">
-              <CardTitle className="text-xl font-display font-black flex items-center gap-2 text-sumi">
-                <Target className="h-6 w-6 text-sakura" /> Tiến độ học
-              </CardTitle>
-              <div className="space-y-6">
-                <div className="space-y-3">
-                  <div className="flex justify-between text-sm font-black text-sumi">
-                    <span>JLPT {profile.jlpt_level}</span>
-                    <span>{stats.mastery}%</span>
-                  </div>
-                  <div className="h-3 bg-sakura-light/20 rounded-full overflow-hidden shadow-inner">
-                    <motion.div 
-                      initial={{ width: 0 }}
-                      animate={{ width: `${stats.mastery}%` }}
-                      className="h-full bg-sakura rounded-full shadow-soft"
-                    />
-                  </div>
+          <div>
+             <Card className="rounded-3xl border-sakura-light/20 shadow-sm p-6 space-y-4">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Target className="h-4 w-4 text-sakura" /> Tiến trình
+                </CardTitle>
+                <div className="space-y-4">
+                   <div className="space-y-1">
+                      <div className="flex justify-between text-xs font-bold">
+                        <span>JLPT {profile.jlpt_level || 'N5'}</span>
+                        <span>{stats.mastery}%</span>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full bg-sakura" style={{ width: `${stats.mastery}%` }} />
+                      </div>
+                   </div>
+                   <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-sakura-light/10 p-3 rounded-xl text-center">
+                        <p className="text-lg font-bold text-sakura">{stats.vocabCount}</p>
+                        <p className="text-[9px] uppercase font-bold text-muted-foreground">Từ vựng</p>
+                      </div>
+                      <div className="bg-muted/30 p-3 rounded-xl text-center">
+                        <p className="text-lg font-bold">128</p>
+                        <p className="text-[9px] uppercase font-bold text-muted-foreground">Hán tự</p>
+                      </div>
+                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 rounded-2xl bg-sakura-light/10 text-center border border-sakura-light/20 shadow-soft">
-                    <p className="text-2xl font-black text-sakura">{stats.vocabCount}</p>
-                    <p className="text-[10px] uppercase font-black text-sumi/60 tracking-widest mt-1">Từ vựng</p>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-orange-500/5 text-center border border-orange-500/10 shadow-soft">
-                    <p className="text-2xl font-black text-orange-600">128</p>
-                    <p className="text-[10px] uppercase font-black text-sumi/60 tracking-widest mt-1">Hán tự</p>
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="rounded-[2.5rem] bg-indigo-jp text-white border-0 shadow-elevated overflow-hidden relative p-8">
-              <Trophy className="absolute -top-4 -right-4 h-32 w-32 opacity-10" />
-              <div className="relative z-10 space-y-6">
-                <p className="text-sm font-black uppercase tracking-widest text-indigo-jp-light opacity-80">Squad Ranking</p>
-                <div className="flex items-center gap-4">
-                  <div className="h-14 w-14 rounded-2xl bg-white/10 flex items-center justify-center border border-white/20 shadow-2xl backdrop-blur-md">
-                    <span className="text-2xl font-black">N3</span>
-                  </div>
-                  <div>
-                    <p className="font-black text-2xl leading-tight">N3 Warriors</p>
-                    <p className="text-xs text-white/60 font-medium">Vị trí #12 trên toàn cầu</p>
-                  </div>
-                </div>
-                <Button variant="ghost" className="w-full bg-white/10 hover:bg-white/20 rounded-xl font-bold transition-all" asChild>
-                  <Link to="/squads">Xem chi tiết <ExternalLink className="ml-2 h-4 w-4" /></Link>
-                </Button>
-              </div>
-            </Card>
-          </aside>
+             </Card>
+          </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 };
