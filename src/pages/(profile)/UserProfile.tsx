@@ -65,12 +65,16 @@ export const UserProfile = () => {
       if (!userId) return;
       setLoading(true);
       try {
-        // Use a simpler query first
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('user_id', userId)
-          .maybeSingle();
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+        let query = supabase.from('profiles').select('*');
+        
+        if (isUUID) {
+          query = query.or(`user_id.eq.${userId},id.eq.${userId}`);
+        } else {
+          query = query.eq('username', userId);
+        }
+
+        const { data: profileData, error: profileError } = await query.maybeSingle();
 
         if (profileError) throw profileError;
         
