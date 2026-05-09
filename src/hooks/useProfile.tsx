@@ -58,6 +58,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         supabase
           .from('user_roles')
           .select('role')
+          .eq('user_id', user.id)
       ]);
 
       // --- Streak Protection Check ---
@@ -134,8 +135,26 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         )
         .subscribe();
 
+      const rolesChannel = supabase
+        .channel(`roles:${user.id}`)
+        .on(
+          'postgres_changes' as never,
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'user_roles', 
+            filter: `user_id=eq.${user.id}` 
+          },
+          () => {
+            // Re-fetch everything when roles change to ensure consistency
+            fetchProfile();
+          }
+        )
+        .subscribe();
+
       return () => {
         supabase.removeChannel(channel);
+        supabase.removeChannel(rolesChannel);
       };
     } else {
       setProfile(null);

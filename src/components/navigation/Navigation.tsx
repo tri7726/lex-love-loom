@@ -475,6 +475,28 @@ export const Navigation: React.FC<NavigationProps> = ({
                       <span>Chỉnh sửa hồ sơ</span>
                     </Link>
                   </DropdownMenuItem>
+                  
+                  {(profile?.role === 'admin' || profile?.role === 'teacher') && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel className="text-[10px] uppercase font-black px-2 py-1.5 opacity-50">Quản lý</DropdownMenuLabel>
+                      <DropdownMenuItem asChild>
+                        <Link to="/teacher" className="flex items-center gap-2 cursor-pointer text-sakura">
+                          <GraduationCap className="h-4 w-4" />
+                          <span>Quản lý lớp học</span>
+                        </Link>
+                      </DropdownMenuItem>
+                      {profile?.role === 'admin' && (
+                        <DropdownMenuItem asChild>
+                          <Link to="/admin" className="flex items-center gap-2 cursor-pointer text-indigo-jp">
+                            <ShieldCheck className="h-4 w-4" />
+                            <span>Hệ thống Admin</span>
+                          </Link>
+                        </DropdownMenuItem>
+                      )}
+                    </>
+                  )}
+                  
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut} className="flex items-center gap-2 text-destructive cursor-pointer">
                     <LogOut className="h-4 w-4" />
@@ -495,31 +517,42 @@ export const Navigation: React.FC<NavigationProps> = ({
         {/* Mobile navigation */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-t px-2 py-3 shadow-elevated">
           <div className="flex justify-around items-center">
-            {[
-              { path: '/', icon: Home, label: 'Trang chủ' },
-              { path: '/grammar', icon: Brain, label: 'Sensei' },
-              { path: '/vocabulary', icon: BookOpen, label: 'Học tập' },
-              { path: '/leagues', icon: Trophy, label: 'XH' },
-            ].map((mItem) => {
-              const isActive = location.pathname === mItem.path;
-              return (
-                <Link key={mItem.path} to={mItem.path} className="flex-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={cn(
-                      'flex flex-col h-auto py-1 px-0 gap-1 w-full rounded-xl transition-all',
-                      isActive
-                        ? 'text-sakura bg-sakura/5'
-                        : 'text-muted-foreground'
-                    )}
-                  >
-                    <mItem.icon className={cn("h-5 w-5", isActive && "animate-pulse-slow")} />
-                    <span className="text-[10px] font-black uppercase tracking-tighter">{mItem.label}</span>
-                  </Button>
-                </Link>
-              );
-            })}
+            {(() => {
+              const mItems = [
+                { path: '/', icon: Home, label: 'Trang chủ' },
+                { path: '/grammar', icon: Brain, label: 'Sensei' },
+                { path: '/vocabulary', icon: BookOpen, label: 'Học tập' },
+              ];
+              
+              if (profile?.role === 'admin') {
+                mItems.push({ path: '/admin', icon: ShieldCheck, label: 'Hệ thống' });
+              } else if (profile?.role === 'teacher') {
+                mItems.push({ path: '/teacher', icon: GraduationCap, label: 'Dạy học' });
+              } else {
+                mItems.push({ path: '/leagues', icon: Trophy, label: 'XH' });
+              }
+              
+              return mItems.map((mItem) => {
+                const isActive = location.pathname === mItem.path;
+                return (
+                  <Link key={mItem.path} to={mItem.path} className="flex-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={cn(
+                        'flex flex-col h-auto py-1 px-0 gap-1 w-full rounded-xl transition-all',
+                        isActive
+                          ? 'text-sakura bg-sakura/5'
+                          : 'text-muted-foreground'
+                      )}
+                    >
+                      <mItem.icon className={cn("h-5 w-5", isActive && "animate-pulse-slow")} />
+                      <span className="text-[10px] font-black uppercase tracking-tighter">{mItem.label}</span>
+                    </Button>
+                  </Link>
+                );
+              });
+            })()}
           </div>
         </nav>
       </header>

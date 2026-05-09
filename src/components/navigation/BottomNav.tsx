@@ -1,25 +1,43 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, GraduationCap, Map as MapIcon, Trophy, User } from 'lucide-react';
+import { Home, GraduationCap, Map as MapIcon, Trophy, User, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useProfile } from '@/hooks/useProfile';
+import { useAuth } from '@/hooks/useAuth';
 
 const items = [
   { path: '/', icon: Home, label: 'Trang chủ' },
   { path: '/my-classes', icon: GraduationCap, label: 'Khóa học' },
   { path: '/learning-path', icon: MapIcon, label: 'Lộ trình' },
   { path: '/leagues', icon: Trophy, label: 'Bảng XH' },
-  { path: '/profile', icon: User, label: 'Hồ sơ' },
 ];
 
 export const BottomNav: React.FC = () => {
   const location = useLocation();
+  const { profile } = useProfile();
+  const { user } = useAuth();
+
+  if (!user) return null;
+
+  const dynamicItems = [...items];
+  
+  if (profile?.role === 'admin') {
+    dynamicItems.push({ path: '/admin', icon: ShieldCheck, label: 'Hệ thống' });
+    dynamicItems.push({ path: '/teacher', icon: GraduationCap, label: 'Dạy học' });
+  } else if (profile?.role === 'teacher') {
+    dynamicItems.push({ path: '/teacher', icon: GraduationCap, label: 'Dạy học' });
+  }
+
+  // Remove redundant items if needed to keep it clean (limit to 5)
+  const displayItems = dynamicItems.slice(0, 5);
+
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-sakura-light/30 bg-cream/90 backdrop-blur-xl supports-[backdrop-filter]:bg-cream/70"
       aria-label="Thanh điều hướng dưới"
     >
       <div className="flex items-stretch justify-around h-16 max-w-md mx-auto px-1">
-        {items.map((item) => {
+        {displayItems.map((item) => {
           const isActive =
             item.path === '/'
               ? location.pathname === '/'
