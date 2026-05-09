@@ -805,7 +805,9 @@ CREATE TABLE IF NOT EXISTS public.mock_exams (
   title TEXT NOT NULL,
   level TEXT NOT NULL DEFAULT 'N5',
   duration INTEGER NOT NULL DEFAULT 120,
-  difficulty TEXT DEFAULT 'CÆ¡ báº£n',
+  passing_total INTEGER DEFAULT 100,
+  section_benchmarks JSONB DEFAULT '{"vocabulary": 19, "grammar": 19, "reading": 19, "listening": 19}'::jsonb,
+  difficulty TEXT DEFAULT 'Cơ bản',
   description TEXT,
   is_published BOOLEAN DEFAULT true,
   created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -813,16 +815,21 @@ CREATE TABLE IF NOT EXISTS public.mock_exams (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS public.exam_questions (
+CREATE TABLE IF NOT EXISTS public.mock_exam_questions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   exam_id UUID NOT NULL REFERENCES public.mock_exams(id) ON DELETE CASCADE,
-  section TEXT NOT NULL DEFAULT 'Kiáº¿n thá»©c ngÃ´n ngá»¯',
+  section TEXT NOT NULL DEFAULT 'Kiến thức ngôn ngữ',
+  section_type TEXT,
   question TEXT NOT NULL,
+  passage TEXT,
   options JSONB NOT NULL DEFAULT '[]',
   correct_index INTEGER NOT NULL DEFAULT 0,
   explanation TEXT,
   order_index INTEGER DEFAULT 0,
+  point_weight INTEGER DEFAULT 1,
   category TEXT DEFAULT 'General', -- 'Kanji', 'Grammar', 'Listening', 'Reading'
+  image_url TEXT,
+  audio_url TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -856,15 +863,16 @@ CREATE POLICY "Teachers view student metrics" ON public.user_skill_metrics FOR S
     EXISTS (SELECT 1 FROM public.class_members cm JOIN public.classrooms c ON cm.class_id = c.id WHERE cm.user_id = user_skill_metrics.user_id AND c.teacher_id = auth.uid())
 );
 
-ALTER TABLE public.mock_exams ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.exam_questions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.mock_exams DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.mock_exam_questions DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.mock_exam_results ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Anyone read published exams" ON public.mock_exams FOR SELECT USING (is_published = true OR created_by = auth.uid());
-CREATE POLICY "Creator manage own exams" ON public.mock_exams FOR ALL USING (created_by = auth.uid());
-CREATE POLICY "Admin full access exams" ON public.mock_exams FOR ALL USING (EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role = 'admin'));
-CREATE POLICY "Anyone read questions" ON public.exam_questions FOR SELECT USING (EXISTS (SELECT 1 FROM public.mock_exams WHERE id = exam_id AND (is_published = true OR created_by = auth.uid())));
-CREATE POLICY "Creator manage own questions" ON public.exam_questions FOR ALL USING (EXISTS (SELECT 1 FROM public.mock_exams WHERE id = exam_id AND created_by = auth.uid()));
+-- RLS disabled for exams and questions as requested
+-- CREATE POLICY "Anyone read published exams" ON public.mock_exams FOR SELECT USING (is_published = true OR created_by = auth.uid());
+-- CREATE POLICY "Creator manage own exams" ON public.mock_exams FOR ALL USING (created_by = auth.uid());
+-- CREATE POLICY "Admin full access exams" ON public.mock_exams FOR ALL USING (EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role = 'admin'));
+-- CREATE POLICY "Anyone read questions" ON public.mock_exam_questions FOR SELECT USING (EXISTS (SELECT 1 FROM public.mock_exams WHERE id = exam_id AND (is_published = true OR created_by = auth.uid())));
+-- CREATE POLICY "Creator manage own questions" ON public.mock_exam_questions FOR ALL USING (EXISTS (SELECT 1 FROM public.mock_exams WHERE id = exam_id AND created_by = auth.uid()));
 CREATE POLICY "Users manage own results" ON public.mock_exam_results FOR ALL USING (auth.uid() = user_id);
 
 ALTER TABLE public.reading_passages ENABLE ROW LEVEL SECURITY;
@@ -1773,7 +1781,7 @@ DECLARE
     v_is_correct BOOLEAN;
     v_metrics JSONB := '{}'::jsonb;
 BEGIN
-    FOR v_q IN SELECT * FROM public.exam_questions WHERE exam_id = NEW.exam_id LOOP
+    FOR v_q IN SELECT * FROM public.mock_exam_questions WHERE exam_id = NEW.exam_id LOOP
         v_user_answer := (NEW.answers->>v_q.id::text)::int;
         v_cat := COALESCE(v_q.category, 'General');
         
