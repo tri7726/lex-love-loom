@@ -48,8 +48,19 @@ export const PWAManager = () => {
   }, []);
 
   useEffect(() => {
-    const handleOnline = () => setIsOffline(false);
-    const handleOffline = () => setIsOffline(true);
+    let offlineTimeout: NodeJS.Timeout;
+
+    const handleOnline = () => {
+      clearTimeout(offlineTimeout);
+      setIsOffline(false);
+    };
+
+    const handleOffline = () => {
+      // Delay showing offline status by 3 seconds to avoid flickers
+      offlineTimeout = setTimeout(() => {
+        setIsOffline(true);
+      }, 3000);
+    };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
@@ -57,6 +68,7 @@ export const PWAManager = () => {
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      clearTimeout(offlineTimeout);
     };
   }, []);
 
