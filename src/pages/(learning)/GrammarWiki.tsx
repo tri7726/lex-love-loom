@@ -38,6 +38,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { DeepExplanationSheet } from '@/components/grammar/DeepExplanationSheet';
 import { DeepExplainResult } from '@/services/groqServices';
+import { GRAMMAR_DB } from '@/data/grammar-db';
 
 export interface GrammarPoint {
   id: string;
@@ -80,9 +81,34 @@ export const GrammarWiki = () => {
         .order('lesson', { ascending: true });
 
       if (error) throw error;
-      setGrammarPoints((data as any) || []);
+      
+      let finalPoints = (data as any[] || []).map(point => ({
+        ...point,
+        examples: point.examples || (point.example ? [
+          { 
+            japanese: point.example, 
+            vietnamese: point.translation || '', 
+            reading: '' 
+          }
+        ] : [])
+      }));
+
+      // Fallback to local data if DB is empty
+      if (finalPoints.length === 0) {
+        finalPoints = GRAMMAR_DB.map(p => ({
+          ...p,
+          examples: [{ japanese: p.example, vietnamese: p.translation, reading: '' }]
+        })) as any;
+      }
+
+      setGrammarPoints(finalPoints);
     } catch (err) {
       console.error('Error fetching grammar:', err);
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải dữ liệu ngữ pháp. Vui lòng thử lại.",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }

@@ -80,9 +80,16 @@ export const Onboarding = () => {
       setSaving(false);
       return;
     }
+
     toast.success("Tuyệt vời! Hành trình bắt đầu 🌸");
+    
+    // Refresh profile state in context
     await refreshProfile();
-    navigate("/", { replace: true });
+    
+    // Slight delay to ensure state update has propagated before navigation
+    setTimeout(() => {
+      navigate("/", { replace: true });
+    }, 500);
   };
 
   const canProceed =
@@ -268,7 +275,7 @@ const PickTarget: React.FC<{
   onChange: (v: string) => void;
 }> = ({ current, value, onChange }) => {
   const idx = current ? TARGETS.indexOf(current) : 0;
-  const valid = TARGETS.slice(0, idx + 1); // chỉ chọn level cao hơn (N nhỏ hơn)
+  const valid = TARGETS.slice(idx); // Cho phép chọn trình độ hiện tại hoặc cao hơn (chỉ số mảng lớn hơn)
   return (
     <div className="space-y-6">
       <div className="text-center space-y-2">
