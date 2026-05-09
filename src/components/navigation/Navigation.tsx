@@ -466,13 +466,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                   <DropdownMenuItem asChild>
                     <Link to={`/profile/${user.id}`} className="flex items-center gap-2 cursor-pointer">
                       <User className="h-4 w-4" />
-                      <span>Hồ sơ cá nhân</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/edit-profile" className="flex items-center gap-2 cursor-pointer">
-                      <Settings className="h-4 w-4" />
-                      <span>Chỉnh sửa hồ sơ</span>
+                      <span>Hồ sơ của bạn</span>
                     </Link>
                   </DropdownMenuItem>
                   

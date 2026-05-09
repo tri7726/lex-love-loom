@@ -248,9 +248,12 @@ export const UserProfile = () => {
               {profile.bio && <p className="text-lg text-sumi/80 font-medium leading-relaxed max-w-2xl">{profile.bio}</p>}
               
               <div className="flex flex-wrap justify-center md:justify-start gap-6 pt-2 opacity-80 text-sumi/60 font-medium">
-                {profile.location && <div className="flex items-center gap-2 text-sm"><MapPin className="h-4 w-4 text-sakura" /> {profile.location}</div>}
-                {profile.website && <a href={profile.website} target="_blank" className="flex items-center gap-2 text-sm text-sakura hover:underline font-bold"><Globe className="h-4 w-4" /> Website</a>}
-                <div className="flex items-center gap-2 text-sm"><Calendar className="h-4 w-4 text-sakura" /> Tham gia {new Date(profile.created_at).toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' })}</div>
+                {profile?.location && <div className="flex items-center gap-2 text-sm"><MapPin className="h-4 w-4 text-sakura" /> {profile.location}</div>}
+                {profile?.website && <a href={profile.website} target="_blank" className="flex items-center gap-2 text-sm text-sakura hover:underline font-bold"><Globe className="h-4 w-4" /> Website</a>}
+                <div className="flex items-center gap-2 text-sm">
+                  <Calendar className="h-4 w-4 text-sakura" /> 
+                  Tham gia {profile?.created_at ? new Date(profile.created_at).toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' }) : '---'}
+                </div>
               </div>
             </div>
 
@@ -328,8 +331,10 @@ export const UserProfile = () => {
                         {i !== activities.length - 1 && <div className="w-0.5 bg-sakura-light/20 grow mt-2" />}
                       </div>
                       <div className="pb-8 space-y-1">
-                        <p className="font-bold text-lg text-sumi">{act.content.title}</p>
-                        <p className="text-xs font-medium text-muted-foreground">{new Date(act.created_at).toLocaleString('vi-VN')}</p>
+                        <p className="font-bold text-lg text-sumi">{act.content?.title || act.type || 'Hoạt động'}</p>
+                        <p className="text-xs font-medium text-muted-foreground">
+                          {act.created_at ? new Date(act.created_at).toLocaleString('vi-VN') : ''}
+                        </p>
                       </div>
                     </div>
                   ))
