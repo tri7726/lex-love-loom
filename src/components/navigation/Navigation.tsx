@@ -161,20 +161,50 @@ export const Navigation: React.FC<NavigationProps> = ({
             })}
 
             {(profile?.role === 'teacher' || profile?.role === 'admin') && (
-              <Link to="/teacher">
-                <Button
-                  variant="ghost"
-                  className={cn(
-                    'relative gap-1.5 font-black uppercase text-[10px] tracking-widest h-9 px-3 transition-all',
-                    location.pathname.startsWith('/teacher')
-                      ? 'text-primary bg-primary/10'
-                      : 'text-muted-foreground hover:text-primary hover:bg-primary/5'
-                  )}
-                >
-                  <GraduationCap className="h-4 w-4" />
-                  Quản lý lớp
-                </Button>
-              </Link>
+              <div className="flex items-center gap-0.5">
+                <Link to="/teacher/lessons/new">
+                  <Button
+                    variant="ghost"
+                    className={cn(
+                      'relative gap-1.5 font-black uppercase text-[10px] tracking-widest h-9 px-3 transition-all',
+                      location.pathname === '/teacher/lessons/new'
+                        ? 'text-sakura bg-sakura/10'
+                        : 'text-muted-foreground hover:text-sakura hover:bg-sakura/5'
+                    )}
+                  >
+                    <PenTool className="h-4 w-4" />
+                    Soạn bài giảng
+                  </Button>
+                </Link>
+                <Link to="/teacher">
+                  <Button
+                    variant="ghost"
+                    className={cn(
+                      'relative gap-1.5 font-black uppercase text-[10px] tracking-widest h-9 px-3 transition-all',
+                      location.pathname === '/teacher'
+                        ? 'text-primary bg-primary/10'
+                        : 'text-muted-foreground hover:text-primary hover:bg-primary/5'
+                    )}
+                  >
+                    <GraduationCap className="h-4 w-4" />
+                    Quản lý lớp
+                  </Button>
+                </Link>
+                <Link to="/teacher/create-class">
+                  <Button
+                    variant="ghost"
+                    className={cn(
+                      'relative gap-1.5 font-black uppercase text-[10px] tracking-widest h-9 px-3 transition-all',
+                      location.pathname === '/teacher/create-class'
+                        ? 'text-sakura bg-sakura/10'
+                        : 'text-muted-foreground hover:text-sakura hover:bg-sakura/5'
+                    )}
+                  >
+                    <PenTool className="h-4 w-4" />
+                    Tạo lớp mới
+                  </Button>
+                </Link>
+              </div>
             )}
 
             {profile?.role === 'admin' && (
@@ -475,9 +505,21 @@ export const Navigation: React.FC<NavigationProps> = ({
                       <DropdownMenuSeparator />
                       <DropdownMenuLabel className="text-[10px] uppercase font-black px-2 py-1.5 opacity-50">Quản lý</DropdownMenuLabel>
                       <DropdownMenuItem asChild>
-                        <Link to="/teacher" className="flex items-center gap-2 cursor-pointer text-sakura">
+                        <Link to="/teacher/lessons/new" className="flex items-center gap-2 cursor-pointer text-sakura">
+                          <PenTool className="h-4 w-4" />
+                          <span>Soạn bài giảng</span>
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/teacher" className="flex items-center gap-2 cursor-pointer text-primary">
                           <GraduationCap className="h-4 w-4" />
-                          <span>Quản lý lớp học</span>
+                          <span>Bảng điều khiển lớp</span>
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/teacher/create-class" className="flex items-center gap-2 cursor-pointer text-sakura">
+                          <PenTool className="h-4 w-4" />
+                          <span>Tạo lớp học mới</span>
                         </Link>
                       </DropdownMenuItem>
                       {profile?.role === 'admin' && (

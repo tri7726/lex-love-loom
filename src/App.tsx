@@ -103,6 +103,8 @@ const TeacherDashboard = React.lazy(() => import("./pages/(teacher)/TeacherDashb
 const ClassroomDetail = React.lazy(() => import("./pages/(teacher)/ClassroomDetail"));
 const CreateClassroom = React.lazy(() => import("./pages/(teacher)/CreateClassroom"));
 const LessonBuilder = React.lazy(() => import("./pages/(teacher)/LessonBuilder"));
+const LevelCurriculum = React.lazy(() => import("./pages/(learning)/LevelCurriculum"));
+const CurriculumManager = React.lazy(() => import("./pages/(teacher)/CurriculumManager"));
 
 // Student pages
 const MyClasses = React.lazy(() => import("./pages/(student)/MyClasses"));
@@ -164,6 +166,8 @@ const App = () => {
                             <Route path="/profile/:userId" element={<UserProfile />} />
                             <Route path="/vocabulary" element={<Vocabulary />} />
                             <Route path="/learning-path" element={<LearningPath />} />
+                            <Route path="/learning-path/:level" element={<LevelCurriculum />} />
+                            <Route path="/learning-path/:level/unit/:unitId" element={<UnitContent />} />
                             <Route path="/saved-vocabulary" element={<SavedVocabulary />} />
                             <Route path="/leagues" element={<Leagues />} />
                             <Route path="/leaderboard" element={<LeaderboardPage />} />
@@ -227,9 +231,14 @@ const App = () => {
                             {/* Lesson presentation (standalone, no nav) */}
                             <Route path="/lessons/:lessonId/view" element={<PresentationViewer />} />
 
-                            {/* Lesson builder for teacher */}
+                            <Route path="/teacher/classes/:classId/assignments" element={<AssignmentManager />} />
                             <Route path="/teacher/lessons/new" element={<LessonBuilder />} />
                             <Route path="/teacher/lessons/:lessonId/edit" element={<LessonBuilder />} />
+                            <Route path="/teacher/curriculum" element={<CurriculumManager />} />
+                            <Route path="/teacher/create-class" element={<CreateClassroom />} />
+
+                            {/* Parent routes removed (chế độ phụ huynh đã được gỡ khỏi dự án) */}
+                            <Route path="/parent" element={<Navigate to="/" replace />} />
 
                             <Route path="*" element={<NotFound />} />
                           </Route>

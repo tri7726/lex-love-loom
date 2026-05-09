@@ -163,15 +163,16 @@ export const LearningPath: React.FC = () => {
                   transition={{ delay: idx * 0.08 }}
                   className="relative md:max-w-2xl md:mx-auto"
                 >
-                  <Card
-                    className={cn(
-                      "border-2 overflow-hidden transition-all",
-                      unlocked
-                        ? "border-sakura/30 bg-card hover:shadow-lg"
-                        : "border-border/40 bg-muted/20 opacity-60",
-                      isCurrent && "ring-2 ring-sakura ring-offset-2 ring-offset-background shadow-lg"
-                    )}
-                  >
+                  <Link to={`/learning-path/${node.level.toLowerCase()}`}>
+                    <Card
+                      className={cn(
+                        "border-2 overflow-hidden transition-all cursor-pointer group",
+                        unlocked
+                          ? "border-sakura/30 bg-card hover:shadow-lg hover:border-sakura"
+                          : "border-border/40 bg-muted/20 opacity-60",
+                        isCurrent && "ring-2 ring-sakura ring-offset-2 ring-offset-background shadow-lg"
+                      )}
+                    >
                     <CardContent className="p-5 md:p-6 space-y-4">
                       <div className="flex items-start gap-4">
                         <div
@@ -257,6 +258,7 @@ export const LearningPath: React.FC = () => {
                       )}
                     </CardContent>
                   </Card>
+                  </Link>
                 </motion.div>
               );
             })}

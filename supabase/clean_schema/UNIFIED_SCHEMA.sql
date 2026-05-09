@@ -1,6 +1,6 @@
--- ============================================================
+﻿-- ============================================================
 -- UNIFIED SCHEMA (auto-generated)
--- Generated: 2026-05-09T00:11:24Z
+-- Generated: 2026-05-09T07:47:13Z
 -- Source: supabase/migrations/*.sql (chronological)
 --
 -- DO NOT EDIT BY HAND. Re-run scripts/regenerate-unified-schema.sh
@@ -12,6 +12,7 @@
 -- ------------------------------------------------------------
 -- >>> supabase/migrations/20260508000000_full_clean_schema_reset.sql
 -- ------------------------------------------------------------
+
 -- ===== supabase/clean_schema/00_init/00_reset.sql =====
 -- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 -- RESET DATABASE
@@ -881,7 +882,7 @@ ALTER TABLE public.mock_exams DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.mock_exam_questions DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.mock_exam_results ENABLE ROW LEVEL SECURITY;
 
--- RLS disabled for exams and questions
+-- RLS disabled for exams and questions as requested
 -- CREATE POLICY "Anyone read published exams" ON public.mock_exams FOR SELECT USING (is_published = true OR created_by = auth.uid());
 -- CREATE POLICY "Creator manage own exams" ON public.mock_exams FOR ALL USING (created_by = auth.uid());
 -- CREATE POLICY "Admin full access exams" ON public.mock_exams FOR ALL USING (EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role = 'admin'));
@@ -1760,15 +1761,6 @@ CREATE INDEX IF NOT EXISTS idx_lesson_progress_user ON public.lesson_progress(us
 
 
 -- Ã¢Â”Â€Ã¢Â”Â€ 7. RLS & POLICIES Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€
--- Helper function to break recursion in classroom RLS policies
-CREATE OR REPLACE FUNCTION public.is_classroom_teacher(p_class_id uuid, p_user_id uuid)
-RETURNS boolean AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.classrooms 
-    WHERE id = p_class_id AND teacher_id = p_user_id
-  );
-$$ LANGUAGE sql SECURITY DEFINER;
-
 ALTER TABLE public.classrooms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.class_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.class_assignments ENABLE ROW LEVEL SECURITY;
@@ -1781,8 +1773,8 @@ CREATE POLICY "Teacher manages own classrooms" ON public.classrooms FOR ALL TO a
 CREATE POLICY "Members can view their classrooms" ON public.classrooms FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.class_members WHERE class_id = classrooms.id AND user_id = auth.uid()));
 CREATE POLICY "Admin full access classrooms" ON public.classrooms FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin')) WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
-CREATE POLICY "Teacher views class members" ON public.class_members FOR SELECT TO authenticated USING (public.is_classroom_teacher(class_id, auth.uid()));
-CREATE POLICY "Teacher deletes class members" ON public.class_members FOR DELETE TO authenticated USING (public.is_classroom_teacher(class_id, auth.uid()));
+CREATE POLICY "Teacher views class members" ON public.class_members FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.classrooms WHERE id = class_members.class_id AND teacher_id = auth.uid()));
+CREATE POLICY "Teacher deletes class members" ON public.class_members FOR DELETE TO authenticated USING (EXISTS (SELECT 1 FROM public.classrooms WHERE id = class_members.class_id AND teacher_id = auth.uid()));
 CREATE POLICY "Student views own membership" ON public.class_members FOR SELECT TO authenticated USING (user_id = auth.uid());
 CREATE POLICY "Student leaves class" ON public.class_members FOR DELETE TO authenticated USING (user_id = auth.uid());
 CREATE POLICY "Admin full access class_members" ON public.class_members FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin')) WITH CHECK (public.has_role(auth.uid(), 'admin'));
@@ -1791,7 +1783,7 @@ CREATE POLICY "Teacher manages assignments" ON public.class_assignments FOR ALL 
 CREATE POLICY "Student views class assignments" ON public.class_assignments FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.class_members WHERE class_id = class_assignments.class_id AND user_id = auth.uid()));
 
 CREATE POLICY "Student views own progress" ON public.class_assignment_progress FOR SELECT TO authenticated USING (user_id = auth.uid());
-CREATE POLICY "Teacher views all progress" ON public.class_assignment_progress FOR SELECT TO authenticated USING (public.is_classroom_teacher(class_id, auth.uid()));
+CREATE POLICY "Teacher views all progress" ON public.class_assignment_progress FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.classrooms WHERE id = class_assignment_progress.class_id AND teacher_id = auth.uid()));
 CREATE POLICY "System upsert progress" ON public.class_assignment_progress FOR ALL TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
 -- Ã¢Â”Â€Ã¢Â”Â€ 12. SKILL ANALYTICS LOGIC (UPGRADED) Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€
@@ -1804,7 +1796,7 @@ DECLARE
     v_is_correct BOOLEAN;
     v_metrics JSONB := '{}'::jsonb;
 BEGIN
-    FOR v_q IN SELECT * FROM public.exam_questions WHERE exam_id = NEW.exam_id LOOP
+    FOR v_q IN SELECT * FROM public.mock_exam_questions WHERE exam_id = NEW.exam_id LOOP
         v_user_answer := (NEW.answers->>v_q.id::text)::int;
         v_cat := COALESCE(v_q.category, 'General');
         
@@ -4195,9 +4187,11 @@ CREATE POLICY "Users manage own boss progress" ON public.user_boss_progress FOR 
 
 
 
+
 -- ------------------------------------------------------------
 -- >>> supabase/migrations/20260508211214_4d82da61-e82a-4f25-afec-21df3ca293bc.sql
 -- ------------------------------------------------------------
+
 -- ===== 00_init/00_reset.sql =====
 DROP SCHEMA IF EXISTS public CASCADE;
 CREATE SCHEMA public;
@@ -4555,9 +4549,11 @@ INSERT INTO public.achievements (id, title, description, icon, category, conditi
 ON CONFLICT (id) DO NOTHING;
 
 
+
 -- ------------------------------------------------------------
 -- >>> supabase/migrations/20260508212429_850a84e5-a123-41ae-a717-b24fbc86328f.sql
 -- ------------------------------------------------------------
+
 -- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 -- DOMAIN: LEARNING â€” Kanji, Vocab, Flashcards, Exams, AI Content
 -- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -5201,9 +5197,11 @@ CREATE INDEX IF NOT EXISTS idx_saved_sentences_user ON public.saved_sentences(us
 CREATE INDEX IF NOT EXISTS idx_favorite_videos_user ON public.favorite_videos(user_id);
 
 
+
 -- ------------------------------------------------------------
 -- >>> supabase/migrations/20260508212921_67c124ea-6bf5-45a4-b7a9-3e2784fdfc19.sql
 -- ------------------------------------------------------------
+
 -- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 -- DOMAIN: CLASSROOM & LESSONS
 -- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -5352,8 +5350,8 @@ CREATE POLICY "Teacher manages own classrooms" ON public.classrooms FOR ALL TO a
 CREATE POLICY "Members can view their classrooms" ON public.classrooms FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.class_members WHERE class_id = classrooms.id AND user_id = auth.uid()));
 CREATE POLICY "Admin full access classrooms" ON public.classrooms FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin')) WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
-CREATE POLICY "Teacher views class members" ON public.class_members FOR SELECT TO authenticated USING (public.is_classroom_teacher(class_id, auth.uid()));
-CREATE POLICY "Teacher deletes class members" ON public.class_members FOR DELETE TO authenticated USING (public.is_classroom_teacher(class_id, auth.uid()));
+CREATE POLICY "Teacher views class members" ON public.class_members FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.classrooms WHERE id = class_members.class_id AND teacher_id = auth.uid()));
+CREATE POLICY "Teacher deletes class members" ON public.class_members FOR DELETE TO authenticated USING (EXISTS (SELECT 1 FROM public.classrooms WHERE id = class_members.class_id AND teacher_id = auth.uid()));
 CREATE POLICY "Student views own membership" ON public.class_members FOR SELECT TO authenticated USING (user_id = auth.uid());
 CREATE POLICY "Student leaves class" ON public.class_members FOR DELETE TO authenticated USING (user_id = auth.uid());
 CREATE POLICY "Admin full access class_members" ON public.class_members FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin')) WITH CHECK (public.has_role(auth.uid(), 'admin'));
@@ -5362,7 +5360,7 @@ CREATE POLICY "Teacher manages assignments" ON public.class_assignments FOR ALL 
 CREATE POLICY "Student views class assignments" ON public.class_assignments FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.class_members WHERE class_id = class_assignments.class_id AND user_id = auth.uid()));
 
 CREATE POLICY "Student views own progress" ON public.class_assignment_progress FOR SELECT TO authenticated USING (user_id = auth.uid());
-CREATE POLICY "Teacher views all progress" ON public.class_assignment_progress FOR SELECT TO authenticated USING (public.is_classroom_teacher(class_id, auth.uid()));
+CREATE POLICY "Teacher views all progress" ON public.class_assignment_progress FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.classrooms WHERE id = class_assignment_progress.class_id AND teacher_id = auth.uid()));
 CREATE POLICY "System upsert progress" ON public.class_assignment_progress FOR ALL TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
 CREATE POLICY "Teacher manages own lessons" ON public.lessons FOR ALL TO authenticated USING (teacher_id = auth.uid()) WITH CHECK (teacher_id = auth.uid());
@@ -5391,7 +5389,7 @@ DECLARE
     v_is_correct BOOLEAN;
     v_metrics JSONB := '{}'::jsonb;
 BEGIN
-    FOR v_q IN SELECT * FROM public.mock_exam_questions WHERE exam_id = NEW.exam_id LOOP
+    FOR v_q IN SELECT * FROM public.exam_questions WHERE exam_id = NEW.exam_id LOOP
         v_user_answer := (NEW.answers->>v_q.id::text)::int;
         v_cat := COALESCE(v_q.category, 'General');
         IF v_user_answer IS NOT NULL THEN
@@ -5508,9 +5506,12 @@ $$;
 DROP TRIGGER IF EXISTS trg_sync_exam_to_assignment ON public.mock_exam_results;
 CREATE TRIGGER trg_sync_exam_to_assignment AFTER INSERT ON public.mock_exam_results FOR EACH ROW EXECUTE FUNCTION public.sync_exam_result_to_assignment();
 
+
+
 -- ------------------------------------------------------------
 -- >>> supabase/migrations/20260508213531_1dbdb63c-1f1a-4ab2-95ab-625b2a541047.sql
 -- ------------------------------------------------------------
+
 -- Drop existing stub if exists with old signature
 DROP FUNCTION IF EXISTS public.check_achievements(uuid, text);
 CREATE OR REPLACE FUNCTION public.check_achievements(p_user_id uuid, p_event text DEFAULT NULL)
@@ -6014,9 +6015,12 @@ END; $$;
 DROP TRIGGER IF EXISTS trg_pet_achievement_check ON public.user_pets;
 CREATE TRIGGER trg_pet_achievement_check AFTER UPDATE OF evolution_level ON public.user_pets FOR EACH ROW EXECUTE FUNCTION public.trigger_check_pet_achievements();
 
+
+
 -- ------------------------------------------------------------
 -- >>> supabase/migrations/20260508213817_90e07fd5-5e67-4117-b3df-98324236803b.sql
 -- ------------------------------------------------------------
+
 -- Part 4.2: RPG Combat & Adventure
 -- â”€â”€ 1. MATERIALS â”€â”€
 CREATE TABLE IF NOT EXISTS public.pet_materials (
@@ -6311,9 +6315,12 @@ BEGIN
 END;
 $$;
 
+
+
 -- ------------------------------------------------------------
 -- >>> supabase/migrations/20260508213927_a7f4694a-d99a-4d85-a81b-2f27a2871f45.sql
 -- ------------------------------------------------------------
+
 -- Part 4.3: PvP & Squad Goals (challenges/squad_goals tables already exist; just indexes & realtime)
 CREATE INDEX IF NOT EXISTS idx_challenges_users ON public.challenges(challenger_id, opponent_id);
 CREATE INDEX IF NOT EXISTS idx_challenges_status ON public.challenges(status);
@@ -6448,9 +6455,12 @@ FOR EACH ROW EXECUTE FUNCTION public.handle_new_message();
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.messages; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.conversations; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+
+
 -- ------------------------------------------------------------
 -- >>> supabase/migrations/20260508214059_879b5d8c-924b-4f08-ae38-a86cc0443ab1.sql
 -- ------------------------------------------------------------
+
 -- â”€â”€ PART 5.1: SECURITY & RATE LIMITS â”€â”€
 CREATE TABLE IF NOT EXISTS public.rate_limits (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -6586,9 +6596,12 @@ BEGIN
   ORDER BY total_xp DESC LIMIT 50;
 END; $$;
 
+
+
 -- ------------------------------------------------------------
 -- >>> supabase/migrations/20260508214420_824acae5-67f3-458d-a7b9-1a6cb1f5397d.sql
 -- ------------------------------------------------------------
+
 DROP FUNCTION IF EXISTS public.clone_public_deck(uuid);
 DROP FUNCTION IF EXISTS public.publish_deck(uuid, text, text);
 DROP FUNCTION IF EXISTS public.unpublish_deck(uuid);
@@ -6900,9 +6913,12 @@ CREATE POLICY "Anyone view bosses" ON public.bosses FOR SELECT USING (true);
 CREATE POLICY "Users view own boss progress" ON public.user_boss_progress FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users manage own boss progress" ON public.user_boss_progress FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
+
+
 -- ------------------------------------------------------------
 -- >>> supabase/migrations/20260508214840_44e5b7e8-575f-41de-b981-29e3990027fe.sql
 -- ------------------------------------------------------------
+
 
 -- 1. grammar_mistakes: missing columns
 ALTER TABLE public.grammar_mistakes
@@ -6994,9 +7010,11 @@ FROM public.kanji;
 GRANT SELECT ON public.kanji_details TO anon, authenticated;
 
 
+
 -- ------------------------------------------------------------
 -- >>> supabase/migrations/20260508215109_70cf1a27-b4df-41f4-9d96-b35305ad808a.sql
 -- ------------------------------------------------------------
+
 
 -- saved_vocabulary
 CREATE TABLE IF NOT EXISTS public.saved_vocabulary (
@@ -7071,9 +7089,11 @@ REVOKE EXECUTE ON FUNCTION public.get_due_flashcards_count(uuid) FROM PUBLIC, an
 GRANT EXECUTE ON FUNCTION public.get_due_flashcards_count(uuid) TO authenticated;
 
 
+
 -- ------------------------------------------------------------
 -- >>> supabase/migrations/20260508215613_5c4fc2c7-26da-49ab-9bf5-7ed0cbbda977.sql
 -- ------------------------------------------------------------
+
 -- Add mock_exam_questions table referenced by JLPTMockExam and ExamManager
 CREATE TABLE IF NOT EXISTS public.mock_exam_questions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -7132,9 +7152,11 @@ CREATE POLICY "Admin manage mock exam questions"
   WITH CHECK (public.has_role(auth.uid(), 'admin'::app_role));
 
 
+
 -- ------------------------------------------------------------
 -- >>> supabase/migrations/20260508220718_6d3b3809-eaa4-4a78-81b1-d23fbcf22d5f.sql
 -- ------------------------------------------------------------
+
 -- ============================================================
 -- PHASE 1.1 â€” WEAKNESS HEATMAP
 -- ============================================================
@@ -7405,9 +7427,11 @@ REVOKE EXECUTE ON FUNCTION public.get_experiment_funnel(text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.get_experiment_funnel(text) TO authenticated;
 
 
+
 -- ------------------------------------------------------------
 -- >>> supabase/migrations/20260508221248_719905a9-3470-4376-a6e8-3af51affc075.sql
 -- ------------------------------------------------------------
+
 
 CREATE TABLE IF NOT EXISTS public.user_weakness_patterns (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -7507,9 +7531,11 @@ END;
 $$;
 
 
+
 -- ------------------------------------------------------------
 -- >>> supabase/migrations/20260508221816_e2ca5968-caff-449d-b1c8-044de89a4ae2.sql
 -- ------------------------------------------------------------
+
 
 CREATE TABLE IF NOT EXISTS public.listening_exercises (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -7570,9 +7596,11 @@ CREATE POLICY "ula_delete_own" ON public.user_listening_attempts
   FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
 
+
 -- ------------------------------------------------------------
 -- >>> supabase/migrations/20260508222318_fc55327b-99ac-4686-aee6-c459fb8658df.sql
 -- ------------------------------------------------------------
+
 
 -- Reader articles
 CREATE TABLE IF NOT EXISTS public.reader_articles (
@@ -7694,9 +7722,11 @@ END;
 $$;
 
 
+
 -- ------------------------------------------------------------
 -- >>> supabase/migrations/20260508224945_8f267dd4-ec20-4cbf-b0d5-009351660dde.sql
 -- ------------------------------------------------------------
+
 -- 1. Cáº¥p láº¡i quyá»n báº£ng cho cÃ¡c role PostgREST (RLS váº«n kiá»ƒm soÃ¡t á»Ÿ má»©c row)
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 
@@ -7729,9 +7759,12 @@ TO authenticated
 USING (public.has_role(auth.uid(), 'admin'))
 WITH CHECK (public.has_role(auth.uid(), 'admin'));
 
+
+
 -- ------------------------------------------------------------
 -- >>> supabase/migrations/20260508231312_9b7e2ca0-2176-4e50-8a1a-65f66f857c62.sql
 -- ------------------------------------------------------------
+
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS onboarded boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS target_jlpt_level text,
@@ -7743,18 +7776,24 @@ COMMENT ON COLUMN public.profiles.target_jlpt_level IS 'Má»¥c tiÃªu JLPT mo
 COMMENT ON COLUMN public.profiles.daily_goal_minutes IS 'Má»¥c tiÃªu sá»‘ phÃºt há»c má»—i ngÃ y';
 COMMENT ON COLUMN public.profiles.learning_goal IS 'LÃ½ do há»c (work, travel, anime, exam, culture, other)';
 
+
+
 -- ------------------------------------------------------------
 -- >>> supabase/migrations/20260508232910_dcb5ee9a-317f-44cd-9a9a-21a6e066fe7d.sql
 -- ------------------------------------------------------------
+
 -- Drop parent dashboard policy on profiles if it exists
 DROP POLICY IF EXISTS "Parents can view linked student profiles" ON public.profiles;
 
 -- Drop the parent_student_links table (cascades policies + indexes)
 DROP TABLE IF EXISTS public.parent_student_links CASCADE;
 
+
+
 -- ------------------------------------------------------------
 -- >>> supabase/migrations/20260508233431_ecb0e029-86ef-4293-a7be-869eede84004.sql
 -- ------------------------------------------------------------
+
 -- Äáº£m báº£o cÃ¡c thay Ä‘á»•i Ä‘Æ°á»£c phÃ¡t báº£n Ä‘áº§y Ä‘á»§ (gá»­i cáº£ OLD row khi UPDATE/DELETE)
 ALTER TABLE public.class_assignments REPLICA IDENTITY FULL;
 ALTER TABLE public.class_assignment_progress REPLICA IDENTITY FULL;
@@ -7786,15 +7825,154 @@ BEGIN
   END LOOP;
 END $$;
 
+
+
+-- ------------------------------------------------------------
+-- >>> supabase/migrations/20260509000000_lesson_system.sql
+-- ------------------------------------------------------------
+
+
+-- Create lesson types enum
+DO $$ BEGIN
+    CREATE TYPE lesson_type AS ENUM ('presentation', 'assessment', 'video', 'paragraph');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- Create lesson status enum
+DO $$ BEGIN
+    CREATE TYPE lesson_status AS ENUM ('draft', 'published');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- Create Lessons table
+CREATE TABLE IF NOT EXISTS public.lessons (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    teacher_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    description TEXT,
+    type lesson_type DEFAULT 'presentation',
+    status lesson_status DEFAULT 'draft',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Ensure columns exist if table was created previously without them
+ALTER TABLE public.lessons ADD COLUMN IF NOT EXISTS type lesson_type DEFAULT 'presentation';
+ALTER TABLE public.lessons ADD COLUMN IF NOT EXISTS status lesson_status DEFAULT 'draft';
+
+-- Create Lesson Slides table
+CREATE TABLE IF NOT EXISTS public.lesson_slides (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    lesson_id UUID NOT NULL REFERENCES public.lessons(id) ON DELETE CASCADE,
+    order_index INTEGER NOT NULL,
+    slide_type TEXT DEFAULT 'content', -- match PresentationViewer.tsx
+    title TEXT,
+    body TEXT,         -- match PresentationViewer.tsx
+    image_url TEXT,    -- match PresentationViewer.tsx
+    image_caption TEXT, -- match PresentationViewer.tsx
+    question_text TEXT,
+    options TEXT[],    -- array of strings
+    correct_index INTEGER,
+    explanation TEXT,
+    settings JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Ensure columns exist if table was created previously without them
+ALTER TABLE public.lesson_slides ADD COLUMN IF NOT EXISTS slide_type TEXT DEFAULT 'content';
+ALTER TABLE public.lesson_slides ADD COLUMN IF NOT EXISTS title TEXT;
+ALTER TABLE public.lesson_slides ADD COLUMN IF NOT EXISTS body TEXT;
+ALTER TABLE public.lesson_slides ADD COLUMN IF NOT EXISTS image_url TEXT;
+ALTER TABLE public.lesson_slides ADD COLUMN IF NOT EXISTS image_caption TEXT;
+ALTER TABLE public.lesson_slides ADD COLUMN IF NOT EXISTS question_text TEXT;
+ALTER TABLE public.lesson_slides ADD COLUMN IF NOT EXISTS options TEXT[];
+ALTER TABLE public.lesson_slides ADD COLUMN IF NOT EXISTS correct_index INTEGER;
+ALTER TABLE public.lesson_slides ADD COLUMN IF NOT EXISTS explanation TEXT;
+ALTER TABLE public.lesson_slides ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}';
+
+-- Create Lesson Progress table (for students)
+CREATE TABLE IF NOT EXISTS public.lesson_progress (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    lesson_id UUID NOT NULL REFERENCES public.lessons(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    last_slide_index INTEGER DEFAULT 0,
+    answers JSONB DEFAULT '{}',
+    completed_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(lesson_id, user_id)
+);
+
+-- Enable RLS
+ALTER TABLE public.lessons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.lesson_slides ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.lesson_progress ENABLE ROW LEVEL SECURITY;
+
+-- Policies for lessons
+CREATE POLICY "Teachers can manage their own lessons"
+ON public.lessons
+FOR ALL
+USING (auth.uid() = teacher_id);
+
+CREATE POLICY "Everyone can view published lessons"
+ON public.lessons
+FOR SELECT
+USING (status = 'published');
+
+-- Policies for lesson_slides
+CREATE POLICY "Teachers can manage slides of their lessons"
+ON public.lesson_slides
+FOR ALL
+USING (EXISTS (
+    SELECT 1 FROM public.lessons
+    WHERE id = lesson_slides.lesson_id AND teacher_id = auth.uid()
+));
+
+CREATE POLICY "Everyone can view slides of published lessons"
+ON public.lesson_slides
+FOR SELECT
+USING (EXISTS (
+    SELECT 1 FROM public.lessons
+    WHERE id = lesson_slides.lesson_id AND status = 'published'
+));
+
+-- Policies for lesson_progress
+CREATE POLICY "Users can manage their own progress"
+ON public.lesson_progress
+FOR ALL
+USING (auth.uid() = user_id);
+
+-- Function to handle updated_at
+CREATE OR REPLACE FUNCTION handle_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER trigger_handle_updated_at
+BEFORE UPDATE ON public.lessons
+FOR EACH ROW EXECUTE PROCEDURE handle_updated_at();
+
+CREATE TRIGGER trigger_handle_progress_updated_at
+BEFORE UPDATE ON public.lesson_progress
+FOR EACH ROW EXECUTE PROCEDURE handle_updated_at();
+
+
+
 -- ------------------------------------------------------------
 -- >>> supabase/migrations/20260509002918_2c5f5dea-9c53-4484-8faf-ab12ca5df0a6.sql
 -- ------------------------------------------------------------
+
 -- Add user_id to reading_passages for personal vs system passages
 ALTER TABLE public.reading_passages
   ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
 
 CREATE INDEX IF NOT EXISTS idx_reading_passages_user_id ON public.reading_passages(user_id);
 
+-- Refresh RLS policies
 DROP POLICY IF EXISTS "Anyone read passages" ON public.reading_passages;
 DROP POLICY IF EXISTS "Read system or own passages" ON public.reading_passages;
 DROP POLICY IF EXISTS "Insert own passages" ON public.reading_passages;
@@ -7820,21 +7998,87 @@ CREATE POLICY "Delete own passages"
   ON public.reading_passages FOR DELETE
   USING (user_id = auth.uid() OR public.has_role(auth.uid(), 'admin'));
 
--- ============================================================================
--- SECTION: Admin & Analysis Framework (added 2026-05-09)
--- Idempotent. Safe to re-run during full schema reset.
--- Includes: shared trigger fn, pitch_accent_overrides, analysis_telemetry,
--- analysis_history versioning + dedupe, admin auto-grant trigger,
--- admin telemetry view, purge function, seed admin backfill.
--- ============================================================================
 
--- Shared updated_at trigger function -----------------------------------------
+
+-- ------------------------------------------------------------
+-- >>> supabase/migrations/20260509010000_curriculum_system.sql
+-- ------------------------------------------------------------
+
+
+-- Curriculum Levels (N5, N4, etc.)
+CREATE TABLE IF NOT EXISTS public.curriculum_levels (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code TEXT NOT NULL UNIQUE, -- 'N5', 'N4', etc.
+    title TEXT NOT NULL,
+    description TEXT,
+    xp_required INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Curriculum Units (Unit 1, Unit 2...)
+CREATE TABLE IF NOT EXISTS public.curriculum_units (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    level_id UUID NOT NULL REFERENCES public.curriculum_levels(id) ON DELETE CASCADE,
+    order_index INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Curriculum Items (Sub-tasks inside a Unit)
+CREATE TABLE IF NOT EXISTS public.curriculum_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    unit_id UUID NOT NULL REFERENCES public.curriculum_units(id) ON DELETE CASCADE,
+    order_index INTEGER NOT NULL,
+    type TEXT NOT NULL, -- 'vocabulary', 'grammar', 'listening', 'assignment', 'video'
+    title TEXT NOT NULL,
+    content_link TEXT, -- Link to specific vocabulary set, grammar ID, or lesson ID
+    is_required BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Enable RLS
+ALTER TABLE public.curriculum_levels ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.curriculum_units ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.curriculum_items ENABLE ROW LEVEL SECURITY;
+
+-- Policies (Public can view, Admins/Teachers can manage)
+CREATE POLICY "Public can view curriculum levels" ON public.curriculum_levels FOR SELECT USING (true);
+CREATE POLICY "Public can view curriculum units" ON public.curriculum_units FOR SELECT USING (true);
+CREATE POLICY "Public can view curriculum items" ON public.curriculum_items FOR SELECT USING (true);
+
+-- Insert initial N5 Level
+INSERT INTO public.curriculum_levels (id, code, title, description, xp_required)
+VALUES ('550e8400-e29b-41d4-a716-446655440000', 'N5', 'JLPT N5 - SÆ¡ cáº¥p 1', 'HÃ nh trÃ¬nh báº¯t Ä‘áº§u tá»« nhá»¯ng Ä‘iá»u cÆ¡ báº£n nháº¥t. LÃ m quen vá»›i báº£ng chá»¯ cÃ¡i vÃ  cÃ¡c máº«u cÃ¢u sÆ¡ Ä‘áº³ng.', 0)
+ON CONFLICT (code) DO UPDATE SET title = EXCLUDED.title, description = EXCLUDED.description;
+
+-- Insert Unit 1 for N5
+INSERT INTO public.curriculum_units (id, level_id, order_index, title, description)
+VALUES ('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440000', 1, 'Unit 1: Lá»i chÃ o vÃ  Giá»›i thiá»‡u', 'Há»c cÃ¡ch chÃ o há»i, giá»›i thiá»‡u báº£n thÃ¢n vÃ  ngÆ°á»i khÃ¡c.')
+ON CONFLICT DO NOTHING;
+
+-- Insert Items for Unit 1
+INSERT INTO public.curriculum_items (unit_id, order_index, type, title, content_link)
+VALUES 
+('550e8400-e29b-41d4-a716-446655440001', 1, 'vocabulary', 'Tá»« vá»±ng & Kanji', '/vocabulary?level=N5&unit=1'),
+('550e8400-e29b-41d4-a716-446655440001', 2, 'grammar', 'Ngá»¯ phÃ¡p: ~ wa ~ desu', '/grammar?level=N5&unit=1'),
+('550e8400-e29b-41d4-a716-446655440001', 3, 'listening', 'Luyá»‡n nghe: Giá»›i thiá»‡u', '/listening-lab?unit=1'),
+('550e8400-e29b-41d4-a716-446655440001', 4, 'assignment', 'BÃ i táº­p Unit 1', '/quiz?unit=1')
+ON CONFLICT DO NOTHING;
+
+-- Trigger for ordering (Optional, for now manually managed)
+
+
+
+-- ------------------------------------------------------------
+-- >>> supabase/migrations/20260509012357_915bfd20-7b0d-4b47-9598-c39029690cb8.sql
+-- ------------------------------------------------------------
+
+
 CREATE OR REPLACE FUNCTION public.set_updated_at_now()
-RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
-BEGIN NEW.updated_at = now(); RETURN NEW; END;
-$$;
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN NEW.updated_at = now(); RETURN NEW; END; $$;
 
--- pitch_accent_overrides (Layer 0 admin overrides) ---------------------------
 CREATE TABLE IF NOT EXISTS public.pitch_accent_overrides (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   word text NOT NULL,
@@ -7849,25 +8093,12 @@ CREATE TABLE IF NOT EXISTS public.pitch_accent_overrides (
 );
 CREATE INDEX IF NOT EXISTS idx_pao_word ON public.pitch_accent_overrides (word);
 ALTER TABLE public.pitch_accent_overrides ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can read pitch overrides" ON public.pitch_accent_overrides FOR SELECT USING (true);
+CREATE POLICY "Admins can insert pitch overrides" ON public.pitch_accent_overrides FOR INSERT TO authenticated WITH CHECK (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins can update pitch overrides" ON public.pitch_accent_overrides FOR UPDATE TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins can delete pitch overrides" ON public.pitch_accent_overrides FOR DELETE TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE TRIGGER trg_pao_updated_at BEFORE UPDATE ON public.pitch_accent_overrides FOR EACH ROW EXECUTE FUNCTION public.set_updated_at_now();
 
-DROP POLICY IF EXISTS "Anyone can read pitch overrides" ON public.pitch_accent_overrides;
-CREATE POLICY "Anyone can read pitch overrides" ON public.pitch_accent_overrides
-  FOR SELECT USING (true);
-DROP POLICY IF EXISTS "Admins can insert pitch overrides" ON public.pitch_accent_overrides;
-CREATE POLICY "Admins can insert pitch overrides" ON public.pitch_accent_overrides
-  FOR INSERT TO authenticated WITH CHECK (public.has_role(auth.uid(), 'admin'));
-DROP POLICY IF EXISTS "Admins can update pitch overrides" ON public.pitch_accent_overrides;
-CREATE POLICY "Admins can update pitch overrides" ON public.pitch_accent_overrides
-  FOR UPDATE TO authenticated USING (public.has_role(auth.uid(), 'admin'));
-DROP POLICY IF EXISTS "Admins can delete pitch overrides" ON public.pitch_accent_overrides;
-CREATE POLICY "Admins can delete pitch overrides" ON public.pitch_accent_overrides
-  FOR DELETE TO authenticated USING (public.has_role(auth.uid(), 'admin'));
-
-DROP TRIGGER IF EXISTS trg_pao_updated_at ON public.pitch_accent_overrides;
-CREATE TRIGGER trg_pao_updated_at BEFORE UPDATE ON public.pitch_accent_overrides
-  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at_now();
-
--- analysis_telemetry ---------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.analysis_telemetry (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -7879,56 +8110,67 @@ CREATE TABLE IF NOT EXISTS public.analysis_telemetry (
   meta jsonb DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_telemetry_feature_event
-  ON public.analysis_telemetry (feature, event, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_telemetry_feature_event ON public.analysis_telemetry (feature, event, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_telemetry_word ON public.analysis_telemetry (word);
 ALTER TABLE public.analysis_telemetry ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can insert telemetry" ON public.analysis_telemetry FOR INSERT TO anon, authenticated WITH CHECK (true);
+CREATE POLICY "Admins can read telemetry" ON public.analysis_telemetry FOR SELECT TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins can delete telemetry" ON public.analysis_telemetry FOR DELETE TO authenticated USING (public.has_role(auth.uid(), 'admin'));
 
-DROP POLICY IF EXISTS "Anyone can insert telemetry" ON public.analysis_telemetry;
-CREATE POLICY "Anyone can insert telemetry" ON public.analysis_telemetry
-  FOR INSERT TO anon, authenticated WITH CHECK (true);
-DROP POLICY IF EXISTS "Admins can read telemetry" ON public.analysis_telemetry;
-CREATE POLICY "Admins can read telemetry" ON public.analysis_telemetry
-  FOR SELECT TO authenticated USING (public.has_role(auth.uid(), 'admin'));
-DROP POLICY IF EXISTS "Admins can delete telemetry" ON public.analysis_telemetry;
-CREATE POLICY "Admins can delete telemetry" ON public.analysis_telemetry
-  FOR DELETE TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+ALTER TABLE public.analysis_history ADD COLUMN IF NOT EXISTS schema_version int NOT NULL DEFAULT 1;
+CREATE INDEX IF NOT EXISTS idx_analysis_history_schema_version ON public.analysis_history (schema_version);
 
--- analysis_history: schema_version + dedupe ----------------------------------
-ALTER TABLE public.analysis_history
-  ADD COLUMN IF NOT EXISTS schema_version int NOT NULL DEFAULT 1;
-CREATE INDEX IF NOT EXISTS idx_analysis_history_schema_version
-  ON public.analysis_history (schema_version);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_analysis_history_user_content_ver
-  ON public.analysis_history (user_id, md5(content), schema_version);
-CREATE INDEX IF NOT EXISTS idx_analysis_history_user_ver_created
-  ON public.analysis_history (user_id, schema_version, created_at DESC);
-
--- Auto-grant admin to seed emails on signup ----------------------------------
 CREATE OR REPLACE FUNCTION public.auto_grant_admin_to_seed_emails()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
-  IF NEW.email IN ('phamdjj6@gmail.com', 'phamdjjd6@gmail.com') THEN
-    INSERT INTO public.user_roles (user_id, role)
-    VALUES (NEW.id, 'admin'::app_role)
+  IF NEW.email IN ('phamdjj6@gmail.com') THEN
+    INSERT INTO public.user_roles (user_id, role) VALUES (NEW.id, 'admin'::app_role)
     ON CONFLICT (user_id, role) DO NOTHING;
   END IF;
   RETURN NEW;
 END; $$;
 
 DROP TRIGGER IF EXISTS trg_auto_grant_admin ON auth.users;
-CREATE TRIGGER trg_auto_grant_admin
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.auto_grant_admin_to_seed_emails();
+CREATE TRIGGER trg_auto_grant_admin AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.auto_grant_admin_to_seed_emails();
 
--- Backfill admin role for seed emails (if users already exist) ---------------
+
+
+-- ------------------------------------------------------------
+-- >>> supabase/migrations/20260509012724_7305c149-dc8f-42bd-bbfd-c2ffefc4506d.sql
+-- ------------------------------------------------------------
+
+
+CREATE OR REPLACE FUNCTION public.auto_grant_admin_to_seed_emails()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NEW.email IN ('phamdjj6@gmail.com', 'phamdjjd6@gmail.com') THEN
+    INSERT INTO public.user_roles (user_id, role) VALUES (NEW.id, 'admin'::app_role)
+    ON CONFLICT (user_id, role) DO NOTHING;
+  END IF;
+  RETURN NEW;
+END; $$;
+
+
+
+-- ------------------------------------------------------------
+-- >>> supabase/migrations/20260509014048_36f9a787-347c-4877-8652-01c7fd98f67e.sql
+-- ------------------------------------------------------------
+
+
+-- 1. analysis_history: dedupe + tÄƒng tá»‘c cache lookup
+CREATE UNIQUE INDEX IF NOT EXISTS uq_analysis_history_user_content_ver
+  ON public.analysis_history (user_id, md5(content), schema_version);
+CREATE INDEX IF NOT EXISTS idx_analysis_history_user_ver_created
+  ON public.analysis_history (user_id, schema_version, created_at DESC);
+
+-- 2. Backfill admin cho 2 email seed náº¿u user Ä‘Ã£ tá»“n táº¡i trÆ°á»›c trigger
 INSERT INTO public.user_roles (user_id, role)
 SELECT u.id, 'admin'::app_role
 FROM auth.users u
 WHERE u.email IN ('phamdjj6@gmail.com', 'phamdjjd6@gmail.com')
 ON CONFLICT (user_id, role) DO NOTHING;
 
--- Admin telemetry top-misses view (7-day rolling) ----------------------------
+-- 3. View aggregate cho /admin/telemetry â€” top misses 7 ngÃ y
 CREATE OR REPLACE VIEW public.admin_telemetry_top_misses
 WITH (security_invoker = true) AS
 SELECT
@@ -7946,11 +8188,15 @@ GROUP BY feature, word, reading, reason
 ORDER BY miss_count DESC;
 
 COMMENT ON VIEW public.admin_telemetry_top_misses IS
-  'Admin-only (RLS via underlying table). 7-day rolling aggregate of lookup misses.';
+  'Admin-only view (RLS via underlying table). 7-day rolling aggregate of lookup misses.';
 
--- purge_old_telemetry: admin-only cleanup ------------------------------------
+-- 4. HÃ m purge telemetry cÅ© â€” chá»‰ admin gá»i Ä‘Æ°á»£c
 CREATE OR REPLACE FUNCTION public.purge_old_telemetry(p_days int DEFAULT 30)
-RETURNS int LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+RETURNS int
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 DECLARE v_deleted int;
 BEGIN
   IF NOT public.has_role(auth.uid(), 'admin') THEN
@@ -7972,413 +8218,70 @@ $$;
 REVOKE ALL ON FUNCTION public.purge_old_telemetry(int) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.purge_old_telemetry(int) TO authenticated;
 
--- END SECTION: Admin & Analysis Framework ------------------------------------
 
- 
- - -   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
- 
- - -   > > >   s u p a b a s e / m i g r a t i o n s / 2 0 2 6 0 5 0 9 0 1 2 3 5 7 _ 9 1 5 b f d 2 0 - 7 b 0 d - 4 b 4 7 - 9 5 9 8 - c 3 9 0 2 9 6 9 0 c b 8 . s q l 
- 
- - -   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
- 
- 
- 
- C R E A T E   O R   R E P L A C E   F U N C T I O N   p u b l i c . s e t _ u p d a t e d _ a t _ n o w ( ) 
- 
- R E T U R N S   t r i g g e r   L A N G U A G E   p l p g s q l   A S   $ $ 
- 
- B E G I N   N E W . u p d a t e d _ a t   =   n o w ( ) ;   R E T U R N   N E W ;   E N D ;   $ $ ; 
- 
- 
- 
- C R E A T E   T A B L E   I F   N O T   E X I S T S   p u b l i c . p i t c h _ a c c e n t _ o v e r r i d e s   ( 
- 
-     i d   u u i d   P R I M A R Y   K E Y   D E F A U L T   g e n _ r a n d o m _ u u i d ( ) , 
- 
-     w o r d   t e x t   N O T   N U L L , 
- 
-     r e a d i n g   t e x t   N O T   N U L L , 
- 
-     d o w n s t e p   i n t   N O T   N U L L , 
- 
-     a l t e r n a t e s   i n t [ ] , 
- 
-     n o t e   t e x t , 
- 
-     c r e a t e d _ b y   u u i d   R E F E R E N C E S   a u t h . u s e r s ( i d )   O N   D E L E T E   S E T   N U L L , 
- 
-     c r e a t e d _ a t   t i m e s t a m p t z   N O T   N U L L   D E F A U L T   n o w ( ) , 
- 
-     u p d a t e d _ a t   t i m e s t a m p t z   N O T   N U L L   D E F A U L T   n o w ( ) , 
- 
-     U N I Q U E   ( w o r d ,   r e a d i n g ) 
- 
- ) ; 
- 
- C R E A T E   I N D E X   I F   N O T   E X I S T S   i d x _ p a o _ w o r d   O N   p u b l i c . p i t c h _ a c c e n t _ o v e r r i d e s   ( w o r d ) ; 
- 
- A L T E R   T A B L E   p u b l i c . p i t c h _ a c c e n t _ o v e r r i d e s   E N A B L E   R O W   L E V E L   S E C U R I T Y ; 
- 
- C R E A T E   P O L I C Y   " A n y o n e   c a n   r e a d   p i t c h   o v e r r i d e s "   O N   p u b l i c . p i t c h _ a c c e n t _ o v e r r i d e s   F O R   S E L E C T   U S I N G   ( t r u e ) ; 
- 
- C R E A T E   P O L I C Y   " A d m i n s   c a n   i n s e r t   p i t c h   o v e r r i d e s "   O N   p u b l i c . p i t c h _ a c c e n t _ o v e r r i d e s   F O R   I N S E R T   T O   a u t h e n t i c a t e d   W I T H   C H E C K   ( p u b l i c . h a s _ r o l e ( a u t h . u i d ( ) ,   ' a d m i n ' ) ) ; 
- 
- C R E A T E   P O L I C Y   " A d m i n s   c a n   u p d a t e   p i t c h   o v e r r i d e s "   O N   p u b l i c . p i t c h _ a c c e n t _ o v e r r i d e s   F O R   U P D A T E   T O   a u t h e n t i c a t e d   U S I N G   ( p u b l i c . h a s _ r o l e ( a u t h . u i d ( ) ,   ' a d m i n ' ) ) ; 
- 
- C R E A T E   P O L I C Y   " A d m i n s   c a n   d e l e t e   p i t c h   o v e r r i d e s "   O N   p u b l i c . p i t c h _ a c c e n t _ o v e r r i d e s   F O R   D E L E T E   T O   a u t h e n t i c a t e d   U S I N G   ( p u b l i c . h a s _ r o l e ( a u t h . u i d ( ) ,   ' a d m i n ' ) ) ; 
- 
- C R E A T E   T R I G G E R   t r g _ p a o _ u p d a t e d _ a t   B E F O R E   U P D A T E   O N   p u b l i c . p i t c h _ a c c e n t _ o v e r r i d e s   F O R   E A C H   R O W   E X E C U T E   F U N C T I O N   p u b l i c . s e t _ u p d a t e d _ a t _ n o w ( ) ; 
- 
- 
- 
- C R E A T E   T A B L E   I F   N O T   E X I S T S   p u b l i c . a n a l y s i s _ t e l e m e t r y   ( 
- 
-     i d   u u i d   P R I M A R Y   K E Y   D E F A U L T   g e n _ r a n d o m _ u u i d ( ) , 
- 
-     u s e r _ i d   u u i d   R E F E R E N C E S   a u t h . u s e r s ( i d )   O N   D E L E T E   S E T   N U L L , 
- 
-     f e a t u r e   t e x t   N O T   N U L L , 
- 
-     e v e n t   t e x t   N O T   N U L L , 
- 
-     r e a s o n   t e x t , 
- 
-     w o r d   t e x t , 
- 
-     r e a d i n g   t e x t , 
- 
-     m e t a   j s o n b   D E F A U L T   ' { } ' : : j s o n b , 
- 
-     c r e a t e d _ a t   t i m e s t a m p t z   N O T   N U L L   D E F A U L T   n o w ( ) 
- 
- ) ; 
- 
- C R E A T E   I N D E X   I F   N O T   E X I S T S   i d x _ t e l e m e t r y _ f e a t u r e _ e v e n t   O N   p u b l i c . a n a l y s i s _ t e l e m e t r y   ( f e a t u r e ,   e v e n t ,   c r e a t e d _ a t   D E S C ) ; 
- 
- C R E A T E   I N D E X   I F   N O T   E X I S T S   i d x _ t e l e m e t r y _ w o r d   O N   p u b l i c . a n a l y s i s _ t e l e m e t r y   ( w o r d ) ; 
- 
- A L T E R   T A B L E   p u b l i c . a n a l y s i s _ t e l e m e t r y   E N A B L E   R O W   L E V E L   S E C U R I T Y ; 
- 
- C R E A T E   P O L I C Y   " A n y o n e   c a n   i n s e r t   t e l e m e t r y "   O N   p u b l i c . a n a l y s i s _ t e l e m e t r y   F O R   I N S E R T   T O   a n o n ,   a u t h e n t i c a t e d   W I T H   C H E C K   ( t r u e ) ; 
- 
- C R E A T E   P O L I C Y   " A d m i n s   c a n   r e a d   t e l e m e t r y "   O N   p u b l i c . a n a l y s i s _ t e l e m e t r y   F O R   S E L E C T   T O   a u t h e n t i c a t e d   U S I N G   ( p u b l i c . h a s _ r o l e ( a u t h . u i d ( ) ,   ' a d m i n ' ) ) ; 
- 
- C R E A T E   P O L I C Y   " A d m i n s   c a n   d e l e t e   t e l e m e t r y "   O N   p u b l i c . a n a l y s i s _ t e l e m e t r y   F O R   D E L E T E   T O   a u t h e n t i c a t e d   U S I N G   ( p u b l i c . h a s _ r o l e ( a u t h . u i d ( ) ,   ' a d m i n ' ) ) ; 
- 
- 
- 
- A L T E R   T A B L E   p u b l i c . a n a l y s i s _ h i s t o r y   A D D   C O L U M N   I F   N O T   E X I S T S   s c h e m a _ v e r s i o n   i n t   N O T   N U L L   D E F A U L T   1 ; 
- 
- C R E A T E   I N D E X   I F   N O T   E X I S T S   i d x _ a n a l y s i s _ h i s t o r y _ s c h e m a _ v e r s i o n   O N   p u b l i c . a n a l y s i s _ h i s t o r y   ( s c h e m a _ v e r s i o n ) ; 
- 
- 
- 
- C R E A T E   O R   R E P L A C E   F U N C T I O N   p u b l i c . a u t o _ g r a n t _ a d m i n _ t o _ s e e d _ e m a i l s ( ) 
- 
- R E T U R N S   t r i g g e r   L A N G U A G E   p l p g s q l   S E C U R I T Y   D E F I N E R   S E T   s e a r c h _ p a t h   =   p u b l i c   A S   $ $ 
- 
- B E G I N 
- 
-     I F   N E W . e m a i l   I N   ( ' p h a m d j j 6 @ g m a i l . c o m ' )   T H E N 
- 
-         I N S E R T   I N T O   p u b l i c . u s e r _ r o l e s   ( u s e r _ i d ,   r o l e )   V A L U E S   ( N E W . i d ,   ' a d m i n ' : : a p p _ r o l e ) 
- 
-         O N   C O N F L I C T   ( u s e r _ i d ,   r o l e )   D O   N O T H I N G ; 
- 
-     E N D   I F ; 
- 
-     R E T U R N   N E W ; 
- 
- E N D ;   $ $ ; 
- 
- 
- 
- D R O P   T R I G G E R   I F   E X I S T S   t r g _ a u t o _ g r a n t _ a d m i n   O N   a u t h . u s e r s ; 
- 
- C R E A T E   T R I G G E R   t r g _ a u t o _ g r a n t _ a d m i n   A F T E R   I N S E R T   O N   a u t h . u s e r s   F O R   E A C H   R O W   E X E C U T E   F U N C T I O N   p u b l i c . a u t o _ g r a n t _ a d m i n _ t o _ s e e d _ e m a i l s ( ) ; 
- 
- 
- 
- - -   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
- 
- - -   > > >   s u p a b a s e / m i g r a t i o n s / 2 0 2 6 0 5 0 9 0 1 2 7 2 4 _ 7 3 0 5 c 1 4 9 - d c 8 f - 4 2 b d - b b f d - c 2 f f e f c 4 5 0 6 d . s q l 
- 
- - -   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
- 
- 
- 
- C R E A T E   O R   R E P L A C E   F U N C T I O N   p u b l i c . a u t o _ g r a n t _ a d m i n _ t o _ s e e d _ e m a i l s ( ) 
- 
- R E T U R N S   t r i g g e r   L A N G U A G E   p l p g s q l   S E C U R I T Y   D E F I N E R   S E T   s e a r c h _ p a t h   =   p u b l i c   A S   $ $ 
- 
- B E G I N 
- 
-     I F   N E W . e m a i l   I N   ( ' p h a m d j j 6 @ g m a i l . c o m ' ,   ' p h a m d j j d 6 @ g m a i l . c o m ' )   T H E N 
- 
-         I N S E R T   I N T O   p u b l i c . u s e r _ r o l e s   ( u s e r _ i d ,   r o l e )   V A L U E S   ( N E W . i d ,   ' a d m i n ' : : a p p _ r o l e ) 
- 
-         O N   C O N F L I C T   ( u s e r _ i d ,   r o l e )   D O   N O T H I N G ; 
- 
-     E N D   I F ; 
- 
-     R E T U R N   N E W ; 
- 
- E N D ;   $ $ ; 
- 
- 
- 
- - -   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
- 
- - -   > > >   s u p a b a s e / m i g r a t i o n s / 2 0 2 6 0 5 0 9 0 1 4 0 4 8 _ 3 6 f 9 a 7 8 7 - 3 4 7 c - 4 8 7 7 - 8 6 5 2 - 0 1 c 7 f d 9 8 f 6 7 e . s q l 
- 
- - -   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
- 
- 
- 
- - -   1 .   a n a l y s i s _ h i s t o r y :   d e d u p e   +   t Ä ’n g   t á »  c   c a c h e   l o o k u p 
- 
- C R E A T E   U N I Q U E   I N D E X   I F   N O T   E X I S T S   u q _ a n a l y s i s _ h i s t o r y _ u s e r _ c o n t e n t _ v e r 
- 
-     O N   p u b l i c . a n a l y s i s _ h i s t o r y   ( u s e r _ i d ,   m d 5 ( c o n t e n t ) ,   s c h e m a _ v e r s i o n ) ; 
- 
- C R E A T E   I N D E X   I F   N O T   E X I S T S   i d x _ a n a l y s i s _ h i s t o r y _ u s e r _ v e r _ c r e a t e d 
- 
-     O N   p u b l i c . a n a l y s i s _ h i s t o r y   ( u s e r _ i d ,   s c h e m a _ v e r s i o n ,   c r e a t e d _ a t   D E S C ) ; 
- 
- 
- 
- - -   2 .   B a c k f i l l   a d m i n   c h o   2   e m a i l   s e e d   n á º ¿ u   u s e r   Ä  Ã £   t á »  n   t á º ¡ i   t r Æ ° á » : c   t r i g g e r 
- 
- I N S E R T   I N T O   p u b l i c . u s e r _ r o l e s   ( u s e r _ i d ,   r o l e ) 
- 
- S E L E C T   u . i d ,   ' a d m i n ' : : a p p _ r o l e 
- 
- F R O M   a u t h . u s e r s   u 
- 
- W H E R E   u . e m a i l   I N   ( ' p h a m d j j 6 @ g m a i l . c o m ' ,   ' p h a m d j j d 6 @ g m a i l . c o m ' ) 
- 
- O N   C O N F L I C T   ( u s e r _ i d ,   r o l e )   D O   N O T H I N G ; 
- 
- 
- 
- - -   3 .   V i e w   a g g r e g a t e   c h o   / a d m i n / t e l e m e t r y   â ¬    t o p   m i s s e s   7   n g Ã   y 
- 
- C R E A T E   O R   R E P L A C E   V I E W   p u b l i c . a d m i n _ t e l e m e t r y _ t o p _ m i s s e s 
- 
- W I T H   ( s e c u r i t y _ i n v o k e r   =   t r u e )   A S 
- 
- S E L E C T 
- 
-     f e a t u r e , 
- 
-     w o r d , 
- 
-     r e a d i n g , 
- 
-     r e a s o n , 
- 
-     C O U N T ( * ) : : i n t   A S   m i s s _ c o u n t , 
- 
-     M A X ( c r e a t e d _ a t )   A S   l a s t _ s e e n _ a t 
- 
- F R O M   p u b l i c . a n a l y s i s _ t e l e m e t r y 
- 
- W H E R E   e v e n t   =   ' m i s s ' 
- 
-     A N D   c r e a t e d _ a t   >   n o w ( )   -   i n t e r v a l   ' 7   d a y s ' 
- 
-     A N D   w o r d   I S   N O T   N U L L 
- 
- G R O U P   B Y   f e a t u r e ,   w o r d ,   r e a d i n g ,   r e a s o n 
- 
- O R D E R   B Y   m i s s _ c o u n t   D E S C ; 
- 
- 
- 
- C O M M E N T   O N   V I E W   p u b l i c . a d m i n _ t e l e m e t r y _ t o p _ m i s s e s   I S 
- 
-     ' A d m i n - o n l y   v i e w   ( R L S   v i a   u n d e r l y i n g   t a b l e ) .   7 - d a y   r o l l i n g   a g g r e g a t e   o f   l o o k u p   m i s s e s . ' ; 
- 
- 
- 
- - -   4 .   H Ã   m   p u r g e   t e l e m e t r y   c Å ©   â ¬    c h á » 0   a d m i n   g á »  i   Ä  Æ ° á » £ c 
- 
- C R E A T E   O R   R E P L A C E   F U N C T I O N   p u b l i c . p u r g e _ o l d _ t e l e m e t r y ( p _ d a y s   i n t   D E F A U L T   3 0 ) 
- 
- R E T U R N S   i n t 
- 
- L A N G U A G E   p l p g s q l 
- 
- S E C U R I T Y   D E F I N E R 
- 
- S E T   s e a r c h _ p a t h   =   p u b l i c 
- 
- A S   $ $ 
- 
- D E C L A R E   v _ d e l e t e d   i n t ; 
- 
- B E G I N 
- 
-     I F   N O T   p u b l i c . h a s _ r o l e ( a u t h . u i d ( ) ,   ' a d m i n ' )   T H E N 
- 
-         R A I S E   E X C E P T I O N   ' F o r b i d d e n :   a d m i n   r o l e   r e q u i r e d ' ; 
- 
-     E N D   I F ; 
- 
-     I F   p _ d a y s   <   1   T H E N 
- 
-         R A I S E   E X C E P T I O N   ' p _ d a y s   m u s t   b e   > =   1 ' ; 
- 
-     E N D   I F ; 
- 
-     W I T H   d   A S   ( 
- 
-         D E L E T E   F R O M   p u b l i c . a n a l y s i s _ t e l e m e t r y 
- 
-         W H E R E   c r e a t e d _ a t   <   n o w ( )   -   ( p _ d a y s   | |   '   d a y s ' ) : : i n t e r v a l 
- 
-         R E T U R N I N G   1 
- 
-     ) 
- 
-     S E L E C T   C O U N T ( * ) : : i n t   I N T O   v _ d e l e t e d   F R O M   d ; 
- 
-     R E T U R N   v _ d e l e t e d ; 
- 
- E N D ; 
- 
- $ $ ; 
- 
- 
- 
- R E V O K E   A L L   O N   F U N C T I O N   p u b l i c . p u r g e _ o l d _ t e l e m e t r y ( i n t )   F R O M   P U B L I C ; 
- 
- G R A N T   E X E C U T E   O N   F U N C T I O N   p u b l i c . p u r g e _ o l d _ t e l e m e t r y ( i n t )   T O   a u t h e n t i c a t e d ; 
- 
- 
- 
- - -   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
- 
- - -   > > >   s u p a b a s e / m i g r a t i o n s / 2 0 2 6 0 5 0 9 0 1 5 0 2 9 _ 7 d 7 e 4 0 9 1 - 6 9 f 2 - 4 d a 7 - 8 f 4 6 - 7 f b b 9 e e 8 7 7 0 8 . s q l 
- 
- - -   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
- 
- 
- 
- - -   T a b l e   f o r   a d m i n - u p l o a d e d   d o c u m e n t s 
- 
- C R E A T E   T A B L E   I F   N O T   E X I S T S   p u b l i c . a d m i n _ d o c s   ( 
- 
-     i d   u u i d   P R I M A R Y   K E Y   D E F A U L T   g e n _ r a n d o m _ u u i d ( ) , 
- 
-     s l u g   t e x t   N O T   N U L L   U N I Q U E , 
- 
-     t i t l e   t e x t   N O T   N U L L , 
- 
-     d e s c r i p t i o n   t e x t , 
- 
-     m i m e   t e x t   N O T   N U L L   D E F A U L T   ' t e x t / m a r k d o w n ' , 
- 
-     c o n t e n t   t e x t ,                                   - -   i n l i n e   f o r   m d / t x t 
- 
-     s t o r a g e _ p a t h   t e x t ,                         - -   p a t h   i n   s e n s e i - d o c s   b u c k e t   f o r   b i n a r y 
- 
-     s i z e _ b y t e s   i n t , 
- 
-     u p l o a d e d _ b y   u u i d   R E F E R E N C E S   a u t h . u s e r s ( i d )   O N   D E L E T E   S E T   N U L L , 
- 
-     c r e a t e d _ a t   t i m e s t a m p t z   N O T   N U L L   D E F A U L T   n o w ( ) , 
- 
-     u p d a t e d _ a t   t i m e s t a m p t z   N O T   N U L L   D E F A U L T   n o w ( ) 
- 
- ) ; 
- 
- C R E A T E   I N D E X   I F   N O T   E X I S T S   i d x _ a d m i n _ d o c s _ c r e a t e d   O N   p u b l i c . a d m i n _ d o c s ( c r e a t e d _ a t   D E S C ) ; 
- 
- 
- 
- A L T E R   T A B L E   p u b l i c . a d m i n _ d o c s   E N A B L E   R O W   L E V E L   S E C U R I T Y ; 
- 
- 
- 
- D R O P   P O L I C Y   I F   E X I S T S   " A d m i n s   r e a d   a d m i n _ d o c s "       O N   p u b l i c . a d m i n _ d o c s ; 
- 
- D R O P   P O L I C Y   I F   E X I S T S   " A d m i n s   i n s e r t   a d m i n _ d o c s "   O N   p u b l i c . a d m i n _ d o c s ; 
- 
- D R O P   P O L I C Y   I F   E X I S T S   " A d m i n s   u p d a t e   a d m i n _ d o c s "   O N   p u b l i c . a d m i n _ d o c s ; 
- 
- D R O P   P O L I C Y   I F   E X I S T S   " A d m i n s   d e l e t e   a d m i n _ d o c s "   O N   p u b l i c . a d m i n _ d o c s ; 
- 
- 
- 
- C R E A T E   P O L I C Y   " A d m i n s   r e a d   a d m i n _ d o c s "       O N   p u b l i c . a d m i n _ d o c s 
- 
-     F O R   S E L E C T   T O   a u t h e n t i c a t e d   U S I N G   ( p u b l i c . h a s _ r o l e ( a u t h . u i d ( ) ,   ' a d m i n ' ) ) ; 
- 
- C R E A T E   P O L I C Y   " A d m i n s   i n s e r t   a d m i n _ d o c s "   O N   p u b l i c . a d m i n _ d o c s 
- 
-     F O R   I N S E R T   T O   a u t h e n t i c a t e d   W I T H   C H E C K   ( p u b l i c . h a s _ r o l e ( a u t h . u i d ( ) ,   ' a d m i n ' ) ) ; 
- 
- C R E A T E   P O L I C Y   " A d m i n s   u p d a t e   a d m i n _ d o c s "   O N   p u b l i c . a d m i n _ d o c s 
- 
-     F O R   U P D A T E   T O   a u t h e n t i c a t e d   U S I N G   ( p u b l i c . h a s _ r o l e ( a u t h . u i d ( ) ,   ' a d m i n ' ) ) ; 
- 
- C R E A T E   P O L I C Y   " A d m i n s   d e l e t e   a d m i n _ d o c s "   O N   p u b l i c . a d m i n _ d o c s 
- 
-     F O R   D E L E T E   T O   a u t h e n t i c a t e d   U S I N G   ( p u b l i c . h a s _ r o l e ( a u t h . u i d ( ) ,   ' a d m i n ' ) ) ; 
- 
- 
- 
- D R O P   T R I G G E R   I F   E X I S T S   t r g _ a d m i n _ d o c s _ u p d a t e d _ a t   O N   p u b l i c . a d m i n _ d o c s ; 
- 
- C R E A T E   T R I G G E R   t r g _ a d m i n _ d o c s _ u p d a t e d _ a t   B E F O R E   U P D A T E   O N   p u b l i c . a d m i n _ d o c s 
- 
-     F O R   E A C H   R O W   E X E C U T E   F U N C T I O N   p u b l i c . s e t _ u p d a t e d _ a t _ n o w ( ) ; 
- 
- 
- 
- - -   S t o r a g e   b u c k e t   ( p r i v a t e )   f o r   b i n a r y   a t t a c h m e n t s 
- 
- I N S E R T   I N T O   s t o r a g e . b u c k e t s   ( i d ,   n a m e ,   p u b l i c ) 
- 
- V A L U E S   ( ' s e n s e i - d o c s ' ,   ' s e n s e i - d o c s ' ,   f a l s e ) 
- 
- O N   C O N F L I C T   ( i d )   D O   N O T H I N G ; 
- 
- 
- 
- D R O P   P O L I C Y   I F   E X I S T S   " A d m i n s   r e a d   s e n s e i - d o c s "       O N   s t o r a g e . o b j e c t s ; 
- 
- D R O P   P O L I C Y   I F   E X I S T S   " A d m i n s   u p l o a d   s e n s e i - d o c s "   O N   s t o r a g e . o b j e c t s ; 
- 
- D R O P   P O L I C Y   I F   E X I S T S   " A d m i n s   u p d a t e   s e n s e i - d o c s "   O N   s t o r a g e . o b j e c t s ; 
- 
- D R O P   P O L I C Y   I F   E X I S T S   " A d m i n s   d e l e t e   s e n s e i - d o c s "   O N   s t o r a g e . o b j e c t s ; 
- 
- 
- 
- C R E A T E   P O L I C Y   " A d m i n s   r e a d   s e n s e i - d o c s "   O N   s t o r a g e . o b j e c t s 
- 
-     F O R   S E L E C T   T O   a u t h e n t i c a t e d 
- 
-     U S I N G   ( b u c k e t _ i d   =   ' s e n s e i - d o c s '   A N D   p u b l i c . h a s _ r o l e ( a u t h . u i d ( ) ,   ' a d m i n ' ) ) ; 
- 
- C R E A T E   P O L I C Y   " A d m i n s   u p l o a d   s e n s e i - d o c s "   O N   s t o r a g e . o b j e c t s 
- 
-     F O R   I N S E R T   T O   a u t h e n t i c a t e d 
- 
-     W I T H   C H E C K   ( b u c k e t _ i d   =   ' s e n s e i - d o c s '   A N D   p u b l i c . h a s _ r o l e ( a u t h . u i d ( ) ,   ' a d m i n ' ) ) ; 
- 
- C R E A T E   P O L I C Y   " A d m i n s   u p d a t e   s e n s e i - d o c s "   O N   s t o r a g e . o b j e c t s 
- 
-     F O R   U P D A T E   T O   a u t h e n t i c a t e d 
- 
-     U S I N G   ( b u c k e t _ i d   =   ' s e n s e i - d o c s '   A N D   p u b l i c . h a s _ r o l e ( a u t h . u i d ( ) ,   ' a d m i n ' ) ) ; 
- 
- C R E A T E   P O L I C Y   " A d m i n s   d e l e t e   s e n s e i - d o c s "   O N   s t o r a g e . o b j e c t s 
- 
-     F O R   D E L E T E   T O   a u t h e n t i c a t e d 
- 
-     U S I N G   ( b u c k e t _ i d   =   ' s e n s e i - d o c s '   A N D   p u b l i c . h a s _ r o l e ( a u t h . u i d ( ) ,   ' a d m i n ' ) ) ; 
- 
- 
+
+-- ------------------------------------------------------------
+-- >>> supabase/migrations/20260509015029_7d7e4091-69f2-4da7-8f46-7fbb9ee87708.sql
+-- ------------------------------------------------------------
+
+
+-- Table for admin-uploaded documents
+CREATE TABLE IF NOT EXISTS public.admin_docs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug text NOT NULL UNIQUE,
+  title text NOT NULL,
+  description text,
+  mime text NOT NULL DEFAULT 'text/markdown',
+  content text,                 -- inline for md/txt
+  storage_path text,            -- path in sensei-docs bucket for binary
+  size_bytes int,
+  uploaded_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_admin_docs_created ON public.admin_docs(created_at DESC);
+
+ALTER TABLE public.admin_docs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Admins read admin_docs"   ON public.admin_docs;
+DROP POLICY IF EXISTS "Admins insert admin_docs" ON public.admin_docs;
+DROP POLICY IF EXISTS "Admins update admin_docs" ON public.admin_docs;
+DROP POLICY IF EXISTS "Admins delete admin_docs" ON public.admin_docs;
+
+CREATE POLICY "Admins read admin_docs"   ON public.admin_docs
+  FOR SELECT TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins insert admin_docs" ON public.admin_docs
+  FOR INSERT TO authenticated WITH CHECK (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins update admin_docs" ON public.admin_docs
+  FOR UPDATE TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins delete admin_docs" ON public.admin_docs
+  FOR DELETE TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+
+DROP TRIGGER IF EXISTS trg_admin_docs_updated_at ON public.admin_docs;
+CREATE TRIGGER trg_admin_docs_updated_at BEFORE UPDATE ON public.admin_docs
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at_now();
+
+-- Storage bucket (private) for binary attachments
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('sensei-docs', 'sensei-docs', false)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "Admins read sensei-docs"   ON storage.objects;
+DROP POLICY IF EXISTS "Admins upload sensei-docs" ON storage.objects;
+DROP POLICY IF EXISTS "Admins update sensei-docs" ON storage.objects;
+DROP POLICY IF EXISTS "Admins delete sensei-docs" ON storage.objects;
+
+CREATE POLICY "Admins read sensei-docs" ON storage.objects
+  FOR SELECT TO authenticated
+  USING (bucket_id = 'sensei-docs' AND public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins upload sensei-docs" ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'sensei-docs' AND public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins update sensei-docs" ON storage.objects
+  FOR UPDATE TO authenticated
+  USING (bucket_id = 'sensei-docs' AND public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins delete sensei-docs" ON storage.objects
+  FOR DELETE TO authenticated
+  USING (bucket_id = 'sensei-docs' AND public.has_role(auth.uid(), 'admin'));
+
+
