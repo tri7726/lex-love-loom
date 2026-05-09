@@ -1,0 +1,522 @@
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Trophy, Timer, RotateCcw, ChevronLeft, Star, Sparkles, 
+  Target, Zap, Music, Clock, Brain
+} from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+
+interface VocabularyWord {
+  id: string;
+  word: string;
+  reading: string;
+  meaning: string;
+}
+
+interface MatchGameProps {
+  vocabulary: VocabularyWord[];
+  onUpdateMastery: (id: string, isCorrect: boolean) => void;
+  onBack: () => void;
+  onComplete?: (results: { correct: number; total: number }) => void;
+}
+
+export type MatchGameMode = 'kanji-meaning' | 'kanji-reading' | 'reading-meaning';
+
+interface MatchCard {
+  id: string;
+  content: string;
+  type: 'left' | 'right';
+  vocabId: string;
+  matched: boolean;
+}
+
+export type ChallengeLevel = 'easy' | 'normal' | 'hard';
+
+export const MatchGame: React.FC<MatchGameProps> = ({
+  vocabulary,
+  onUpdateMastery,
+  onBack,
+  onComplete,
+}) => {
+  const [mode, setMode] = useState<MatchGameMode | null>(null);
+  const [difficulty, setDifficulty] = useState<ChallengeLevel | null>(null);
+  const [cards, setCards] = useState<MatchCard[]>([]);
+  const [selectedCards, setSelectedCards] = useState<MatchCard[]>([]);
+  const [matchedPairs, setMatchedPairs] = useState<Set<string>>(new Set());
+  const [attempts, setAttempts] = useState(0);
+  const [timeElapsed, setTimeElapsed] = useState(0);
+  const [gameComplete, setGameComplete] = useState(false);
+  const [wrongMatch, setWrongMatch] = useState<string[]>([]);
+  
+  // New game mechanics
+  const [score, setScore] = useState(0);
+  const [combo, setCombo] = useState(0);
+  const [lastMatchTime, setLastMatchTime] = useState(0);
+  const [bestCombo, setBestCombo] = useState(0);
+  const [isMemoryModeToggle, setIsMemoryModeToggle] = useState(false);
+
+  const getDifficultySettings = useCallback((diff: ChallengeLevel) => {
+    const memory = isMemoryModeToggle || diff === 'hard';
+    switch(diff) {
+      case 'easy': return { pairs: 10, memory, bonus: memory ? 1.5 : 1 };
+      case 'normal': return { pairs: 14, memory, bonus: memory ? 2 : 1.5 };
+      case 'hard': return { pairs: 20, memory: true, bonus: 3 };
+      default: return { pairs: 10, memory, bonus: 1 };
+    }
+  }, [isMemoryModeToggle]);
+
+  const validVocabulary = useMemo(() => {
+    if (!mode) return [];
+    return vocabulary.filter(v => {
+      if (mode === 'kanji-reading') return v.word && v.reading;
+      if (mode === 'reading-meaning') return v.reading && v.meaning;
+      return v.word && v.meaning;
+    });
+  }, [vocabulary, mode]);
+
+  const gameWords = useMemo(() => {
+    if (!difficulty) return [];
+    const settings = getDifficultySettings(difficulty);
+    const shuffled = [...validVocabulary].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, Math.min(settings.pairs, validVocabulary.length));
+  }, [validVocabulary, difficulty, getDifficultySettings]);
+
+  const initializeGame = React.useCallback(() => {
+    if (!mode || !difficulty) return;
+    const newCards: MatchCard[] = [];
+
+    gameWords.forEach((word) => {
+      let leftContent = '', rightContent = '';
+      
+      switch(mode) {
+        case 'kanji-meaning':
+          leftContent = word.word;
+          rightContent = word.meaning;
+          break;
+        case 'kanji-reading':
+          leftContent = word.word;
+          rightContent = word.reading || '';
+          break;
+        case 'reading-meaning':
+          leftContent = word.reading || '';
+          rightContent = word.meaning;
+          break;
+      }
+
+      newCards.push({
+        id: `left-${word.id}`,
+        content: leftContent,
+        type: 'left',
+        vocabId: word.id,
+        matched: false,
+      });
+      newCards.push({
+        id: `right-${word.id}`,
+        content: rightContent,
+        type: 'right',
+        vocabId: word.id,
+        matched: false,
+      });
+    });
+
+    setCards(newCards.sort(() => Math.random() - 0.5));
+    setSelectedCards([]);
+    setMatchedPairs(new Set());
+    setAttempts(0);
+    setTimeElapsed(0);
+    setGameComplete(false);
+    setWrongMatch([]);
+    setScore(0);
+    setCombo(0);
+    setLastMatchTime(0);
+    setBestCombo(0);
+  }, [gameWords, mode, difficulty]);
+
+  useEffect(() => {
+    if (mode && difficulty) initializeGame();
+  }, [mode, difficulty, initializeGame]);
+
+  useEffect(() => {
+    if (mode && difficulty && !gameComplete && cards.length > 0) {
+      const timer = setInterval(() => {
+        setTimeElapsed((prev) => prev + 1);
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [mode, difficulty, gameComplete, cards.length]);
+
+  const handleCardClick = useCallback((card: MatchCard) => {
+    if (
+      card.matched || 
+      selectedCards.find((c) => c.id === card.id) || 
+      selectedCards.length >= 2 || 
+      wrongMatch.length > 0
+    ) return;
+
+    const newSelected = [...selectedCards, card];
+    setSelectedCards(newSelected);
+
+    if (newSelected.length === 2) {
+      setAttempts((prev) => prev + 1);
+      const [first, second] = newSelected;
+
+      if (first.vocabId === second.vocabId && first.type !== second.type) {
+        // Correct match
+        const now = Date.now();
+        const timeSinceLastMatch = now - lastMatchTime;
+        const isQuickMatch = timeSinceLastMatch < 3000;
+        
+        const newCombo = isQuickMatch ? combo + 1 : 1;
+        setCombo(newCombo);
+        setBestCombo(prev => Math.max(prev, newCombo));
+        setLastMatchTime(now);
+
+        const settings = getDifficultySettings(difficulty!);
+        const basePoints = 100 * settings.bonus;
+        const comboBonus = newCombo * 20;
+        setScore(prev => prev + basePoints + comboBonus);
+
+        const newMatchedSet = new Set([...matchedPairs, first.vocabId]);
+        setMatchedPairs(newMatchedSet);
+        setCards((prev) =>
+          prev.map((c) =>
+            c.vocabId === first.vocabId ? { ...c, matched: true } : c
+          )
+        );
+        onUpdateMastery(first.vocabId, true);
+        setSelectedCards([]);
+
+        if (newMatchedSet.size === gameWords.length) {
+          setTimeout(() => {
+            setGameComplete(true);
+            onComplete?.({ correct: gameWords.length, total: attempts + 1 });
+          }, 500);
+        }
+      } else {
+        // Wrong match
+        setWrongMatch([first.id, second.id]);
+        setCombo(0);
+        onUpdateMastery(first.vocabId, false);
+        setTimeout(() => {
+          setSelectedCards([]);
+          setWrongMatch([]);
+        }, 800);
+      }
+    }
+  }, [selectedCards, wrongMatch, lastMatchTime, combo, difficulty, matchedPairs, gameWords.length, onUpdateMastery, getDifficultySettings]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const progress = (matchedPairs.size / Math.max(gameWords.length, 1)) * 100;
+
+  if (!mode) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-12 py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="text-center space-y-3">
+          <div className="inline-block p-4 bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-border/30">
+             <Brain className="h-10 w-10 text-sakura" />
+          </div>
+          <h2 className="text-4xl font-display font-black text-foreground tracking-tight">Ghép Đôi Trí Tuệ</h2>
+          <p className="text-muted-foreground/70 font-medium">Luyện tập trí nhớ với các thử thách kết nối</p>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {[
+            { id: 'kanji-reading', title: 'Kanji - Furigana', icon: Sparkles, color: 'text-sakura', desc: 'Ghép mặt chữ Hán với cách đọc tương ứng' },
+            { id: 'kanji-meaning', title: 'Kanji - Nghĩa', icon: Star, color: 'text-sakura', desc: 'Ghép mặt chữ Hán với ý nghĩa tiếng Việt' },
+            { id: 'reading-meaning', title: 'Furigana - Nghĩa', icon: Trophy, color: 'text-sakura', desc: 'Ghép cách đọc với ý nghĩa tương ứng' },
+          ].map((m) => (
+            <button
+              key={m.id}
+              onClick={() => setMode(m.id as MatchGameMode)}
+              className="group relative p-8 rounded-[3rem] bg-white border border-border/50 hover:border-sakura/20 transition-all hover:shadow-[0_20px_50px_-15px_rgba(0,0,0,0.03)] text-left space-y-6"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-cream flex items-center justify-center text-muted-foreground/70 group-hover:bg-sakura/10 group-hover:text-sakura transition-all">
+                <m.icon className="h-7 w-7" />
+              </div>
+              <div>
+                <h3 className="text-xl font-display font-bold text-foreground group-hover:text-sakura transition-colors">{m.title}</h3>
+                <p className="text-[10px] text-muted-foreground/70 uppercase tracking-widest font-black mt-2 leading-relaxed opacity-60">{m.desc}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex justify-center">
+           <Button variant="ghost" onClick={onBack} className="rounded-full gap-2 text-muted-foreground/50 hover:text-sakura transition-colors">
+             <ChevronLeft className="h-4 w-4" /> Quay lại thư viện
+           </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!difficulty) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-12 py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="flex items-center gap-6">
+          <Button variant="ghost" size="icon" onClick={() => setMode(null)} className="rounded-2xl h-12 w-12 bg-white border border-border/30">
+            <ChevronLeft className="h-6 w-6 text-muted-foreground/70" />
+          </Button>
+          <h2 className="text-3xl font-display font-black text-foreground">Cấp độ thử thách</h2>
+        </div>
+
+        <div className="bg-white p-8 rounded-[2.5rem] border border-border/30 shadow-[0_15px_40px_-15px_rgba(0,0,0,0.03)] flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <div className={cn(
+              "p-4 rounded-[1.5rem] transition-all",
+              isMemoryModeToggle ? "bg-sakura/10 text-sakura" : "bg-cream text-muted-foreground/50"
+            )}>
+              <Brain className="h-8 w-8" />
+            </div>
+            <div>
+              <Label htmlFor="memory-mode" className="text-xl font-bold text-foreground cursor-pointer">Chế độ Memory</Label>
+              <p className="text-xs text-muted-foreground/70 font-medium">Úp toàn bộ các thẻ khi bắt đầu chơi</p>
+            </div>
+          </div>
+          <Switch 
+            id="memory-mode" 
+            checked={isMemoryModeToggle} 
+            onCheckedChange={setIsMemoryModeToggle}
+            className="data-[state=checked]:bg-sakura"
+          />
+        </div>
+        
+        <div className="grid grid-cols-1 gap-4">
+          {[
+            { id: 'easy', title: 'Khởi động', icon: Zap, color: 'text-sakura', bg: 'bg-sakura/5', desc: `10 cặp • ${isMemoryModeToggle ? 'Úp mặt thẻ' : 'Hiển thị mặt chữ'} • Phù hợp người mới` },
+            { id: 'normal', title: 'Thử thách', icon: Star, color: 'text-sakura', bg: 'bg-sakura/5', desc: `14 cặp • ${isMemoryModeToggle ? 'Úp mặt thẻ' : 'Hiển thị mặt chữ'} • Luyện phản xạ` },
+            { id: 'hard', title: 'Bậc thầy', icon: Trophy, color: 'text-sakura', bg: 'bg-sakura/5', desc: '20 cặp • Úp mặt thẻ • Thử thách trí nhớ siêu hạng' },
+          ].map((d) => (
+            <button
+              key={d.id}
+              onClick={() => setDifficulty(d.id as ChallengeLevel)}
+              className="group flex items-center p-8 rounded-[3rem] bg-white border border-border/30 hover:border-sakura/20 transition-all hover:shadow-xl text-left gap-8"
+            >
+              <div className={cn("w-20 h-20 rounded-[1.5rem] flex items-center justify-center shadow-inner", d.bg)}>
+                <d.icon className={cn("h-10 w-10", d.color)} />
+              </div>
+              <div>
+                <h3 className="text-2xl font-display font-bold text-foreground group-hover:text-sakura transition-colors">{d.title}</h3>
+                <p className="text-[10px] text-muted-foreground/70 font-black uppercase tracking-widest mt-1">{d.desc}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (gameComplete) {
+    const accuracy = Math.round((gameWords.length / Math.max(attempts, 1)) * 100);
+    const stars = accuracy >= 80 ? 3 : accuracy >= 60 ? 2 : 1;
+
+    return (
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="max-w-md mx-auto"
+      >
+        <Card className="rounded-[4rem] border-0 shadow-2xl overflow-hidden bg-white">
+          <div className="h-2 w-full bg-gradient-to-r from-sakura to-pink-200" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-3xl font-display font-bold text-center text-foreground flex items-center justify-center gap-3">
+              <Trophy className="h-8 w-8 text-amber-500" />
+              Hoàn thành!
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-8 p-12">
+            <div className="text-center">
+               <p className="text-[10px] font-black text-muted-foreground/50 uppercase tracking-widest mb-1">Tổng điểm</p>
+               <h2 className="text-7xl font-display font-black text-sakura">{score.toLocaleString()}</h2>
+            </div>
+
+            <div className="flex justify-center gap-4">
+              {[...Array(3)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ scale: 0, rotate: -20 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ delay: i * 0.2, type: 'spring' }}
+                >
+                  <Star className={cn("h-12 w-12", i < stars ? "text-amber-400 fill-amber-400" : "text-primary-foreground")} />
+                </motion.div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: 'Thời gian', val: formatTime(timeElapsed) },
+                { label: 'Chính xác', val: `${accuracy}%` },
+                { label: 'Lượt thử', val: attempts },
+                { label: 'Combo nhất', val: `${bestCombo}x` }
+              ].map((stat, i) => (
+                <div key={i} className="bg-cream p-4 rounded-[2rem] border border-border/30 text-center">
+                  <p className="text-2xl font-bold text-foreground tracking-tighter">{stat.val}</p>
+                  <p className="text-[9px] text-muted-foreground/70 uppercase font-black tracking-widest mt-1">{stat.label}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-col gap-3 pt-4">
+              <Button 
+                onClick={initializeGame} 
+                className="w-full h-16 rounded-[1.5rem] bg-card text-white font-black text-lg shadow-xl hover:bg-primary/90 transition-all active:scale-95"
+              >
+                <RotateCcw className="h-5 w-5 mr-3" />
+                Chơi lại
+              </Button>
+              <Button 
+                variant="ghost" 
+                onClick={() => { setDifficulty(null); setMode(null); }}
+                className="w-full h-14 rounded-2xl text-muted-foreground/50 hover:text-sakura font-bold"
+              >
+                Đổi chế độ
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+    );
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-700 py-4">
+      <div className="flex justify-between items-center bg-white p-3 rounded-[2.5rem] border border-border/30 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.03)]">
+        <div className="flex items-center gap-6">
+           <Button variant="ghost" size="icon" onClick={() => setDifficulty(null)} className="rounded-2xl h-11 w-11 bg-cream/50 hover:bg-sakura/5 hover:text-sakura transition-all">
+              <ChevronLeft className="h-6 w-6" />
+           </Button>
+           <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <h3 className="font-black text-muted-foreground/50 uppercase text-[9px] tracking-widest">{mode?.replace('-', ' ↔ ')}</h3>
+                <Badge variant="outline" className="text-[8px] h-4 px-2 font-black uppercase text-sakura border-sakura/20 bg-sakura/5">{difficulty}</Badge>
+              </div>
+              <div className="flex items-center gap-4">
+                 <div className="flex items-center gap-2 text-muted-foreground/70">
+                    <Timer className="h-4 w-4" />
+                    <span className="font-mono font-bold text-sm tracking-tighter">{formatTime(timeElapsed)}</span>
+                 </div>
+                 <div className="flex items-center gap-2 text-sakura">
+                    <Zap className="h-4 w-4 fill-sakura/20" />
+                    <span className="font-black text-sm tracking-tighter">{score.toLocaleString()}</span>
+                 </div>
+              </div>
+           </div>
+        </div>
+        
+        <div className="flex items-center gap-4 px-4">
+          {combo > 1 && (
+            <motion.div 
+              initial={{ scale: 0 }} 
+              animate={{ scale: 1 }}
+              className="bg-amber-50 text-amber-600 px-4 py-1.5 rounded-full text-[10px] font-black italic animate-bounce shadow-sm border border-amber-100"
+            >
+              {combo}x COMBO!
+            </motion.div>
+          )}
+          <Badge className="bg-card text-white border-none px-6 py-2 rounded-full font-black text-[10px] tracking-widest shadow-lg">
+            {matchedPairs.size} / {gameWords.length}
+          </Badge>
+        </div>
+      </div>
+
+      <div className="px-2">
+        <div className="h-1.5 w-full bg-sakura-light/20 rounded-full overflow-hidden">
+          <motion.div 
+            className="h-full bg-gradient-to-r from-sakura to-pink-300"
+            animate={{ width: `${progress}%` }}
+            transition={{ duration: 0.5 }}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <AnimatePresence>
+          {cards.map((card) => {
+            const isSelected = selectedCards.find((c) => c.id === card.id);
+            const isWrong = wrongMatch.includes(card.id);
+            const isMemory = difficulty === 'hard' || isMemoryModeToggle;
+            const isRevealed = isSelected || isWrong || card.matched;
+
+            return (
+              <motion.div
+                key={card.id}
+                layout
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ 
+                  opacity: card.matched ? 0 : 1, 
+                  scale: card.matched ? 0.8 : 1,
+                  y: card.matched ? -20 : 0
+                }}
+                exit={{ opacity: 0, scale: 0.5 }}
+                transition={{ duration: 0.3 }}
+              >
+                <button
+                  className={cn(
+                    "w-full min-h-[120px] rounded-[2.5rem] border transition-all duration-500 flex items-center justify-center p-6 relative overflow-hidden group/card shadow-sm",
+                    isMemory && !isRevealed 
+                      ? "bg-cream border-border/50" 
+                      : "bg-white border-border/30 hover:shadow-xl hover:-translate-y-2",
+                    isSelected && "border-sakura bg-white ring-2 ring-sakura/10 shadow-2xl z-20",
+                    isWrong && "border-red-400 bg-red-50/50 animate-shake",
+                    card.matched && "pointer-events-none opacity-0"
+                  )}
+                  onClick={() => handleCardClick(card)}
+                  disabled={card.matched}
+                >
+                  <motion.div
+                    className="notranslate"
+                    translate="no"
+                    animate={{ 
+                      scale: isMemory && !isRevealed ? 0.5 : 1,
+                      opacity: isMemory && !isRevealed ? 0 : 1,
+                      rotateY: isMemory && !isRevealed ? 180 : 0
+                    }}
+                    transition={{ duration: 0.4 }}
+                  >
+                    <p className={cn(
+                      "text-center transition-all duration-300 leading-tight",
+                      isSelected ? "text-sakura font-black" : "text-foreground font-bold",
+                      card.content.length > 10 ? "text-xs" : card.content.length > 5 ? "text-base" : "text-3xl font-jp tracking-tight"
+                    )}>
+                      {card.content}
+                    </p>
+                  </motion.div>
+                  
+                  {isMemory && !isRevealed && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                       <Star className="h-6 w-6 text-primary-foreground fill-slate-50 opacity-50" />
+                    </div>
+                  )}
+
+                  {!isMemory && (
+                    <div className={cn(
+                      "absolute top-4 right-4 w-1.5 h-1.5 rounded-full opacity-40",
+                      card.type === 'left' ? "bg-sakura" : "bg-emerald-400"
+                    )} />
+                  )}
+                </button>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+      </div>
+
+      <div className="flex justify-center pt-8">
+        <p className="text-[9px] text-muted-foreground/40 font-black uppercase tracking-[0.4em]">
+          {difficulty === 'hard' || isMemoryModeToggle ? 'Find all matching pairs' : 'Connect the parts to win'}
+        </p>
+      </div>
+    </div>
+  );
+};

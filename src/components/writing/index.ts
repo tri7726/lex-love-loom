@@ -1,0 +1,1 @@
+export { KanjiStrokeOrder } from './KanjiStrokeOrder';

@@ -1,0 +1,20 @@
+name: Keep Edge Functions Warm
+
+on:
+  schedule:
+    # Every 10 minutes
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Functions
+        run: |
+          FUNCTIONS=("japanese-chat" "kanji-details" "sensei-rag" "japanese-analysis" "japanese-grammar")
+          for func in "${FUNCTIONS[@]}"; do
+            echo "Pinging $func..."
+            curl -X OPTIONS "https://${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co/functions/v1/$func" \
+              -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
+          done

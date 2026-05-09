@@ -1,0 +1,227 @@
+import React, { createContext, useContext, useState, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { checkContentSafety, deepExplain, streamExplain, DeepExplainResult, ExplainType } from '@/services/groqServices';
+
+interface AIContextType {
+  isAnalyzing: boolean;
+  isChatting: boolean;
+  analyzeText: (content: string, mode?: string, customPrompt?: string) => Promise<any>;
+  chat: (messages: { role: string; content: string }[], systemPrompt: string, user_id?: string) => Promise<any>;
+  streamChat: (messages: { role: string; content: string }[], systemPrompt: string, user_id?: string, onChunk?: (chunk: string) => void) => Promise<void>;
+  checkGrammar: (text: string, prompt?: string) => Promise<any>;
+  explainDeep: (question: string, context?: string, type?: ExplainType) => Promise<DeepExplainResult | null>;
+  streamExplainDeep: (question: string, context: string | undefined, type: ExplainType, onToken: (token: string) => void) => Promise<DeepExplainResult | null>;
+}
+
+const AIContext = createContext<AIContextType | undefined>(undefined);
+
+export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isChatting, setIsChatting] = useState(false);
+
+  /**
+   * Complex text analysis (Grammar, Vocab, Nuance)
+   */
+  const analyzeText = useCallback(async (content: string, mode: string = 'translation', customPrompt?: string) => {
+    if (!content.trim()) return null;
+    setIsAnalyzing(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('japanese-analysis', {
+        body: {
+          content,
+          prompt: customPrompt,
+          mode,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      
+      return data;
+    } catch (err) {
+      console.error('AI Analysis error:', err);
+      toast.error('Không thể phân tích nội dung. Vui lòng thử lại.');
+      return null;
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, []);
+
+  /**
+   * General purpose chat (Roleplay, Tutor)
+   */
+  const chat = useCallback(async (messages: { role: string; content: string }[], systemPrompt: string, user_id?: string) => {
+    setIsChatting(true);
+    try {
+      // Content safety check for roleplay mode (non-blocking — only screen if roleplay keyword detected)
+      const isRoleplay = systemPrompt.toLowerCase().includes('roleplay') || systemPrompt.toLowerCase().includes('nhân vật');
+      if (isRoleplay && messages.length > 0) {
+        const lastMsg = messages[messages.length - 1];
+        if (lastMsg.role === 'user' && typeof lastMsg.content === 'string' && lastMsg.content.length > 10) {
+          const guard = await checkContentSafety(lastMsg.content);
+          if (!guard.safe) {
+            return { role: 'assistant', content: '⚠️ Nội dung này không phù hợp trong môi trường học tập. Hãy thay đổi câu hỏi nhé! 🌸' };
+          }
+        }
+      }
+
+      const { data, error } = await supabase.functions.invoke('japanese-chat', {
+        body: {
+          messages,
+          systemPrompt,
+          user_id,
+          engine: 'gemini'
+        }
+      });
+
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error('AI Chat error:', err);
+      toast.error('Lỗi kết nối với Sensei.');
+      return null;
+    } finally {
+      setIsChatting(false);
+    }
+  }, []);
+
+  /**
+   * Streaming chat for real-time response
+   */
+  const streamChat = useCallback(async (
+    messages: { role: string; content: string }[], 
+    systemPrompt: string, 
+    user_id?: string,
+    onChunk?: (chunk: string) => void
+  ) => {
+    setIsChatting(true);
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/japanese-chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({
+          messages,
+          systemPrompt,
+          user_id,
+          engine: 'gemini'
+        }),
+      });
+
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        throw new Error(errBody.error || 'Network response was not ok');
+      }
+      if (!response.body) throw new Error('No response body');
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullContent = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const dataStr = line.slice(6).trim();
+            if (dataStr === '[DONE]') break;
+            
+            try {
+              const data = JSON.parse(dataStr);
+              const content = data.choices?.[0]?.delta?.content || "";
+              if (content) {
+                fullContent += content;
+                if (onChunk) onChunk(content);
+              }
+            } catch (e) {
+              // Not a JSON chunk or incomplete
+              console.warn("Error parsing chunk:", e);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('AI Stream Chat error:', err);
+      toast.error('Lỗi kết nối streaming với Sensei.');
+    } finally {
+      setIsChatting(false);
+    }
+  }, []);
+
+  /**
+   * Specialized grammar check
+   */
+  const checkGrammar = useCallback(async (text: string, prompt?: string) => {
+    setIsAnalyzing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('japanese-analysis', {
+        body: {
+          content: text,
+          isGrammar: true,
+          ...(prompt ? { prompt } : {}),
+        },
+      });
+
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error('AI Grammar check error:', err);
+      return null;
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, []);
+
+  /** Deep explain via DeepSeek R1 */
+  const explainDeep = useCallback(async (
+    question: string,
+    context?: string,
+    type: ExplainType = 'grammar'
+  ): Promise<DeepExplainResult | null> => {
+    return deepExplain(question, context, type);
+  }, []);
+
+  /** Streaming deep explain with real-time tokens */
+  const streamExplainDeep = useCallback(async (
+    question: string,
+    context: string | undefined,
+    type: ExplainType,
+    onToken: (token: string) => void,
+  ): Promise<DeepExplainResult | null> => {
+    return streamExplain(question, context, type, onToken);
+  }, []);
+
+  return (
+    <AIContext.Provider value={{
+      isAnalyzing,
+      isChatting,
+      analyzeText,
+      chat,
+      streamChat,
+      checkGrammar,
+      explainDeep,
+      streamExplainDeep,
+    }}>
+      {children}
+    </AIContext.Provider>
+  );
+};
+
+export const useAI = () => {
+  const context = useContext(AIContext);
+  if (context === undefined) {
+    throw new Error('useAI must be used within an AIProvider');
+  }
+  return context;
+};

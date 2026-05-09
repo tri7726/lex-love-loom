@@ -1,0 +1,172 @@
+// @ts-nocheck: Deno edge function — types resolved at runtime by import map
+import { serve } from "std/http/server.ts";
+import { createClient } from "@supabase/supabase-js";
+import { checkRateLimit } from "../_shared/rate-limit.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+interface GenerateReadingRequest {
+  level?: string;
+  topic?: string;
+  content?: string;
+}
+
+const SYSTEM_PROMPT = `You are an expert Japanese content creator and linguist.
+If 'content' is provided, your primary task is to add Furigana to the ENTIRE text and extract vocabulary.
+If 'topic' is provided, generate a NEW reading passage for the specified JLPT level.
+
+CRITICAL INSTRUCTIONS for 'content_with_furigana':
+1. Use standard HTML <ruby> tags: <ruby>漢字<rt>かんじ</rt></ruby>.
+2. Add furigana to EVERY kanji or kanji compound.
+3. Keep spaces, punctuation, and line breaks (\n as <br />) exactly as in the original or generated text.
+4. Ensure the output is valid Japanese and follows the requested JLPT level.
+
+Vocabulary and questions:
+- 'vocabulary_list': Extract key words (kanji + reading + Vietnamese meaning).
+- 'questions': 3-4 comprehension questions in Japanese with Vietnamese explanations.
+- Language: meanings and explanations MUST be in Vietnamese.
+
+Return the result in this JSON format:
+{
+  "title": "Japanese Title",
+  "title_vi": "Vietnamese Title",
+  "content_with_furigana": "Japanese text with <ruby> tags",
+  "vietnamese_summary": "Short Vietnamese summary of the text",
+  "vocabulary_list": [{"word": "漢字", "reading": "かんじ", "meaning": "Hán tự"}],
+  "questions": [{"question": "...", "options": ["...", "..."], "answer": "...", "explanation": "..."}]
+}
+
+Levels: N5, N4, N3, N2, N1. Adjust complexity accordingly.`;
+
+interface ReadingResponse {
+  title: string;
+  title_vi: string;
+  content_with_furigana: string;
+  vietnamese_summary: string;
+  vocabulary_list: Array<{
+    word: string;
+    reading: string;
+    meaning: string;
+  }>;
+  questions: Array<{
+    question: string;
+    options: string[];
+    answer: string;
+    explanation: string;
+  }>;
+}
+
+// Helper to extract JSON from AI text
+function extractJSON(text: string): ReadingResponse {
+  try {
+    return JSON.parse(text.trim());
+  } catch (_e) {
+    const match = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        return JSON.parse(match[1] || match[0]);
+      } catch (_e2) {
+        throw new Error("AI returned invalid JSON structure");
+      }
+    }
+    throw new Error("Could not find JSON in AI response");
+  }
+}
+
+serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  try {
+    const { level = "N5", topic, content }: GenerateReadingRequest = await req.json();
+
+    // Rate limiting
+    const rlSupabase = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+    const rl = await checkRateLimit(req, rlSupabase, { tier: "high", endpoint: "generate-reading" });
+    if (rl) return rl;
+
+    // Verify JWT
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const jwtClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const { data: { user: authUser }, error: authError } = await jwtClient.auth.getUser();
+    if (authError || !authUser) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    let resultData: ReadingResponse | null = null;
+
+    const userPrompt = content
+      ? `Analyze this content for level ${level}: ${content}`
+      : `Generate a new ${level} reading about "${topic || 'daily life'}"`;
+
+    const apiKeys = [
+      Deno.env.get("GROQ_API_KEY_2"),
+      Deno.env.get("GROQ_API_KEY_3"),
+      Deno.env.get("GROQ_API_KEY_1")
+    ].filter(Boolean);
+
+    if (apiKeys.length === 0) {
+      throw new Error("No Groq API keys are configured.");
+    }
+
+    console.log(`Generating reading for level ${level} using key rotation (${apiKeys.length} keys total)...`);
+
+    for (const apiKey of apiKeys) {
+      try {
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: userPrompt }],
+            response_format: { type: "json_object" },
+            temperature: 0.7
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          resultData = extractJSON(data.choices[0]?.message?.content || "{}");
+          break; // Key worked, exit loop
+        } else {
+          const errorText = await response.text();
+          console.warn(`Groq API error with current key: ${response.status} ${errorText}. Trying next key...`);
+        }
+      } catch (e) {
+        console.error("Groq Key error in generate-reading:", e);
+      }
+    }
+
+    if (!resultData) throw new Error("AI reading generation failed.");
+
+    // Validation: Check if furigana was actually generated
+    const hasRuby = resultData.content_with_furigana?.includes("<ruby>");
+    const isActuallyJapanese = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(resultData.content_with_furigana || "");
+    
+    if (content && !hasRuby && isActuallyJapanese) {
+      console.warn("AI didn't provide furigana for existing Japanese content. This is a partial failure.");
+    }
+
+    return new Response(JSON.stringify({ ...resultData, engine: "groq" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
+  } catch (error: unknown) {
+    console.error("Generation error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});

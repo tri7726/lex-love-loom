@@ -1,0 +1,1 @@
+export { KanaKeyboard } from './KanaKeyboard';

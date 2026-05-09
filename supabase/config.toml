@@ -1,0 +1,77 @@
+project_id = "ojbwbbqmqxyxwwujzokm"
+
+[functions.japanese-chat]
+verify_jwt = false
+
+[functions.process-video]
+verify_jwt = false
+
+[functions.lookup-word]
+verify_jwt = false
+
+[functions.generate-reading]
+verify_jwt = false
+
+[functions.fetch-youtube-captions]
+verify_jwt = false
+
+[functions.japanese-analysis]
+verify_jwt = false
+
+[functions.japanese-grammar]
+verify_jwt = false
+
+[functions.kanji-details]
+verify_jwt = false
+
+[functions.kanji-related]
+verify_jwt = false
+
+[functions.kanji-search]
+verify_jwt = false
+
+[functions.generate-video-quiz]
+verify_jwt = false
+
+[functions.generate-grammar-quiz]
+verify_jwt = false
+
+[functions.import-kanjidic2]
+verify_jwt = false
+
+[functions.japanese-news]
+verify_jwt = false
+
+[functions.notebooklm-proxy]
+verify_jwt = false
+
+[functions.evolve-skills]
+verify_jwt = false
+
+[functions.content-guard]
+verify_jwt = false
+
+[functions.sensei-rag]
+verify_jwt = false
+
+[functions.scheduled-reminders]
+verify_jwt = false
+
+[functions.push-notify]
+verify_jwt = false
+
+[functions.sensei-insights]
+verify_jwt = false
+
+[functions.ai-explain]
+verify_jwt = false
+
+[functions.analyze-speech]
+verify_jwt = false
+
+[functions.generate-kanji-worksheet]
+verify_jwt = false
+
+[functions.admin-manage-role]
+verify_jwt = false
+

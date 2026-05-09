@@ -1,0 +1,329 @@
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  CheckCircle2, 
+  Circle, 
+  Trophy, 
+  Zap,
+  BookOpen,
+  MessageSquare,
+  Gift,
+  Brain,
+  Loader2,
+  PartyPopper,
+  Cat
+} from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
+import { useXP } from '@/hooks/useXP';
+import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+import { useConfetti } from '@/hooks/useConfetti';
+
+interface Quest {
+  id: string;
+  title: string;
+  description: string;
+  current: number;
+  target: number;
+  reward: number;
+  icon: React.ReactNode;
+  type: string;
+  completed: boolean;
+  route?: string;
+}
+
+export const DailyQuests = () => {
+  const { user } = useAuth();
+  const { awardXP } = useXP();
+  const navigate = useNavigate();
+  const confetti = useConfetti();
+  const [quests, setQuests] = useState<Quest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isClaimed, setIsClaimed] = useState(false);
+  const [claimingReward, setClaimingReward] = useState(false);
+  const [newlyCompleted, setNewlyCompleted] = useState<Set<string>>(new Set());
+  const prevCompletedRef = useRef<Set<string>>(new Set());
+
+  const fetchQuestProgress = useCallback(async () => {
+    if (!user) {
+      setQuests(getDefaultQuests(0, 0, 0, 0));
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Fetch today's activity and claim status in parallel
+      const [flashcardsRes, chatRes, readingRes, pronunciationRes, claimRes, petActionsRes] = await Promise.all([
+        supabase
+          .from('flashcards')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .gte('last_reviewed_at', `${today}T00:00:00`),
+        supabase
+          .from('analysis_history')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .gte('created_at', `${today}T00:00:00`),
+        (supabase as any)
+          .from('learning_progress')
+          .select('reading_minutes')
+          .eq('user_id', user.id)
+          .eq('date', today)
+          .maybeSingle(),
+        (supabase as any)
+          .from('pronunciation_results')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .gte('created_at', `${today}T00:00:00`),
+        supabase
+          .from('daily_quest_progress')
+          .select('is_claimed')
+          .eq('user_id', user.id)
+          .eq('quest_date', today)
+          .eq('quest_id', 'daily_chest')
+          .maybeSingle(),
+        supabase
+          .from('xp_events')
+          .select('source', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .gte('created_at', `${today}T00:00:00`)
+          .in('source', ['pet_feed', 'pet_play', 'pet_bathe', 'pet_walk', 'pet_sleep', 'pet_interact']),
+      ]);
+
+      const reviewedCards = flashcardsRes.count || 0;
+      const chatSessions = chatRes.count || 0;
+      const readingMins = readingRes.data?.reading_minutes || 0;
+      const speakingSessions = pronunciationRes.count || 0;
+      const claimedForToday = claimRes.data?.is_claimed || false;
+      const petActions = petActionsRes.count || 0;
+
+      setQuests(getDefaultQuests(reviewedCards, chatSessions, readingMins, speakingSessions, petActions));
+      setIsClaimed(claimedForToday);
+    } catch (err) {
+      console.error('Error fetching quest progress:', err);
+      setQuests(getDefaultQuests(0, 0, 0, 0));
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchQuestProgress();
+  }, [fetchQuestProgress]);
+
+  // Detect newly completed quests and celebrate
+  useEffect(() => {
+    const currentCompleted = new Set(quests.filter(q => q.completed).map(q => q.id));
+    const freshlyDone = [...currentCompleted].filter(id => !prevCompletedRef.current.has(id));
+    if (freshlyDone.length > 0 && prevCompletedRef.current.size > 0) {
+      setNewlyCompleted(new Set(freshlyDone));
+      confetti.fire('success');
+      setTimeout(() => setNewlyCompleted(new Set()), 2000);
+    }
+    prevCompletedRef.current = currentCompleted;
+  }, [quests]);
+
+  const getDefaultQuests = (
+    reviewedCards: number,
+    chatSessions: number,
+    readingMins: number,
+    speakingSessions: number,
+    petActions: number = 0
+  ): Quest[] => [
+    { 
+      id: 'review', 
+      title: 'Văn ôn võ luyện', 
+      description: 'Ôn tập 10 từ vựng', 
+      current: Math.min(reviewedCards, 10), 
+      target: 10, 
+      reward: 200, 
+      icon: <Brain className="h-4 w-4" />, 
+      type: 'vocab',
+      completed: reviewedCards >= 10,
+      route: '/vocabulary'
+    },
+    { 
+      id: 'chat', 
+      title: 'Bậc thầy đàm thoại', 
+      description: 'Hoàn thành 1 buổi chat với Sensei ngữ pháp', 
+      current: Math.min(chatSessions, 1), 
+      target: 1, 
+      reward: 300, 
+      icon: <MessageSquare className="h-4 w-4" />, 
+      type: 'chat',
+      completed: chatSessions >= 1,
+      route: '/grammar-wiki'
+    },
+    { 
+      id: 'reading', 
+      title: 'Mọt sách Nhật Bản', 
+      description: 'Đọc bài viết 5 phút', 
+      current: Math.min(readingMins, 5), 
+      target: 5, 
+      reward: 250, 
+      icon: <BookOpen className="h-4 w-4" />, 
+      type: 'reading',
+      completed: readingMins >= 5,
+      route: '/reading'
+    },
+    { 
+      id: 'speaking', 
+      title: 'Luyện phát âm', 
+      description: 'Luyện nói 1 câu tiếng Nhật', 
+      current: Math.min(speakingSessions, 1), 
+      target: 1, 
+      reward: 350, 
+      icon: <Zap className="h-4 w-4" />, 
+      type: 'speaking',
+      completed: speakingSessions >= 1,
+      route: '/sensei?mode=speaking'
+    },
+    {
+      id: 'pet_care',
+      title: 'Chăm sóc thú cưng',
+      description: 'Tương tác với thú cưng 3 lần',
+      current: Math.min(petActions, 3),
+      target: 3,
+      reward: 200,
+      icon: <Cat className="h-4 w-4" />,
+      type: 'pet',
+      completed: petActions >= 3,
+      route: '/pet'
+    },
+  ];
+
+  const completedCount = quests.filter(q => q.completed).length;
+  const totalCount = quests.length;
+  const allDone = completedCount === totalCount && totalCount > 0;
+
+  const handleClaimReward = async () => {
+    if (!user || !allDone || isClaimed) return;
+    setClaimingReward(true);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const totalReward = quests.reduce((sum, q) => sum + q.reward, 0);
+
+      // 1. Award XP via awardXP for animation and level-up detection
+      await awardXP('daily_quests', totalReward, { quests_completed: completedCount });
+
+      // 2. Persist claim status
+      await supabase.from('daily_quest_progress').upsert({
+        user_id: user.id,
+        quest_date: today,
+        quest_id: 'daily_chest',
+        is_completed: true,
+        is_claimed: true
+      });
+
+      setIsClaimed(true);
+      toast.success(`🎁 Nhận ${totalReward} XP từ nhiệm vụ hàng ngày!`);
+    } catch (err) {
+      console.error('Claim error:', err);
+      toast.error('Không thể nhận thưởng. Thử lại sau!');
+    } finally {
+      setClaimingReward(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card className="border-2 border-primary/20 bg-card/60 backdrop-blur-sm shadow-soft">
+        <CardContent className="p-8 flex items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="border-2 border-primary/20 bg-card/60 backdrop-blur-sm shadow-soft overflow-hidden">
+      <CardHeader className="pb-4 bg-primary/5">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Gift className="h-5 w-5 text-primary" /> Nhiệm vụ hàng ngày
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Hoàn thành để nhận XP và phần thưởng hấp dẫn!
+            </CardDescription>
+          </div>
+          <div className="text-right">
+            <span className="text-xl font-black text-primary">{completedCount}/{totalCount}</span>
+          </div>
+        </div>
+        <Progress value={(completedCount / Math.max(totalCount, 1)) * 100} className="h-1.5 mt-2" />
+      </CardHeader>
+      <CardContent className="p-4 space-y-3">
+        {quests.map((quest) => {
+          const justCompleted = newlyCompleted.has(quest.id);
+          return (
+            <motion.div 
+              key={quest.id}
+              initial={false}
+              animate={{ 
+                opacity: quest.completed ? 0.75 : 1,
+                scale: justCompleted ? [1, 1.04, 1] : 1,
+              }}
+              transition={{ duration: 0.4 }}
+              className={cn(
+                "p-3 rounded-xl border-2 transition-all flex items-center gap-3 cursor-pointer",
+                justCompleted ? "bg-green-50 border-green-300 shadow-md shadow-green-100" :
+                quest.completed ? "bg-muted/30 border-transparent" : "bg-background border-border hover:border-primary/30"
+              )}
+              onClick={() => quest.route && navigate(quest.route)}
+            >
+              <div className={cn(
+                "h-10 w-10 rounded-lg flex items-center justify-center shrink-0",
+                justCompleted ? "bg-green-500 text-white" :
+                quest.completed ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"
+              )}>
+                {justCompleted ? <PartyPopper className="h-4 w-4" /> : quest.icon}
+              </div>
+              <div className="flex-1 min-w-0 space-y-1">
+                <div className="flex justify-between items-center">
+                  <p className={cn("text-xs font-bold truncate", quest.completed && "line-through")}>{quest.title}</p>
+                  <span className={cn("text-[10px] font-black", justCompleted ? "text-green-600" : "text-primary")}>
+                    +{quest.reward} XP
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Progress value={(quest.current / quest.target) * 100} className="h-1 flex-1" />
+                  <span className="text-[10px] font-bold text-muted-foreground whitespace-nowrap">
+                    {quest.current}/{quest.target}
+                  </span>
+                </div>
+              </div>
+              {quest.completed ? (
+                <CheckCircle2 className={cn("h-5 w-5 shrink-0", justCompleted ? "text-green-500" : "text-green-400")} />
+              ) : (
+                <Circle className="h-5 w-5 text-muted-foreground/30 shrink-0" />
+              )}
+            </motion.div>
+          );
+        })}
+        {(allDone || isClaimed) && (
+          <Button 
+            className={cn(
+              "w-full rounded-xl font-bold shadow-lg gap-2 mt-2",
+              isClaimed ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-gold hover:bg-gold/90 text-gold-foreground"
+            )}
+            onClick={handleClaimReward}
+            disabled={claimingReward || isClaimed}
+          >
+            {claimingReward ? <Loader2 className="h-4 w-4 animate-spin" /> : 
+             isClaimed ? <CheckCircle2 className="h-4 w-4" /> : <Trophy className="h-4 w-4" />}
+            {isClaimed ? "Đã nhận thưởng" : "Nhận thưởng rương báu"}
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+};

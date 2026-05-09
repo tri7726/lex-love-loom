@@ -1,0 +1,12 @@
+export { WelcomeHero } from './WelcomeHero';
+export { WordOfTheDay } from './WordOfTheDay';
+export { ReviewPreview } from './ReviewPreview';
+export { WritingRecs } from './WritingRecs';
+export { AIToolsGrid } from './AIToolsGrid';
+export { DashboardSidebar } from './DashboardSidebar';
+export { QuickModeBanner } from './QuickModeBanner';
+export { AchievementsSection } from './AchievementsSection';
+export { SocialSummary } from './SocialSummary';
+export { DailyQuests } from './DailyQuests';
+export { EvolvedSkillsSection } from './EvolvedSkillsSection';
+export { SenseiInsights } from './SenseiInsights';
