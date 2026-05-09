@@ -20,6 +20,8 @@ export const AppLayout = () => {
     if (loading || !user || !profile) return;
     if (profile.onboarded === false && location.pathname !== '/onboarding') {
       navigate('/onboarding', { replace: true });
+    } else if (profile.onboarded === true && location.pathname === '/onboarding') {
+      navigate('/', { replace: true });
     }
   }, [profile, loading, user, location.pathname, navigate]);
 

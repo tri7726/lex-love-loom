@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 import { toast } from "sonner";
 import {
   ArrowRight, ArrowLeft, Sparkles, Briefcase, Plane, Tv, GraduationCap,
@@ -42,6 +43,7 @@ const MINUTES = [
 
 export const Onboarding = () => {
   const { user } = useAuth();
+  const { refreshProfile } = useProfile();
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>(0);
   const [goal, setGoal] = useState<string | null>(null);
@@ -79,6 +81,7 @@ export const Onboarding = () => {
       return;
     }
     toast.success("Tuyệt vời! Hành trình bắt đầu 🌸");
+    await refreshProfile();
     navigate("/", { replace: true });
   };
 
