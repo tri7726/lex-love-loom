@@ -25,11 +25,29 @@ export class StandardErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
+    
+    // Auto-reload on Chunk Load Error (standard practice for SPAs after new deployment)
+    const isChunkError = error.message.includes('Failed to fetch dynamically imported module') || 
+                        error.message.includes('Loading chunk') ||
+                        error.name === 'ChunkLoadError';
+
+    if (isChunkError) {
+      const lastReload = sessionStorage.getItem('last_chunk_reload');
+      const now = Date.now();
+      
+      // Only auto-reload if we haven't tried in the last 10 seconds to avoid loops
+      if (!lastReload || now - parseInt(lastReload) > 10000) {
+        sessionStorage.setItem('last_chunk_reload', now.toString());
+        console.warn('Chunk load error detected. Attempting auto-reload...');
+        window.location.reload();
+      }
+    }
   }
 
   private handleReset = () => {
     this.setState({ hasError: false, error: null });
-    window.location.reload();
+    // Force a cache-busting reload
+    window.location.href = window.location.origin + window.location.pathname + '?v=' + Date.now();
   };
 
   private handleGoHome = () => {

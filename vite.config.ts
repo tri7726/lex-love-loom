@@ -61,7 +61,7 @@ export default defineConfig(({ mode }) => ({
             name: "Cửa ải JLPT",
             short_name: "Portal",
             description: "Chinh phục ngữ pháp & từ vựng",
-            url: "/jlpt-portal",
+            url: "/vocabulary",
             icons: [{ src: "/icons/icon-192x192.png", sizes: "192x192" }]
           }
         ],

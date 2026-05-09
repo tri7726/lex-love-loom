@@ -104,7 +104,7 @@ export const UserProfile = () => {
     };
 
     if (userId) fetchData();
-  }, [userId, currentUser]);
+  }, [userId, currentUser, isOwnProfile, toast]);
 
   const handleFriendAction = async () => {
     if (!currentUser) return;

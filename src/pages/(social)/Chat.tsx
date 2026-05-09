@@ -103,7 +103,7 @@ export const Chat = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, selectedConv?.id]);
+  }, [user, selectedConv]);
 
   useEffect(() => {
     if (selectedConv) {

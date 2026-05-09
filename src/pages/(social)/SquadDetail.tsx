@@ -165,7 +165,7 @@ const SquadDetail = () => {
     } finally {
       setLoading(false);
     }
-  }, [squadId, toast, navigate]);
+  }, [squadId, user, toast, navigate]);
 
   useEffect(() => {
     fetchSquadData();
