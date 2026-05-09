@@ -252,6 +252,32 @@ export const ImportVocabularyDialog: React.FC<ImportVocabularyDialogProps> = ({
               </div>
             )}
 
+            {/* JSON tab */}
+            {importTab === 'json' && (
+              <div className="space-y-4">
+                <textarea
+                  value={jsonInput}
+                  onChange={(e) => {
+                    setJsonInput(e.target.value);
+                    if (importError) setImportError('');
+                  }}
+                  placeholder='[{"word": "学校", "meaning": "Trường học"}, ...]'
+                  className="w-full h-40 px-4 py-3 rounded-xl border border-rose-200 focus:ring-2 focus:ring-rose-300 outline-none text-sm font-mono bg-background resize-none"
+                />
+                <Button 
+                  disabled={!jsonInput.trim()}
+                  onClick={() => {
+                    const words = parseJsonImport(jsonInput);
+                    if (words) setImportPreview(words);
+                  }}
+                  className="w-full bg-gradient-to-r from-rose-400 to-pink-400 text-white gap-2 h-11"
+                >
+                  <Eye className="h-4 w-4" /> Kiểm tra & Xem trước JSON
+                </Button>
+              </div>
+            )}
+
+
             {/* AI tab */}
             {importTab === 'ai' && (
               <div className="space-y-4">

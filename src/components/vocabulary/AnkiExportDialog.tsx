@@ -80,7 +80,7 @@ export const AnkiExportDialog: React.FC<Props> = ({ items, trigger }) => {
       toast.info('Không có thẻ nào để xuất');
       return;
     }
-    const safeName = deckName.trim().replace(/[^\w\-]+/g, '-') || `sakura-vocab-${today}`;
+    const safeName = deckName.trim().replace(/[^\w-]+/g, '-') || `sakura-vocab-${today}`;
     downloadAnkiDeck(cards, `${safeName}.txt`);
     toast.success(`Đã xuất ${cards.length} thẻ Anki`);
     setOpen(false);
