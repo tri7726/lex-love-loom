@@ -1508,12 +1508,25 @@ DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public can view levels') THEN
         CREATE POLICY "Public can view levels" ON public.curriculum_levels FOR SELECT USING (true);
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public can view units') THEN
-        CREATE POLICY "Public can view units" ON public.curriculum_units FOR SELECT USING (true);
+    -- Units
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Students can view published units') THEN
+        CREATE POLICY "Students can view published units" ON public.curriculum_units FOR SELECT 
+        USING (status = 'published' OR public.has_role(auth.uid(), 'teacher') OR public.has_role(auth.uid(), 'admin'));
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Public can view items') THEN
-        CREATE POLICY "Public can view items" ON public.curriculum_items FOR SELECT USING (true);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Teachers can manage units') THEN
+        CREATE POLICY "Teachers can manage units" ON public.curriculum_units FOR ALL 
+        USING (public.has_role(auth.uid(), 'teacher') OR public.has_role(auth.uid(), 'admin'));
     END IF;
+    -- Items
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Students can view published items') THEN
+        CREATE POLICY "Students can view published items" ON public.curriculum_items FOR SELECT 
+        USING (status = 'published' OR public.has_role(auth.uid(), 'teacher') OR public.has_role(auth.uid(), 'admin'));
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Teachers can manage items') THEN
+        CREATE POLICY "Teachers can manage items" ON public.curriculum_items FOR ALL 
+        USING (public.has_role(auth.uid(), 'teacher') OR public.has_role(auth.uid(), 'admin'));
+    END IF;
+    -- Progress
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can manage curriculum progress') THEN
         CREATE POLICY "Users can manage curriculum progress" ON public.curriculum_progress FOR ALL USING (auth.uid() = user_id);
     END IF;

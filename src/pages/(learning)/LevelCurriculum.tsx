@@ -142,12 +142,20 @@ export const LevelCurriculum = () => {
   }, [units, completedItemIds]);
 
   const handleItemClick = async (item: CurriculumItem) => {
-    if (user && !completedItemIds.has(item.id)) {
-      await (supabase as any)
-        .from('curriculum_progress')
-        .insert({ user_id: user.id, item_id: item.id });
-      
-      setCompletedItemIds(prev => new Set([...Array.from(prev), item.id]));
+    // Only auto-complete simple content (vocabulary, grammar, listening) on click
+    // Assignments and videos should be completed through their respective components
+    const isSimpleContent = ['vocabulary', 'grammar', 'listening'].includes(item.type);
+    
+    if (user && isSimpleContent && !completedItemIds.has(item.id)) {
+      try {
+        await (supabase as any)
+          .from('curriculum_progress')
+          .insert({ user_id: user.id, item_id: item.id });
+        
+        setCompletedItemIds(prev => new Set([...Array.from(prev), item.id]));
+      } catch (err) {
+        console.error('Error saving progress:', err);
+      }
     }
     navigate(item.content_link);
   };
