@@ -233,7 +233,7 @@ export const TeacherDashboard = () => {
                               Chi tiết <ChevronRight className="h-5 w-5" />
                             </Button>
                             <Button 
-                              onClick={() => navigate(`/teacher/classes/${cls.id}/assignments`)}
+                              onClick={() => navigate(`/teacher/classes/${cls.id}`)}
                               variant="ghost" size="icon" className="h-14 w-14 rounded-2xl bg-sakura/5 text-sakura"
                             >
                               <ClipboardList className="h-6 w-6" />

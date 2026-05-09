@@ -98,13 +98,13 @@ const ReaderPage = React.lazy(() => import("./pages/(learning)/ReaderPage"));
 const PublicProfile = React.lazy(() => import("./pages/(community)/PublicProfile"));
 const StudyBuddy = React.lazy(() => import("./pages/(community)/StudyBuddy"));
 
-// Teacher pages
-const TeacherDashboard = React.lazy(() => import("./pages/(teacher)/TeacherDashboard"));
-const ClassroomDetail = React.lazy(() => import("./pages/(teacher)/ClassroomDetail"));
-const CreateClassroom = React.lazy(() => import("./pages/(teacher)/CreateClassroom"));
-const LessonBuilder = React.lazy(() => import("./pages/(teacher)/LessonBuilder"));
-const LevelCurriculum = React.lazy(() => import("./pages/(learning)/LevelCurriculum"));
-const CurriculumManager = React.lazy(() => import("./pages/(teacher)/CurriculumManager"));
+// Teacher & Curriculum management
+const TeacherDashboard = React.lazy(() => import("@/pages/(teacher)/TeacherDashboard"));
+const ClassroomDetail = React.lazy(() => import("@/pages/(teacher)/ClassroomDetail"));
+const CreateClassroom = React.lazy(() => import("@/pages/(teacher)/CreateClassroom"));
+const LessonBuilder = React.lazy(() => import("@/pages/(teacher)/LessonBuilder"));
+const LevelCurriculum = React.lazy(() => import("@/pages/(learning)/LevelCurriculum"));
+const CurriculumManager = React.lazy(() => import("@/pages/(teacher)/CurriculumManager"));
 
 // Student pages
 const MyClasses = React.lazy(() => import("./pages/(student)/MyClasses"));
@@ -221,24 +221,12 @@ const App = () => {
                             <Route path="/teacher" element={<TeacherDashboard />} />
                             <Route path="/teacher/classes/:classId" element={<ClassroomDetail />} />
                             <Route path="/teacher/create-class" element={<CreateClassroom />} />
-
-                            {/* Parent routes removed (chế độ phụ huynh đã được gỡ khỏi dự án) */}
-                            <Route path="/parent" element={<Navigate to="/" replace />} />
-
-                            {/* Student classroom routes */}
-                            <Route path="/my-classes" element={<MyClasses />} />
-
-                            {/* Lesson presentation (standalone, no nav) */}
-                            <Route path="/lessons/:lessonId/view" element={<PresentationViewer />} />
-
-                            <Route path="/teacher/classes/:classId/assignments" element={<AssignmentManager />} />
+                            <Route path="/teacher/curriculum" element={<CurriculumManager />} />
                             <Route path="/teacher/lessons/new" element={<LessonBuilder />} />
                             <Route path="/teacher/lessons/:lessonId/edit" element={<LessonBuilder />} />
-                            <Route path="/teacher/curriculum" element={<CurriculumManager />} />
-                            <Route path="/teacher/create-class" element={<CreateClassroom />} />
 
-                            {/* Parent routes removed (chế độ phụ huynh đã được gỡ khỏi dự án) */}
-                            <Route path="/parent" element={<Navigate to="/" replace />} />
+                            <Route path="/my-classes" element={<MyClasses />} />
+                            <Route path="/lessons/:lessonId/view" element={<PresentationViewer />} />
 
                             <Route path="*" element={<NotFound />} />
                           </Route>
