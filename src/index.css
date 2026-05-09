@@ -537,3 +537,10 @@
 .animate-brush-stroke {
   animation: brush-stroke 1.5s ease-out forwards;
 }
+
+/* Hide Lovable branding/badge if injected */
+[class*="lovable-"], [id*="lovable-"], iframe[src*="lovable.dev"] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}

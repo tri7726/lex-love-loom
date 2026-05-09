@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSearchParams } from 'react-router-dom';
 import { 
   Search, 
   Send, 
@@ -56,6 +57,8 @@ export const Chat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [searchParams] = useSearchParams();
+  const targetId = searchParams.get('id');
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -84,6 +87,12 @@ export const Chat = () => {
           }};
         });
         setConversations(processed);
+        
+        // Auto-select if ID provided in URL and not already selected
+        if (targetId) {
+          const target = processed.find((c: any) => c.id === targetId);
+          if (target) setSelectedConv(target);
+        }
       }
       setLoading(false);
     };
@@ -91,19 +100,38 @@ export const Chat = () => {
     fetchConversations();
 
     const channel = supabase
-      .channel('chat-updates')
+      .channel('chat-list-updates')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => fetchConversations())
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-        if (selectedConv && payload.new.conversation_id === selectedConv.id) {
-          setMessages(prev => [...prev, payload.new as Message]);
-        }
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, targetId]); // Only re-run when user or targetId changes
+
+  useEffect(() => {
+    if (!user || !selectedConv) return;
+
+    const channel = supabase
+      .channel(`messages-${selectedConv.id}`)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'messages',
+        filter: `conversation_id=eq.${selectedConv.id}` 
+      }, (payload) => {
+        setMessages(prev => {
+          // Prevent duplicates from realtime
+          if (prev.some(m => m.id === payload.new.id)) return prev;
+          return [...prev, payload.new as Message];
+        });
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, selectedConv]);
+  }, [user, selectedConv?.id]);
 
   useEffect(() => {
     if (selectedConv) {

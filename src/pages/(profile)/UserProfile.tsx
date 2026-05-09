@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Trophy, 
@@ -47,6 +47,7 @@ export const UserProfile = () => {
   const { userId } = useParams();
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const isOwnProfile = currentUser?.id === userId;
   
   const [profile, setProfile] = useState<any>(null);
@@ -136,6 +137,45 @@ export const UserProfile = () => {
       }
     } catch (err: any) {
       toast({ title: "Lỗi", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleStartChat = async () => {
+    if (!currentUser || !userId) return;
+    
+    try {
+      // 1. Check if conversation already exists
+      const { data: existing, error: fetchError } = await (supabase as any)
+        .from('conversations')
+        .select('id')
+        .or(`and(user_1.eq.${currentUser.id},user_2.eq.${userId}),and(user_1.eq.${userId},user_2.eq.${currentUser.id})`)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+
+      let convId = existing?.id;
+
+      // 2. If not, create it
+      if (!convId) {
+        const { data: created, error: createError } = await (supabase as any)
+          .from('conversations')
+          .insert({
+            user_1: currentUser.id,
+            user_2: userId,
+            last_message_preview: 'Bắt đầu cuộc hội thoại...',
+            last_message_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+        
+        if (createError) throw createError;
+        convId = created.id;
+      }
+
+      // 3. Navigate to chat page
+      navigate(`/chat?id=${convId}`);
+    } catch (err: any) {
+      toast({ title: "Lỗi chat", description: err.message, variant: "destructive" });
     }
   };
 
@@ -256,7 +296,11 @@ export const UserProfile = () => {
                     <><UserPlus className="h-5 w-5" /> Kết bạn</>
                   )}
                 </Button>
-                <Button variant="outline" className="rounded-2xl h-14 px-10 border-2 border-sakura-light/30 text-sakura font-black gap-2 text-lg">
+                <Button 
+                  variant="outline" 
+                  onClick={handleStartChat}
+                  className="rounded-2xl h-14 px-10 border-2 border-sakura-light/30 text-sakura font-black gap-2 text-lg"
+                >
                   <Mail className="h-5 w-5" /> Gửi tin nhắn
                 </Button>
               </>
