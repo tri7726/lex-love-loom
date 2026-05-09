@@ -109,6 +109,8 @@ export const DictationPlayer: React.FC<DictationPlayerProps> = ({ video, onBack 
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [loopSegment, setLoopSegment] = useState(false);
   const [autoAdvance, setAutoAdvance] = useState(false);
+  const [autoNextEnabled, setAutoNextEnabled] = useState(true); // Auto-next after success
+  const autoNextTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Progress tracking
   const [completedSegments, setCompletedSegments] = useState<Set<number>>(new Set());
@@ -454,7 +456,20 @@ YÊU CẦU ĐẶC BIỆT VỀ NGỮ PHÁP:
         if (error) console.error('Error saving progress:', error);
       });
     }
-  }, [currentIndex, user, currentSegment, awardXP, fire]);
+
+    // Auto-next logic
+    if (autoNextEnabled && score >= 90 && currentIndex < segments.length - 1) {
+      if (autoNextTimeoutRef.current) clearTimeout(autoNextTimeoutRef.current);
+      autoNextTimeoutRef.current = setTimeout(() => {
+        setCurrentIndex(prev => prev + 1);
+        toast({
+          title: "Đang chuyển đoạn...",
+          description: "Tự động chuyển sang câu tiếp theo",
+          duration: 1500,
+        });
+      }, 2000);
+    }
+  }, [currentIndex, user, currentSegment, awardXP, fire, autoNextEnabled, segments.length, toast]);
 
   const handleSpeakingComplete = useCallback((score: number) => {
     setSpeakingScores(prev => new Map(prev).set(currentIndex, score));
@@ -892,6 +907,20 @@ YÊU CẦU ĐẶC BIỆT VỀ NGỮ PHÁP:
                   >
                     <Play className="h-4 w-4" />
                     {autoAdvance ? "Tự chuyển: ON" : "Tự chuyển"}
+                  </Button>
+                  
+                  {/* Auto advance (Dictation completion) */}
+                  <Button 
+                    variant="secondary" 
+                    size="sm" 
+                    className={cn(
+                      "h-10 text-xs gap-2 rounded-xl border-none transition-all",
+                      autoNextEnabled ? "bg-indigo-500/15 text-indigo-600" : "bg-muted/50 hover:bg-muted"
+                    )}
+                    onClick={() => setAutoNextEnabled(!autoNextEnabled)}
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    {autoNextEnabled ? "Tự chuyển (Xong): ON" : "Tự chuyển (Xong)"}
                   </Button>
 
                   {/* Hỏi Sensei */}

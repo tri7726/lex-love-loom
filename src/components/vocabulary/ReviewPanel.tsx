@@ -32,8 +32,8 @@ const MODES = [
   { mode: 'match' as GameMode, icon: Sparkles, label: 'Ghép cặp', desc: 'Kết nối tri thức', gradient: 'from-rose-50 to-pink-50', border: 'border-rose-200 hover:border-rose-400', iconColor: 'text-rose-500', shadow: 'hover:shadow-rose-100' },
   { mode: 'pronunciation' as GameMode, icon: Mic, label: 'Phát âm', desc: 'Ngữ điệu bản xứ', gradient: 'from-pink-50 to-rose-50', border: 'border-rose-200 hover:border-rose-400', iconColor: 'text-sakura', shadow: 'hover:shadow-sakura/10' },
   { mode: 'lab' as GameMode, icon: PenTool, label: 'Viết tay', desc: 'Luyện nét chữ', gradient: 'from-rose-50 to-pink-50', border: 'border-rose-200 hover:border-rose-400', iconColor: 'text-sakura', shadow: 'hover:shadow-sakura/10' },
-  { mode: 'fillblank' as GameMode, icon: Keyboard, label: 'Điền từ', desc: 'Gõ từ vào chỗ trống', gradient: 'from-indigo-50 to-purple-50', border: 'border-indigo-200 hover:border-indigo-400', iconColor: 'text-indigo-500', shadow: 'hover:shadow-indigo-100' },
-  { mode: 'boss' as GameMode, icon: Skull, label: 'BOSS BATTLE', desc: 'Thử thách cuối chương', gradient: 'from-slate-900 to-slate-800', border: 'border-rose-500/50 hover:border-rose-500', iconColor: 'text-rose-500', shadow: 'hover:shadow-rose-500/20' },
+  { mode: 'fillblank' as GameMode, icon: Keyboard, label: 'Điền từ', desc: 'Gõ từ vào chỗ trống', gradient: 'from-pink-50 to-rose-50', border: 'border-pink-200 hover:border-pink-400', iconColor: 'text-sakura', shadow: 'hover:shadow-sakura/10' },
+  { mode: 'boss' as GameMode, icon: Skull, label: 'BOSS BATTLE', desc: 'Thử thách cuối chương', gradient: 'from-rose-100 to-pink-100', border: 'border-rose-400 hover:border-rose-600', iconColor: 'text-rose-600', shadow: 'hover:shadow-rose-200' },
 ];
 
 export const ReviewPanel: React.FC<ReviewPanelProps> = ({

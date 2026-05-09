@@ -59,6 +59,7 @@ export const Chat = () => {
   const [loading, setLoading] = useState(true);
   const [searchParams] = useSearchParams();
   const targetId = searchParams.get('id');
+  const startWith = searchParams.get('with');
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -88,10 +89,39 @@ export const Chat = () => {
         });
         setConversations(processed);
         
-        // Auto-select if ID provided in URL and not already selected
-        if (targetId) {
+        // --- Selection Logic ---
+        if (targetId && targetId !== 'new') {
           const target = processed.find((c: any) => c.id === targetId);
           if (target) setSelectedConv(target);
+        } else if (startWith) {
+          // Check if a conversation already exists with this person
+          const existing = processed.find((c: any) => c.other_user?.id === startWith);
+          if (existing) {
+            setSelectedConv(existing);
+          } else {
+            // New conversation mode: fetch the target user's profile to show in header
+            const { data: targetProfile } = await supabase
+              .from('profiles')
+              .select('user_id, display_name, avatar_url, role')
+              .eq('user_id', startWith)
+              .maybeSingle();
+            
+            if (targetProfile) {
+              setSelectedConv({
+                id: 'new',
+                user_1: user.id,
+                user_2: startWith,
+                last_message_preview: '',
+                last_message_at: new Date().toISOString(),
+                other_user: {
+                  id: (targetProfile as any).user_id,
+                  display_name: (targetProfile as any).display_name,
+                  avatar_url: (targetProfile as any).avatar_url,
+                  role: (targetProfile as any).role
+                }
+              });
+            }
+          }
         }
       }
       setLoading(false);
@@ -120,11 +150,18 @@ export const Chat = () => {
         table: 'messages',
         filter: `conversation_id=eq.${selectedConv.id}` 
       }, (payload) => {
+        const newMsg = payload.new as Message;
         setMessages(prev => {
-          // Prevent duplicates from realtime
-          if (prev.some(m => m.id === payload.new.id)) return prev;
-          return [...prev, payload.new as Message];
+          if (prev.some(m => m.id === newMsg.id)) return prev;
+          return [...prev, newMsg];
         });
+        
+        // Also update the conversation list preview locally for speed
+        setConversations(prev => prev.map(c => 
+          c.id === selectedConv.id 
+            ? { ...c, last_message_preview: newMsg.content, last_message_at: newMsg.created_at }
+            : c
+        ).sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()));
       })
       .subscribe();
 
@@ -159,18 +196,59 @@ export const Chat = () => {
     e?.preventDefault();
     if (!newMessage.trim() || !user || !selectedConv) return;
 
+    let conversationId = selectedConv.id;
+
+    // Handle new conversation creation
+    if (conversationId === 'new') {
+      const { data: newConv, error: convError } = await (supabase as any)
+        .from('conversations')
+        .insert({
+          user_1: user.id,
+          user_2: selectedConv.user_2,
+          last_message_preview: newMessage.trim(),
+          last_message_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (convError) {
+        console.error('Error creating conversation:', convError);
+        return;
+      }
+      conversationId = newConv.id;
+      // Update local state to reflect the real conversation
+      setSelectedConv({ ...selectedConv, id: conversationId });
+    }
+
     const receiver_id = selectedConv.user_1 === user.id ? selectedConv.user_2 : selectedConv.user_1;
+    const tempId = crypto.randomUUID();
+    const messageContent = newMessage.trim();
+    
+    // Optimistic update
+    const optimisticMsg: Message = {
+      id: tempId,
+      sender_id: user.id,
+      content: messageContent,
+      created_at: new Date().toISOString(),
+      is_read: false
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+    setNewMessage('');
+
     const { error } = await (supabase as any)
       .from('messages')
       .insert({
         sender_id: user.id,
         receiver_id,
-        content: newMessage.trim(),
-        conversation_id: selectedConv.id
+        content: messageContent,
+        conversation_id: conversationId
       });
 
-    if (error) console.error('Error sending message:', error);
-    else setNewMessage('');
+    if (error) {
+      console.error('Error sending message:', error);
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+    }
   };
 
   if (loading && conversations.length === 0) {

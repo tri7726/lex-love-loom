@@ -316,7 +316,8 @@ serve(async (req) => {
       title, 
       thumbnail_url: `https://img.youtube.com/vi/${youtube_id}/hqdefault.jpg`, 
       processed: false,
-      jlpt_level: jlpt_level || 'N5'
+      jlpt_level: jlpt_level || 'N5',
+      created_by: authUser.id
     }, { onConflict: "youtube_id" }).select().single();
 
     if (vError) throw new Error(vError.message);

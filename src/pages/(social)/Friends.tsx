@@ -44,40 +44,9 @@ export const Friends = () => {
     }
   };
 
-  const handleStartChat = async (targetUserId: string) => {
+  const handleStartChat = (targetUserId: string) => {
     if (!user) return;
-    
-    try {
-      const { data: existing, error: fetchError } = await (supabase as any)
-        .from('conversations')
-        .select('id')
-        .or(`and(user_1.eq.${user.id},user_2.eq.${targetUserId}),and(user_1.eq.${targetUserId},user_2.eq.${user.id})`)
-        .maybeSingle();
-
-      if (fetchError) throw fetchError;
-
-      let convId = existing?.id;
-
-      if (!convId) {
-        const { data: created, error: createError } = await (supabase as any)
-          .from('conversations')
-          .insert({
-            user_1: user.id,
-            user_2: targetUserId,
-            last_message_preview: 'Bắt đầu cuộc hội thoại...',
-            last_message_at: new Date().toISOString()
-          })
-          .select()
-          .single();
-        
-        if (createError) throw createError;
-        convId = created.id;
-      }
-
-      navigate(`/chat?id=${convId}`);
-    } catch (err) {
-      console.error('Chat error:', err);
-    }
+    navigate(`/chat?id=new&with=${targetUserId}`);
   };
 
   return (

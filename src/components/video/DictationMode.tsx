@@ -127,7 +127,7 @@ export const DictationMode: React.FC<DictationModeProps> = ({
   const [hasChecked, setHasChecked] = useState(false);
   const [diffResult, setDiffResult] = useState<DiffResult[]>([]);
   const [score, setScore] = useState(0);
-  const [showHint, setShowHint] = useState(false);
+  const [hintLevel, setHintLevel] = useState(0); // 0: none, 1: furigana, 2: full text
   const [showAnswer, setShowAnswer] = useState(false);
   const [xpEarned, setXpEarned] = useState(0);
   
@@ -163,7 +163,7 @@ export const DictationMode: React.FC<DictationModeProps> = ({
     setHasChecked(false);
     setDiffResult([]);
     setScore(0);
-    setShowHint(false);
+    setHintLevel(0);
     setShowAnswer(false);
     setCursorPos(null);
     setXpEarned(0);
@@ -227,6 +227,26 @@ export const DictationMode: React.FC<DictationModeProps> = ({
         toast(`Khá tốt! +${xp} XP`, { icon: '👍' });
       }
     }
+  };
+
+  const handleHintClick = async () => {
+    if (!currentSegment || hasChecked) return;
+    
+    const nextLevel = hintLevel < 2 ? hintLevel + 1 : 2;
+    if (nextLevel === hintLevel) return;
+
+    const xpToDeduct = nextLevel === 1 ? -5 : -10;
+    
+    // Deduct XP
+    await awardXP('quiz', xpToDeduct, { 
+      video_id: videoId, 
+      segment_id: currentSegment.id, 
+      type: 'hint',
+      level: nextLevel 
+    });
+
+    setHintLevel(nextLevel);
+    toast(`Đã dùng gợi ý (Cấp độ ${nextLevel}). Bị trừ ${Math.abs(xpToDeduct)} XP 💡`);
   };
 
   const handleRetry = () => {
@@ -441,13 +461,19 @@ export const DictationMode: React.FC<DictationModeProps> = ({
           <Button
             variant="secondary"
             size="icon"
-            onClick={() => setShowHint(!showHint)}
+            onClick={handleHintClick}
+            disabled={hasChecked || hintLevel >= 2}
             className={cn(
-               "h-12 w-12 rounded-xl bg-muted/30 hover:bg-muted border-none",
-               showHint && "text-gold bg-gold/10"
+               "h-12 w-12 rounded-xl bg-muted/30 hover:bg-muted border-none transition-all",
+               hintLevel > 0 && "text-gold bg-gold/10 ring-2 ring-gold/20"
             )}
           >
-            <Lightbulb className={cn("h-5 w-5", showHint && "fill-gold")} />
+            <Lightbulb className={cn("h-5 w-5", hintLevel > 0 && "fill-gold")} />
+            {hintLevel > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-gold text-[8px] font-black text-white">
+                {hintLevel}
+              </span>
+            )}
           </Button>
           
           <Button
@@ -507,14 +533,29 @@ export const DictationMode: React.FC<DictationModeProps> = ({
 
         {/* Hints */}
         <AnimatePresence>
-          {showHint && showTranslation && currentSegment.vietnamese_text && (
+          {hintLevel > 0 && (
             <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="p-3 bg-gold/10 rounded-lg text-center"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="p-4 bg-gold/5 border-2 border-dashed border-gold/20 rounded-2xl text-center space-y-2"
             >
-              <p className="text-sm">💡 {currentSegment.vietnamese_text}</p>
+              <div className="flex items-center justify-center gap-2 text-xs font-black text-gold uppercase tracking-tighter">
+                <Lightbulb className="h-3 w-3 fill-gold" />
+                Gợi ý cấp độ {hintLevel}
+              </div>
+              <div className="font-jp text-lg tracking-wide">
+                {renderTextWithFurigana(
+                  currentSegment.japanese_text, 
+                  currentSegment.vocabulary, 
+                  hintLevel >= 1 // Always show furigana if hintLevel >= 1
+                )}
+              </div>
+              {hintLevel === 2 && currentSegment.vietnamese_text && (
+                <p className="text-xs text-muted-foreground italic">
+                  "{currentSegment.vietnamese_text}"
+                </p>
+              )}
             </motion.div>
           )}
 

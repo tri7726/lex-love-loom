@@ -492,181 +492,191 @@ export const VideoLearning = () => {
                   Thêm video
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-lg">
+              <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto rounded-3xl border-2">
                 <DialogHeader>
-                  <DialogTitle>Thêm Video Mới</DialogTitle>
-                  <DialogDescription>
-                    Lấy phụ đề tự động từ YouTube hoặc dán phụ đề SRT thủ công
-                  </DialogDescription>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="h-10 w-10 rounded-2xl bg-sakura/10 flex items-center justify-center">
+                      <Plus className="h-6 w-6 text-sakura" />
+                    </div>
+                    <div>
+                      <DialogTitle className="text-2xl font-black">Thêm Video Học Tập</DialogTitle>
+                      <DialogDescription>
+                        Hỗ trợ lấy phụ đề tự động hoặc dán file SRT thủ công
+                      </DialogDescription>
+                    </div>
+                  </div>
                 </DialogHeader>
                 
-                <div className="space-y-4">
-                  {/* Thumbnail Preview */}
-                  {previewThumbnail && (
-                    <div className="rounded-lg overflow-hidden border bg-muted/30">
-                      <img 
-                        src={previewThumbnail} 
-                        alt="Video thumbnail" 
-                        className="w-full aspect-video object-cover"
-                      />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-4">
+                  {/* Left Side: Info & URL */}
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="video-url" className="text-sm font-bold ml-1">Đường dẫn YouTube</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="video-url"
+                          placeholder="https://youtube.com/watch?v=..."
+                          value={newVideoUrl}
+                          onChange={(e) => setNewVideoUrl(e.target.value)}
+                          className="flex-1 h-12 rounded-2xl border-2"
+                        />
+                        <Button
+                          variant="secondary"
+                          onClick={handleFetchCaptions}
+                          disabled={fetchingCaptions || !newVideoUrl}
+                          className="h-12 px-4 rounded-2xl gap-2"
+                        >
+                          {fetchingCaptions ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4" />
+                          )}
+                          Lấy CC
+                        </Button>
+                      </div>
                     </div>
-                  )}
 
-                  <div className="space-y-2">
-                    <Label htmlFor="video-url">Link YouTube</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="video-url"
-                        placeholder="https://youtube.com/watch?v=..."
-                        value={newVideoUrl}
-                        onChange={(e) => setNewVideoUrl(e.target.value)}
-                        className="flex-1"
-                      />
-                      <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-                        <SelectTrigger className="w-24 shrink-0">
-                          <Globe className="h-4 w-4 mr-1" />
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="ja">🇯🇵 日本語</SelectItem>
-                          <SelectItem value="en">🇬🇧 English</SelectItem>
-                          <SelectItem value="auto">🌐 Auto</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        variant="outline"
-                        onClick={handleFetchCaptions}
-                        disabled={fetchingCaptions || !newVideoUrl}
-                        className="gap-1 shrink-0"
-                      >
-                        {fetchingCaptions ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Download className="h-4 w-4" />
-                        )}
-                        Lấy CC
-                      </Button>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-sm font-bold ml-1">Ngôn ngữ nguồn</Label>
+                        <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+                          <SelectTrigger className="h-12 rounded-2xl border-2">
+                            <Globe className="h-4 w-4 mr-2 text-muted-foreground" />
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ja">🇯🇵 日本語</SelectItem>
+                            <SelectItem value="en">🇬🇧 English</SelectItem>
+                            <SelectItem value="auto">🌐 Tự động</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm font-bold ml-1">Trình độ JLPT</Label>
+                        <Select value={newVideoLevel} onValueChange={setNewVideoLevel}>
+                          <SelectTrigger className="h-12 rounded-2xl border-2">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {['N5', 'N4', 'N3', 'N2', 'N1'].map(level => (
+                              <SelectItem key={level} value={level} className="font-bold">{level}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                    {captionLanguage && (
-                      <Badge variant="secondary" className="gap-1">
-                        <Sparkles className="h-3 w-3" />
-                        Phụ đề: {captionLanguage}
-                      </Badge>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="video-title" className="text-sm font-bold ml-1">Tiêu đề Video</Label>
+                      <Input
+                        id="video-title"
+                        placeholder="VD: Luyện nghe N5 - Bài 01"
+                        value={newVideoTitle}
+                        onChange={(e) => setNewVideoTitle(e.target.value)}
+                        className="h-12 rounded-2xl border-2"
+                      />
+                    </div>
+
+                    {/* Thumbnail Preview */}
+                    {previewThumbnail ? (
+                      <div className="rounded-3xl overflow-hidden border-4 border-white shadow-xl bg-muted/30 relative group">
+                        <img 
+                          src={previewThumbnail} 
+                          alt="Video thumbnail" 
+                          className="w-full aspect-video object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors" />
+                        <div className="absolute bottom-3 left-3">
+                          <Badge className="bg-sakura text-white border-none shadow-lg">Preview</Badge>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="aspect-video rounded-3xl border-2 border-dashed flex flex-col items-center justify-center text-muted-foreground bg-muted/20">
+                        <PlayCircle className="h-12 w-12 mb-2 opacity-20" />
+                        <p className="text-xs">Dán link để xem trước video</p>
+                      </div>
                     )}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="video-title">Tiêu đề</Label>
-                    <Input
-                      id="video-title"
-                      placeholder="Ví dụ: N5 Listening Practice #1"
-                      value={newVideoTitle}
-                      onChange={(e) => setNewVideoTitle(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Trình độ JLPT</Label>
-                    <Select value={newVideoLevel} onValueChange={setNewVideoLevel}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Chọn trình độ" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {['N5', 'N4', 'N3', 'N2', 'N1'].map(level => (
-                          <SelectItem key={level} value={level}>{level}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="subtitles">Phụ đề (SRT)</Label>
+                  {/* Right Side: Subtitles */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between px-1">
+                      <Label htmlFor="subtitles" className="text-sm font-bold">Nội dung phụ đề (SRT)</Label>
                       {newVideoSubtitles && (
-                        <Badge variant="outline" className="text-xs">
-                          {parseSubtitles(newVideoSubtitles).length} đoạn
+                        <Badge variant="outline" className="text-[10px] font-black bg-sakura/5 text-sakura border-sakura/20">
+                          {parseSubtitles(newVideoSubtitles).length} ĐOẠN ĐÃ TÌM THẤY
                         </Badge>
                       )}
                     </div>
-                    <Textarea
-                      id="subtitles"
-                      placeholder={`1
-00:00:01,000 --> 00:00:05,000
-こんにちは
-
-2
-00:00:06,000 --> 00:00:10,000
-私は田中です`}
-                      rows={8}
-                      value={newVideoSubtitles}
-                      onChange={(e) => setNewVideoSubtitles(e.target.value)}
-                      className="font-mono text-sm"
-                    />
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        accept=".srt,.vtt,.txt"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (event) => {
-                              const content = event.target?.result as string;
-                              setNewVideoSubtitles(content);
-                              toast({
-                                title: 'File đã tải',
-                                description: `Đã tải ${file.name}`,
-                              });
-                            };
-                            reader.readAsText(file);
-                          }
-                          e.target.value = '';
-                        }}
+                    
+                    <div className="relative">
+                      <Textarea
+                        id="subtitles"
+                        placeholder={`Định dạng SRT:\n1\n00:00:01,000 --> 00:00:05,000\nこんにちは...`}
+                        className="font-mono text-sm rounded-2xl border-2 min-h-[350px] bg-muted/10 focus:bg-background transition-colors p-4"
+                        value={newVideoSubtitles}
+                        onChange={(e) => setNewVideoSubtitles(e.target.value)}
                       />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs gap-1"
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        <Upload className="h-3 w-3" />
-                        Tải file SRT
-                      </Button>
-                      <span className="text-muted-foreground">hoặc</span>
-                      {newVideoUrl && extractYouTubeId(newVideoUrl) && (
-                        <a 
-                          href={`https://downsub.com/?url=https://www.youtube.com/watch?v=${extractYouTubeId(newVideoUrl)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sakura hover:underline flex items-center gap-1"
+                      <div className="absolute bottom-3 right-3 flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-[10px] gap-1 rounded-lg bg-background shadow-sm"
+                          onClick={() => fileInputRef.current?.click()}
                         >
-                          Tải từ DownSub <ExternalLink className="h-3 w-3" />
-                        </a>
-                      )}
+                          <Upload className="h-3 w-3" /> Tải file SRT
+                        </Button>
+                      </div>
                     </div>
-                  </div>
 
-                  <Button
-                    className="w-full gap-2"
-                    onClick={handleAddVideo}
-                    disabled={processing || !newVideoSubtitles}
-                  >
-                    {processing ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Đang xử lý với AI...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4" />
-                        Thêm & Xử lý Video
-                      </>
-                    )}
-                  </Button>
+                    <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex gap-3">
+                      <div className="h-6 w-6 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
+                        <span className="text-blue-600 text-[10px]">ℹ️</span>
+                      </div>
+                      <p className="text-[10px] text-blue-700 leading-relaxed">
+                        Mẹo: Bạn có thể dùng các trang như DownSub.com để tải phụ đề từ YouTube về máy rồi dán vào đây hoặc tải file trực tiếp.
+                      </p>
+                    </div>
+
+                    <Button
+                      className="w-full h-14 rounded-2xl text-lg font-black gap-2 bg-sakura hover:bg-sakura/90 shadow-lg shadow-sakura/20 transition-all active:scale-[0.98]"
+                      onClick={handleAddVideo}
+                      disabled={processing || !newVideoSubtitles}
+                    >
+                      {processing ? (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          Đang xử lý với AI...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-5 w-5" />
+                          Phân Tích & Lưu Video
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
+                
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept=".srt,.vtt,.txt"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        const content = event.target?.result as string;
+                        setNewVideoSubtitles(content);
+                        toast({ title: 'Đã tải file!', description: file.name });
+                      };
+                      reader.readAsText(file);
+                    }
+                  }}
+                />
               </DialogContent>
             </Dialog>
           </div>

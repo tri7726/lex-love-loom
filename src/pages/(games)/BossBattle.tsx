@@ -183,11 +183,11 @@ const BossBattle = () => {
   if (gameState === 'loading') return null;
 
   return (
-    <div className="min-h-screen bg-[#0F172A] text-white flex flex-col font-sans overflow-hidden">
+    <div className="min-h-screen bg-[#1A0B10] text-white flex flex-col font-sans overflow-hidden">
       {/* Background Ambience */}
       <div className="absolute inset-0 z-0">
-         <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-indigo-950/50 to-slate-950" />
-         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-sakura/5 rounded-full blur-[120px] opacity-20" />
+         <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-rose-950/40 to-[#0A0506]" />
+         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-sakura/10 rounded-full blur-[120px] opacity-20" />
       </div>
 
       {/* --- Header --- */}
@@ -198,8 +198,8 @@ const BossBattle = () => {
           </Button>
         </Link>
         <div className="flex items-center gap-2">
-           <Badge className="bg-slate-800 text-slate-300 border-slate-700">Chapter Final</Badge>
-           <h1 className="font-black tracking-widest uppercase text-xs opacity-50">Boss Battle</h1>
+           <Badge className="bg-sakura/20 text-sakura border-sakura/30 px-3">Chapter Final</Badge>
+           <h1 className="font-black tracking-widest uppercase text-[10px] opacity-60 text-sakura-light">Boss Battle</h1>
         </div>
         <div className="w-20" /> {/* Spacer */}
       </header>
@@ -251,20 +251,20 @@ const BossBattle = () => {
                         </div>
                         <span className="text-sm font-bold text-rose-400">HP {bossHp}/{boss?.max_hp}</span>
                      </div>
-                     <Progress value={(bossHp / (boss?.max_hp || 1)) * 100} className="h-3 bg-slate-800" />
+                     <Progress value={(bossHp / (boss?.max_hp || 1)) * 100} className="h-3 bg-white/5" indicatorClassName="bg-gradient-to-r from-rose-600 to-sakura" />
                      
                      <div className="relative h-48 flex items-center justify-center">
                         <motion.div 
                           animate={isAttacking ? { x: [0, -10, 10, -10, 10, 0] } : {}}
-                          className="text-9xl filter drop-shadow-[0_0_30px_rgba(244,63,94,0.3)]"
+                          className="text-9xl filter drop-shadow-[0_0_40px_rgba(244,63,94,0.4)]"
                         >
                           {boss?.avatar_url}
                         </motion.div>
                         {lastDamage && (
                           <motion.div 
                             initial={{ y: 0, opacity: 1, scale: 1 }}
-                            animate={{ y: -100, opacity: 0, scale: 2 }}
-                            className="absolute font-black text-rose-500 text-6xl italic"
+                            animate={{ y: -120, opacity: 0, scale: 2.5 }}
+                            className="absolute font-black text-sakura text-7xl italic drop-shadow-lg"
                           >
                             -{lastDamage}
                           </motion.div>
@@ -276,27 +276,24 @@ const BossBattle = () => {
                   <div className="space-y-4">
                      <div className="flex justify-between items-end">
                         <div className="flex items-center gap-2">
-                           <div className="h-10 w-10 rounded-full overflow-hidden border-2 border-primary">
+                           <div className="h-10 w-10 rounded-full overflow-hidden border-2 border-sakura shadow-lg shadow-sakura/20">
                               <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`} alt="User" />
                            </div>
-                           <h3 className="font-bold">Bạn</h3>
+                           <h3 className="font-bold text-sakura-light">Bạn</h3>
                         </div>
-                        <span className="text-sm font-bold text-primary">HP {userHp}/100</span>
+                        <span className="text-sm font-bold text-sakura">HP {userHp}/100</span>
                      </div>
-                     <Progress value={userHp} className="h-3 bg-slate-800" />
+                     <Progress value={userHp} className="h-3 bg-white/5" indicatorClassName="bg-sakura" />
                   </div>
-               </div>
-
-               {/* Right: Question Card */}
-               <div className="space-y-6">
-                  <Card className="bg-slate-900/50 border-slate-800 backdrop-blur-xl rounded-[2.5rem] overflow-hidden">
+                <div className="space-y-6">
+                  <Card className="bg-white/5 border-white/10 backdrop-blur-2xl rounded-[2.5rem] overflow-hidden shadow-2xl">
                      <CardContent className="p-8 space-y-8">
                         <div className="text-center space-y-4">
-                           <div className="text-xs font-black uppercase tracking-[0.3em] text-slate-500">
+                           <div className="text-xs font-black uppercase tracking-[0.3em] text-sakura/60">
                              {questions[currentQuestionIndex]?.type === 'meaning' ? 'Ý nghĩa của từ này là gì?' : 'Cách đọc của từ này là gì?'}
                            </div>
-                           <h4 className="font-jp text-5xl font-black text-white">{questions[currentQuestionIndex]?.word}</h4>
-                           <div className="text-xs text-slate-400 italic">Câu hỏi {currentQuestionIndex + 1}/{questions.length}</div>
+                           <h4 className="font-jp text-5xl font-black text-white drop-shadow-sm">{questions[currentQuestionIndex]?.word}</h4>
+                           <div className="text-xs text-white/40 italic">Câu hỏi {currentQuestionIndex + 1}/{questions.length}</div>
                         </div>
 
                         <div className="grid grid-cols-1 gap-3">
@@ -307,15 +304,17 @@ const BossBattle = () => {
                                onClick={() => handleAnswer(opt)}
                                className={cn(
                                  "w-full p-5 rounded-2xl text-left font-bold transition-all border-2",
-                                 "bg-slate-800/50 border-slate-700 hover:bg-slate-700 hover:border-slate-600 active:scale-[0.98]",
+                                 "bg-white/5 border-white/10 hover:bg-sakura/10 hover:border-sakura/40 active:scale-[0.98]",
                                  isAttacking && "opacity-50"
                                )}
                              >
-                               <span className="text-slate-500 mr-4">{String.fromCharCode(65 + i)}.</span>
+                               <span className="text-sakura/40 mr-4 font-mono">{String.fromCharCode(65 + i)}.</span>
                                {opt}
                              </button>
                            ))}
                         </div>
+                     </CardContent>
+                  </Card>                      </div>
                      </CardContent>
                   </Card>
                   

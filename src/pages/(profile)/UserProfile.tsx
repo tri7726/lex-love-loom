@@ -62,22 +62,26 @@ export const UserProfile = () => {
     let isMounted = true;
 
     const fetchData = async () => {
-      if (!userId) return;
+      const effectiveId = userId || currentUser?.id;
+      if (!effectiveId) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       try {
-        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(effectiveId);
         let query = supabase.from('profiles').select('*');
         
         if (isUUID) {
-          query = query.or(`user_id.eq.${userId},id.eq.${userId}`);
+          query = query.or(`user_id.eq.${effectiveId},id.eq.${effectiveId}`);
         } else {
-          query = query.eq('username', userId);
+          query = query.eq('username', effectiveId);
         }
 
         let { data: profileData, error: profileError } = await query.maybeSingle();
 
         // Fallback: If it's the current user's own profile and it doesn't exist, try to create it
-        if (!profileData && currentUser && (currentUser.id === userId || currentUser.email?.split('@')[0] === userId)) {
+        if (!profileData && currentUser && (currentUser.id === effectiveId || currentUser.email?.split('@')[0] === effectiveId)) {
           console.log('Attempting to auto-create missing profile for current user...');
           const { data: newData, error: createError } = await supabase
             .from('profiles')
@@ -101,7 +105,7 @@ export const UserProfile = () => {
           setProfile(profileData);
         }
 
-        if (profileData && currentUser && currentUser.id !== userId) {
+        if (profileData && currentUser && currentUser.id !== effectiveId) {
           const { data: friendData } = await supabase
             .from('friendships')
             .select('*')
@@ -109,8 +113,8 @@ export const UserProfile = () => {
             .then(res => {
               // Manual filter to avoid complex .or logic that might fail
               const match = res.data?.find((f: any) => 
-                (f.sender_id === currentUser.id && f.receiver_id === userId) ||
-                (f.sender_id === userId && f.receiver_id === currentUser.id)
+                (f.sender_id === currentUser.id && f.receiver_id === effectiveId) ||
+                (f.sender_id === effectiveId && f.receiver_id === currentUser.id)
               );
               return { data: match };
             });
@@ -122,7 +126,7 @@ export const UserProfile = () => {
         const { data: activityData } = await supabase
           .from('user_activities')
           .select('*')
-          .eq('user_id', userId)
+          .eq('user_id', effectiveId)
           .order('created_at', { ascending: false })
           .limit(5);
         
@@ -140,22 +144,35 @@ export const UserProfile = () => {
   }, [userId, currentUser?.id]);
 
   const handleFriendAction = async () => {
-    if (!currentUser || !userId) return;
+    const effectiveId = userId || profile?.user_id;
+    if (!currentUser || !effectiveId) return;
+    
     try {
       if (!friendship) {
+        // Send new request
         const { error } = await supabase
           .from('friendships')
-          .insert({ sender_id: currentUser.id, receiver_id: userId, status: 'pending' });
+          .insert({ sender_id: currentUser.id, receiver_id: effectiveId, status: 'pending' });
         if (error) throw error;
         toast("Đã gửi lời mời kết bạn");
-        setFriendship({ sender_id: currentUser.id, receiver_id: userId, status: 'pending' });
+        setFriendship({ sender_id: currentUser.id, receiver_id: effectiveId, status: 'pending' });
+      } else if (friendship.status === 'pending' && friendship.receiver_id === currentUser.id) {
+        // Accept incoming request
+        const { error } = await supabase
+          .from('friendships')
+          .update({ status: 'accepted' })
+          .eq('id', friendship.id);
+        if (error) throw error;
+        toast("Đã chấp nhận lời mời kết bạn! 🎉");
+        setFriendship({ ...friendship, status: 'accepted' });
       } else {
+        // Unfriend or cancel outgoing request
         const { error } = await supabase
           .from('friendships')
           .delete()
           .eq('id', friendship.id);
         if (error) throw error;
-        toast("Đã hủy kết bạn/yêu cầu");
+        toast(friendship.status === 'accepted' ? "Đã hủy kết bạn" : "Đã hủy yêu cầu");
         setFriendship(null);
       }
     } catch (err: any) {
@@ -164,8 +181,9 @@ export const UserProfile = () => {
   };
 
   const handleStartChat = () => {
-    if (!userId) return;
-    navigate(`/chat?id=new&with=${userId}`);
+    const targetUserId = profile?.user_id || userId;
+    if (!targetUserId) return;
+    navigate(`/chat?id=new&with=${targetUserId}`);
   };
 
   if (loading) {
@@ -185,7 +203,7 @@ export const UserProfile = () => {
     );
   }
 
-  const isOwnProfile = currentUser?.id === userId;
+  const isOwnProfile = currentUser?.id === profile?.user_id || currentUser?.id === userId;
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -252,7 +270,17 @@ export const UserProfile = () => {
                       friendship?.status === 'accepted' ? "bg-matcha text-white" : "bg-sakura text-white"
                     )}
                   >
-                    {friendship?.status === 'accepted' ? <><UserCheck className="h-5 w-5" /> Bạn bè</> : <><UserPlus className="h-5 w-5" /> Kết bạn</>}
+                    {friendship?.status === 'accepted' ? (
+                      <><UserCheck className="h-5 w-5" /> Bạn bè</>
+                    ) : friendship?.status === 'pending' ? (
+                      friendship.receiver_id === currentUser?.id ? (
+                        <><UserPlus className="h-5 w-5" /> Chấp nhận</>
+                      ) : (
+                        <><Clock className="h-5 w-5" /> Đang chờ...</>
+                      )
+                    ) : (
+                      <><UserPlus className="h-5 w-5" /> Kết bạn</>
+                    )}
                   </Button>
                   <Button variant="outline" onClick={handleStartChat} className="rounded-2xl h-14 px-10 border-2 border-sakura-light/30 text-sakura font-black gap-2 text-lg transition-all hover:bg-sakura-light/10">
                     <Mail className="h-5 w-5" /> Nhắn tin

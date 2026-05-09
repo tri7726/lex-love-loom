@@ -125,7 +125,7 @@ export const FillBlankGame: React.FC<FillBlankGameProps> = ({
           <Button variant="outline" onClick={onBack} className="gap-2">
             <ArrowLeft className="h-4 w-4" /> Quay lại
           </Button>
-          <Button onClick={() => { correctRef.current = 0; setIdx(0); setInput(''); setResult(null); setCorrect(0); setFinished(false); }} className="gap-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white">
+          <Button onClick={() => { correctRef.current = 0; setIdx(0); setInput(''); setResult(null); setCorrect(0); setFinished(false); }} className="gap-2 bg-gradient-to-r from-sakura to-pink-500 text-white border-none shadow-lg shadow-sakura/20">
             <RotateCcw className="h-4 w-4" /> Chơi lại
           </Button>
         </div>
@@ -143,7 +143,7 @@ export const FillBlankGame: React.FC<FillBlankGameProps> = ({
           <ArrowLeft className="h-4 w-4" /> Thoát
         </Button>
         <div className="flex items-center gap-2">
-          <Badge className="bg-indigo-100 text-indigo-700 border-0 font-black text-xs">
+          <Badge className="bg-sakura/10 text-sakura border-none font-black text-xs">
             <Keyboard className="h-3 w-3 mr-1" /> Điền vào chỗ trống
           </Badge>
           <span className="text-xs text-muted-foreground font-medium">{idx + 1}/{total}</span>
@@ -190,7 +190,7 @@ export const FillBlankGame: React.FC<FillBlankGameProps> = ({
                         return sentence.split(regex).map((part, i, arr) => (
                           <React.Fragment key={i}>
                             {part}
-                            {i < arr.length - 1 && <span className="mx-1 px-4 border-b-2 border-indigo-400 text-indigo-500 font-black">____</span>}
+                            {i < arr.length - 1 && <span className="mx-1 px-4 border-b-2 border-sakura text-sakura font-black">____</span>}
                           </React.Fragment>
                         ));
                       }
@@ -200,7 +200,7 @@ export const FillBlankGame: React.FC<FillBlankGameProps> = ({
                       <div className="flex flex-col gap-2">
                         <span className="text-muted-foreground text-sm uppercase tracking-widest font-sans">Nghĩa: {word.meaning}</span>
                         <div className="flex items-center justify-center gap-2">
-                          <span className="px-4 border-b-2 border-indigo-400 text-indigo-500 font-black">____</span>
+                          <span className="px-4 border-b-2 border-sakura text-sakura font-black">____</span>
                           <span className="text-sm font-medium">có nghĩa là gì?</span>
                         </div>
                       </div>
@@ -240,7 +240,7 @@ export const FillBlankGame: React.FC<FillBlankGameProps> = ({
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKey}
                 placeholder="Gõ từ tiếng Nhật..."
-                className="w-full px-5 py-4 text-center text-xl font-jp rounded-2xl border-2 border-border/40 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none bg-white transition-all font-bold"
+                className="w-full px-5 py-4 text-center text-xl font-jp rounded-2xl border-2 border-border/40 focus:border-sakura focus:ring-4 focus:ring-sakura/10 outline-none bg-white transition-all font-bold"
                 autoComplete="off"
                 autoCorrect="off"
                 spellCheck={false}
@@ -278,7 +278,7 @@ export const FillBlankGame: React.FC<FillBlankGameProps> = ({
               <Button
                 onClick={submit}
                 disabled={!input.trim()}
-                className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-black gap-2"
+                className="flex-1 bg-gradient-to-r from-sakura to-pink-500 text-white font-black gap-2 border-none shadow-lg shadow-sakura/20"
               >
                 Kiểm tra
               </Button>
