@@ -10,7 +10,6 @@ interface JmdictSense {
   gloss?: JmdictGloss[];
   partOfSpeech?: string[];
 }
-
 interface JmdictWord {
   id: string;
   kanji?: { text: string; common?: boolean }[];
