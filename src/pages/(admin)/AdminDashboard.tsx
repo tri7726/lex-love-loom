@@ -537,44 +537,122 @@ export const AdminDashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-[#faf9f6]">
+        <Loader2 className="h-10 w-10 text-sakura animate-spin" />
       </div>
     );
   }
   if (!isAdmin) return null;
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="flex items-center gap-3 mb-2">
-            <Shield className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-            <Badge className="ml-2">admin</Badge>
+    <div className="min-h-screen bg-[#faf9f6] pb-20">
+      <main className="max-w-[1600px] mx-auto px-4 md:px-10 py-10">
+        <div className="flex flex-col lg:flex-row gap-10">
+          
+          {/* Main Area: 70% */}
+          <div className="flex-1 space-y-10">
+            {/* Header */}
+            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+              <div className="flex items-center gap-4">
+                 <div className="h-14 w-14 bg-sakura rounded-2xl flex items-center justify-center text-white shadow-sakura">
+                    <Shield className="h-8 w-8" />
+                 </div>
+                 <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge className="bg-sakura-light/20 text-sakura border-0 font-black text-[10px] uppercase tracking-widest px-3">System Control</Badge>
+                      <Badge variant="outline" className="text-muted-foreground border-border">v2.0 Premium</Badge>
+                    </div>
+                    <h1 className="text-4xl font-display font-black text-sumi tracking-tight">Trung tâm Quản trị</h1>
+                 </div>
+              </div>
+              <p className="text-muted-foreground text-lg font-medium max-w-3xl">
+                Kiểm soát toàn bộ hệ thống Sakura Nihongo. Quản lý người dùng, nội dung học tập và theo dõi hoạt động thời gian thực.
+              </p>
+            </motion.div>
+
+            {/* Content Tabs */}
+            <Tabs defaultValue="users" className="space-y-8">
+              <div className="flex items-center justify-between bg-white/50 p-2 rounded-[2rem] border-2 border-sakura-light/10 backdrop-blur-sm sticky top-24 z-30 shadow-soft">
+                <TabsList className="bg-transparent gap-2 h-14">
+                  <TabsTrigger value="users" className="rounded-2xl px-8 h-10 data-[state=active]:bg-sakura data-[state=active]:text-white font-black uppercase text-[10px] tracking-widest transition-all">
+                    <Users className="h-4 w-4 mr-2" /> Người dùng
+                  </TabsTrigger>
+                  <TabsTrigger value="content" className="rounded-2xl px-8 h-10 data-[state=active]:bg-sakura data-[state=active]:text-white font-black uppercase text-[10px] tracking-widest transition-all">
+                    <BookOpen className="h-4 w-4 mr-2" /> Nội dung
+                  </TabsTrigger>
+                  <TabsTrigger value="logs" className="rounded-2xl px-8 h-10 data-[state=active]:bg-sakura data-[state=active]:text-white font-black uppercase text-[10px] tracking-widest transition-all">
+                    <Activity className="h-4 w-4 mr-2" /> Nhật ký
+                  </TabsTrigger>
+                  <TabsTrigger value="tools" className="rounded-2xl px-8 h-10 data-[state=active]:bg-sakura data-[state=active]:text-white font-black uppercase text-[10px] tracking-widest transition-all lg:hidden">
+                    <ShieldCheck className="h-4 w-4 mr-2" /> Công cụ
+                  </TabsTrigger>
+                </TabsList>
+                
+                <div className="hidden md:flex items-center gap-2 px-4 border-l border-sakura-light/20">
+                   <div className="h-2 w-2 rounded-full bg-matcha animate-pulse" />
+                   <span className="text-[10px] font-black text-matcha uppercase tracking-widest">Hệ thống Live</span>
+                </div>
+              </div>
+
+              <TabsContent value="users" className="mt-0 focus-visible:ring-0">
+                <Card className="rounded-[3rem] border-2 border-sakura-light/10 shadow-card bg-white p-8">
+                   <UserRolesPanel />
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="content" className="mt-0 focus-visible:ring-0">
+                <Card className="rounded-[3rem] border-2 border-sakura-light/10 shadow-card bg-white p-8">
+                   <ContentPanel />
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="logs" className="mt-0 focus-visible:ring-0">
+                <Card className="rounded-[3rem] border-2 border-sakura-light/10 shadow-card bg-white p-8">
+                   <ActivityLog />
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="tools" className="mt-0 focus-visible:ring-0 lg:hidden">
+                 <AdminToolsGrid />
+              </TabsContent>
+            </Tabs>
           </div>
-          <p className="text-sm text-muted-foreground">Quản lý người dùng, nội dung, công cụ và theo dõi hoạt động hệ thống</p>
-        </motion.div>
 
-        <section className="space-y-2">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Công cụ admin</h2>
-          <AdminToolsGrid />
-        </section>
+          {/* Sidebar Area: 30% */}
+          <aside className="lg:w-[420px] space-y-8">
+             {/* High Impact Stats */}
+             <section className="space-y-4">
+                <h3 className="text-sm font-black text-sumi uppercase tracking-widest flex items-center gap-2 px-2">
+                  <BarChart3 className="h-4 w-4 text-sakura" /> Thống kê tổng quan
+                </h3>
+                <Card className="rounded-[3rem] border-2 border-sakura-light/20 shadow-card bg-white p-8">
+                   <StatsOverview />
+                </Card>
+             </section>
 
-        <Tabs defaultValue="stats" className="space-y-4">
-          <TabsList className="grid grid-cols-4 w-full max-w-md">
-            <TabsTrigger value="stats" className="gap-1.5 text-xs"><BarChart3 className="h-3.5 w-3.5" />Thống kê</TabsTrigger>
-            <TabsTrigger value="users" className="gap-1.5 text-xs"><Users className="h-3.5 w-3.5" />Users</TabsTrigger>
-            <TabsTrigger value="content" className="gap-1.5 text-xs"><BookOpen className="h-3.5 w-3.5" />Nội dung</TabsTrigger>
-            <TabsTrigger value="logs" className="gap-1.5 text-xs"><Activity className="h-3.5 w-3.5" />Log</TabsTrigger>
-          </TabsList>
+             {/* Quick Admin Tools */}
+             <section className="space-y-4 sticky top-24">
+                <h3 className="text-sm font-black text-sumi uppercase tracking-widest flex items-center gap-2 px-2">
+                  <ShieldCheck className="h-4 w-4 text-sakura" /> Công cụ quản trị
+                </h3>
+                <AdminToolsGrid />
+                
+                <Card className="mt-8 rounded-[2.5rem] bg-sakura/5 border-2 border-sakura-light/10 p-6">
+                   <div className="flex items-start gap-4">
+                      <FlaskConical className="h-6 w-6 text-sakura shrink-0 mt-1" />
+                      <div className="space-y-1">
+                         <h4 className="font-bold text-sumi">Phát triển AI</h4>
+                         <p className="text-xs text-muted-foreground leading-relaxed">
+                            Toàn bộ các tính năng AI bao gồm Dịch thuật và Gợi ý thông minh đang hoạt động ở chế độ ổn định. Kiểm tra Telemetry để xem hiệu suất.
+                         </p>
+                      </div>
+                   </div>
+                </Card>
+             </section>
+          </aside>
 
-          <TabsContent value="stats"><StatsOverview /></TabsContent>
-          <TabsContent value="users"><UserRolesPanel /></TabsContent>
-          <TabsContent value="content"><ContentPanel /></TabsContent>
-          <TabsContent value="logs"><ActivityLog /></TabsContent>
-        </Tabs>
-      </div>
+        </div>
+      </main>
     </div>
   );
 };
