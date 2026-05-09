@@ -36,14 +36,25 @@ export const ImportVocabularyDialog: React.FC<ImportVocabularyDialogProps> = ({
     try {
       const arr = JSON.parse(text);
       if (!Array.isArray(arr)) { setImportError('JSON phải là một mảng (array)'); return null; }
-      const words: VocabWord[] = arr.map((item: Record<string, string>, idx: number) => {
-        if (!item.word || !item.meaning) throw new Error(`Dòng ${idx + 1}: thiếu "word" hoặc "meaning"`);
+      const words: VocabWord[] = arr.map((item: Record<string, any>, idx: number) => {
+        // Smart mapping aliases
+        const word = item.word || item.kanji || item.text;
+        const meaning = item.meaning || item.translation || item.definition || item.vietnamese || item.vn;
+        const reading = item.reading || item.kana || item.furigana || item.pronunciation;
+        const hanviet = item.hanviet || item.chinese_vietnamese;
+        const level = item.level || item.jlpt || item.jlpt_level;
+        const example = item.example || item.example_sentence || item.sentence;
+
+        if (!word || !meaning) throw new Error(`Dòng ${idx + 1}: thiếu "word" hoặc "meaning"`);
+        
         return {
           id: `imp-${Date.now()}-${idx}`,
-          word: String(item.word).trim(),
-          reading: item.reading ? String(item.reading).trim() : null,
-          hanviet: item.hanviet ? String(item.hanviet).trim() : null,
-          meaning: String(item.meaning).trim(),
+          word: String(word).trim(),
+          reading: reading ? String(reading).trim() : null,
+          hanviet: hanviet ? String(hanviet).trim() : null,
+          meaning: String(meaning).trim(),
+          jlpt_level: level ? String(level).trim() : null,
+          example_sentence: example ? String(example).trim() : null,
           mastery_level: null,
         };
       });
@@ -228,7 +239,7 @@ export const ImportVocabularyDialog: React.FC<ImportVocabularyDialogProps> = ({
                     </thead>
                     <tbody>
                       <tr className="border-t border-rose-100"><td className="px-3 py-1.5 font-mono text-xs">word</td><td className="px-3 py-1.5">Từ tiếng Nhật</td><td className="px-3 py-1.5 font-jp">学校</td><td className="px-3 py-1.5 text-center text-green-600">✅</td></tr>
-                      <tr className="border-t border-rose-100"><td className="px-3 py-1.5 font-mono text-xs">reading</td><td className="px-3 py-1.5">Cách đọc</td><td className="px-3 py-1.5 font-jp">がっこう</td><td className="px-3 py-1.5 text-center text-muted-foreground">—</td></tr>
+                      <tr className="border-t border-rose-100"><td className="px-3 py-1.5 font-mono text-xs">reading</td><td className="px-3 py-1.5">Reading (hiragana)</td><td className="px-3 py-1.5 font-jp">がっこう</td><td className="px-3 py-1.5 text-center text-muted-foreground">—</td></tr>
                       <tr className="border-t border-rose-100"><td className="px-3 py-1.5 font-mono text-xs">hanviet</td><td className="px-3 py-1.5">Hán Việt</td><td className="px-3 py-1.5">Học Hiệu</td><td className="px-3 py-1.5 text-center text-muted-foreground">—</td></tr>
                       <tr className="border-t border-rose-100"><td className="px-3 py-1.5 font-mono text-xs">meaning</td><td className="px-3 py-1.5">Nghĩa tiếng Việt</td><td className="px-3 py-1.5">Trường học</td><td className="px-3 py-1.5 text-center text-green-600">✅</td></tr>
                     </tbody>
@@ -255,15 +266,43 @@ export const ImportVocabularyDialog: React.FC<ImportVocabularyDialogProps> = ({
             {/* JSON tab */}
             {importTab === 'json' && (
               <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Nội dung JSON</label>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-7 text-[10px] uppercase font-black text-rose-500 hover:bg-rose-50 gap-1.5"
+                    onClick={() => {
+                      const sample = [
+                        { "word": "学校", "reading": "がっこう", "hanviet": "Học Hiệu", "meaning": "Trường học" },
+                        { "word": "先生", "reading": "せんせい", "hanviet": "Tiên Sinh", "meaning": "Giáo viên" },
+                        { "word": "学生", "reading": "がくせい", "hanviet": "Học Sinh", "meaning": "Học sinh" }
+                      ];
+                      setJsonInput(JSON.stringify(sample, null, 2));
+                      setImportError('');
+                    }}
+                  >
+                    <FileJson className="h-3 w-3" /> Dùng dữ liệu mẫu
+                  </Button>
+                </div>
                 <textarea
                   value={jsonInput}
                   onChange={(e) => {
                     setJsonInput(e.target.value);
                     if (importError) setImportError('');
                   }}
-                  placeholder='[{"word": "学校", "meaning": "Trường học"}, ...]'
-                  className="w-full h-40 px-4 py-3 rounded-xl border border-rose-200 focus:ring-2 focus:ring-rose-300 outline-none text-sm font-mono bg-background resize-none"
+                  placeholder='[
+  {
+    "word": "学校",
+    "reading": "がっこう",
+    "hanviet": "Học Hiệu",
+    "meaning": "Trường học"
+  }
+]'
+                  className="w-full h-44 px-4 py-3 rounded-xl border border-rose-200 focus:ring-2 focus:ring-rose-300 outline-none text-sm font-mono bg-background resize-none"
                 />
+
+
                 <Button 
                   disabled={!jsonInput.trim()}
                   onClick={() => {
