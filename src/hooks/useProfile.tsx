@@ -110,7 +110,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       fetchProfile();
       
       const channel = supabase
-        .channel(`profile:${user.id}`)
+        .channel(`profile_updates_${user.id}`)
         .on(
           'postgres_changes' as never,
           { 
@@ -119,42 +119,12 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
             table: 'profiles', 
             filter: `user_id=eq.${user.id}` 
           },
-          (payload: { new: any }) => {
-            if (payload.new) {
-              const raw = payload.new;
-              setProfile(prev => ({
-                ...prev,
-                ...raw,
-                full_name: raw.display_name,
-                level: raw.jlpt_level,
-                xp: raw.total_xp || 0,
-                streak: raw.current_streak || 0,
-              } as Profile));
-            }
-          }
-        )
-        .subscribe();
-
-      const rolesChannel = supabase
-        .channel(`roles:${user.id}`)
-        .on(
-          'postgres_changes' as never,
-          { 
-            event: '*', 
-            schema: 'public', 
-            table: 'user_roles', 
-            filter: `user_id=eq.${user.id}` 
-          },
-          () => {
-            // Re-fetch everything when roles change to ensure consistency
-            fetchProfile();
-          }
+          () => fetchProfile()
         )
         .subscribe();
 
       return () => {
         supabase.removeChannel(channel);
-        supabase.removeChannel(rolesChannel);
       };
     } else {
       setProfile(null);

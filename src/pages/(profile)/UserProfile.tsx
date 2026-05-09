@@ -38,7 +38,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
-import { SkillHeatmap } from '@/components/analytics/SkillHeatmap';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -267,8 +266,6 @@ export const UserProfile = () => {
                 )}
               </CardContent>
             </Card>
-
-            <SkillHeatmap />
           </div>
 
           <div>
