@@ -74,7 +74,26 @@ export const UserProfile = () => {
           query = query.eq('username', userId);
         }
 
-        const { data: profileData, error: profileError } = await query.maybeSingle();
+        let { data: profileData, error: profileError } = await query.maybeSingle();
+
+        // Fallback: If it's the current user's own profile and it doesn't exist, try to create it
+        if (!profileData && currentUser && (currentUser.id === userId || currentUser.email?.split('@')[0] === userId)) {
+          console.log('Attempting to auto-create missing profile for current user...');
+          const { data: newData, error: createError } = await supabase
+            .from('profiles')
+            .insert({
+              id: currentUser.id,
+              user_id: currentUser.id,
+              display_name: currentUser.user_metadata?.display_name || currentUser.email?.split('@')[0] || 'Người dùng mới',
+              avatar_url: currentUser.user_metadata?.avatar_url || null
+            })
+            .select()
+            .maybeSingle();
+          
+          if (!createError && newData) {
+            profileData = newData;
+          }
+        }
 
         if (profileError) throw profileError;
         
