@@ -160,6 +160,40 @@ export const Navigation: React.FC<NavigationProps> = ({
               );
             })}
 
+            {(profile?.role === 'teacher' || profile?.role === 'admin') && (
+              <Link to="/teacher">
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    'relative gap-1.5 font-black uppercase text-[10px] tracking-widest h-9 px-3 transition-all',
+                    location.pathname.startsWith('/teacher')
+                      ? 'text-primary bg-primary/10'
+                      : 'text-muted-foreground hover:text-primary hover:bg-primary/5'
+                  )}
+                >
+                  <GraduationCap className="h-4 w-4" />
+                  Quản lý lớp
+                </Button>
+              </Link>
+            )}
+
+            {profile?.role === 'admin' && (
+              <Link to="/admin">
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    'relative gap-1.5 font-black uppercase text-[10px] tracking-widest h-9 px-3 transition-all',
+                    location.pathname.startsWith('/admin')
+                      ? 'text-indigo-jp bg-indigo-jp/10'
+                      : 'text-muted-foreground hover:text-indigo-jp hover:bg-indigo-jp/5'
+                  )}
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  Hệ thống
+                </Button>
+              </Link>
+            )}
+
             {/* Bài học Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
