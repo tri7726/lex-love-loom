@@ -256,3 +256,29 @@ Trước đó 3 schema cho `/ai/explain` lệch nhau (`{prompt}` vs `{text}` vs 
 
 **Verify:** chạy `apps/backend` local, set `VITE_BACKEND_URL=http://localhost:3001` + `VITE_USE_NESTJS_AI_EXPLAIN=true`, mở game bất kỳ → "Giải thích AI" phải trả response giống khi tắt cờ. Tắt cờ → fallback Edge.
 
+### 🚀 Nâng cấp 2026-05-10 (Wave 2 + 3 + 4 + Hardening)
+
+**Wave 2 — Streaming SSE cho `/ai/explain`** ✅
+- `apps/backend/ai/ai.service.ts`: thêm `explainStream()` dùng `stream:true` từ Lovable AI Gateway, đẩy SSE events `{type:"token"|"result"|"done"|"error"}` mirror Edge contract.
+- `apps/backend/ai/ai.controller.ts`: `POST /ai/explain/stream` set headers `text/event-stream`, pipe Node Readable → Express response.
+- `src/lib/apiClient.ts`: thêm `streamSSEEvents()` parse generic SSE events.
+- `src/lib/aiExplainClient.ts`: thêm `explainStream(input, onEvent, signal)` route theo flag, fallback Edge với `stream:true`.
+
+**Wave 3 — Port `/quiz/grammar` sang NestJS** ✅
+- `apps/backend/quiz/dto/grammar-quiz.dto.ts`: DTO mirror Edge `generate-grammar-quiz` body (`mode`, `grammar_point`, `level`, `explanation`, `currentLevel`) + `QuizResultSchema` validate response.
+- `apps/backend/quiz/quiz.service.ts`: gọi Lovable AI Gateway với 2 system prompt (quiz/assessment), `response_format: json_object`, in-memory cache 1h theo key `(mode|level|currentLevel|grammar_point)`.
+
+**Wave 4 — Port `/rag/query` (sensei-rag retrieve)** ✅
+- `apps/backend/rag/dto/query.dto.ts`: `{user_id, query, topK}` mirror Edge retrieve action.
+- `apps/backend/rag/rag.service.ts`: dùng `SupabaseService.admin` đọc `sensei_knowledge`, scoring keyword + recency identical với Edge (substring +5, word +1, recency boost ×1.3/×1.15/×0.85), trả `{context: ScoredItem[]}` cùng shape. Write-path actions (`index`, `summarize_and_index`, `update_profile`) tạm giữ Edge.
+
+**Hardening** ✅
+- `apps/backend/ai/ai.service.spec.ts`: 3 unit tests (success, schema invalid, 429 → rate-limit). Mock `global.fetch`.
+- JWKS auth đã sẵn sàng (`SUPABASE_JWKS_URL` trong `.env.example`); JwtAuthGuard ưu tiên JWKS, fallback symmetric `SUPABASE_JWT_SECRET`.
+- CI `.github/workflows/backend-ci.yml` chạy `lint → test → build` cho mọi PR đụng `apps/backend/**`.
+
+**Cách bật flag end-to-end:**
+1. Deploy `apps/backend` (Railway) với `LOVABLE_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `SUPABASE_JWKS_URL`.
+2. Set `VITE_BACKEND_URL` = URL Railway và `VITE_USE_NESTJS_AI_EXPLAIN=true` trong FE env.
+3. Mở "Giải thích AI" — UI sẽ stream token-by-token qua NestJS thay vì gọi Edge trực tiếp.
+

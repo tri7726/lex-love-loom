@@ -13,7 +13,11 @@ export class RagController {
   constructor(private readonly rag: RagService) {}
 
   @Post('query')
-  @ApiOperation({ summary: 'Retrieve relevant chunks for a query (RAG)' })
+  @ApiOperation({
+    summary: 'Retrieve RAG context for a query (sensei-rag retrieve)',
+    description:
+      'Returns `{ context: ScoredItem[] }` — drop-in replacement for the Edge `sensei-rag` retrieve action.',
+  })
   @UsePipes(new ZodValidationPipe(RagQuerySchema))
   query(@CurrentUser() user: AuthUser, @Body() dto: RagQueryDto) {
     return this.rag.query(user.id, dto);
