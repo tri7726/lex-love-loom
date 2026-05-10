@@ -25,13 +25,14 @@ export const StreakBadge: React.FC<StreakBadgeProps> = ({
       initial={{ scale: 0.8, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       className={cn(
-        'inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r text-primary-foreground font-semibold shadow-soft',
+        'inline-flex items-center gap-1.5 md:gap-2 px-2.5 py-1 md:px-4 md:py-2 rounded-full bg-gradient-to-r text-primary-foreground font-semibold shadow-soft',
         getStreakColor(),
         className
       )}
     >
-      <Flame className="h-5 w-5 animate-bounce-soft" />
-      <span>{streak} Day Streak!</span>
+      <Flame className="h-4 w-4 md:h-5 md:w-5 animate-bounce-soft" />
+      <span className="text-xs md:text-sm">{streak}</span>
+      <span className="hidden md:inline text-sm">Day Streak!</span>
     </motion.div>
   );
 };

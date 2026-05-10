@@ -33,10 +33,10 @@ export const BottomNav: React.FC = () => {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-sakura-light/30 bg-cream/90 backdrop-blur-xl supports-[backdrop-filter]:bg-cream/70"
+      className="fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-sakura-light/30 bg-cream/95 backdrop-blur-xl supports-[backdrop-filter]:bg-cream/80"
       aria-label="Thanh điều hướng dưới"
     >
-      <div className="flex items-stretch justify-around h-16 max-w-md mx-auto px-1">
+      <div className="flex items-stretch justify-around h-[72px] max-w-md mx-auto px-2">
         {displayItems.map((item) => {
           const isActive =
             item.path === '/'
@@ -48,13 +48,18 @@ export const BottomNav: React.FC = () => {
               key={item.path}
               to={item.path}
               className={cn(
-                'flex flex-col items-center justify-center flex-1 gap-0.5 text-[10px] font-bold transition-colors',
+                'flex flex-col items-center justify-center flex-1 gap-1.5 transition-all duration-200 active:scale-95',
                 isActive ? 'text-sakura' : 'text-muted-foreground hover:text-sakura'
               )}
               aria-current={isActive ? 'page' : undefined}
             >
-              <Icon className={cn('h-5 w-5', isActive && 'fill-sakura/10')} />
-              <span className="truncate">{item.label}</span>
+              <div className={cn(
+                "p-1.5 rounded-xl transition-colors",
+                isActive ? "bg-sakura/10" : "bg-transparent"
+              )}>
+                <Icon className={cn('h-6 w-6', isActive && 'fill-sakura/10')} />
+              </div>
+              <span className="text-[11px] font-bold tracking-tight truncate">{item.label}</span>
             </Link>
           );
         })}

@@ -180,14 +180,19 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-background text-foreground antialiased text-[16px] md:text-base;
     font-family: var(--font-sans);
     text-rendering: optimizeLegibility;
+    line-height: 1.6;
   }
+
+  h1 { @apply text-3xl md:text-4xl font-bold; }
+  h2 { @apply text-2xl md:text-3xl font-bold; }
+  h3 { @apply text-xl md:text-2xl font-bold; }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-serif);
-    @apply font-semibold tracking-tight;
+    @apply tracking-tight;
     font-variation-settings: "opsz" 32;
   }
 

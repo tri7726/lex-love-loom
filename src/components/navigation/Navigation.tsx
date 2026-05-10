@@ -549,48 +549,6 @@ export const Navigation: React.FC<NavigationProps> = ({
             )}
           </div>
         </div>
-
-        {/* Mobile navigation */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-t px-2 py-3 shadow-elevated">
-          <div className="flex justify-around items-center">
-            {(() => {
-              const mItems = [
-                { path: '/', icon: Home, label: 'Trang chủ' },
-                { path: '/grammar', icon: Brain, label: 'Sensei' },
-                { path: '/vocabulary', icon: BookOpen, label: 'Học tập' },
-              ];
-              
-              if (profile?.role === 'admin') {
-                mItems.push({ path: '/admin', icon: ShieldCheck, label: 'Hệ thống' });
-              } else if (profile?.role === 'teacher') {
-                mItems.push({ path: '/teacher', icon: GraduationCap, label: 'Dạy học' });
-              } else {
-                mItems.push({ path: '/leagues', icon: Trophy, label: 'XH' });
-              }
-              
-              return mItems.map((mItem) => {
-                const isActive = location.pathname === mItem.path;
-                return (
-                  <Link key={mItem.path} to={mItem.path} className="flex-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className={cn(
-                        'flex flex-col h-auto py-1 px-0 gap-1 w-full rounded-xl transition-all',
-                        isActive
-                          ? 'text-sakura bg-sakura/5'
-                          : 'text-muted-foreground'
-                      )}
-                    >
-                      <mItem.icon className={cn("h-5 w-5", isActive && "animate-pulse-slow")} />
-                      <span className="text-[10px] font-black uppercase tracking-tighter">{mItem.label}</span>
-                    </Button>
-                  </Link>
-                );
-              });
-            })()}
-          </div>
-        </nav>
       </header>
     </>
   );

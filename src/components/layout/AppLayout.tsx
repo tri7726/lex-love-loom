@@ -26,7 +26,7 @@ export const AppLayout = () => {
   }, [profile, loading, user, location.pathname, navigate]);
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0 font-sans selection:bg-sakura-light selection:text-sakura-dark">
+    <div className="min-h-screen bg-background pb-[72px] md:pb-0 font-sans selection:bg-sakura-light selection:text-sakura-dark">
       <Navigation />
       <main className="relative">
         <AnimatePresence mode="wait">
