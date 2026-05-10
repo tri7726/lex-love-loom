@@ -21,22 +21,29 @@ export const Auth = () => {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const safeRedirect = React.useMemo(() => {
+    const r = searchParams.get('redirect');
+    if (r && r.startsWith('/') && !r.startsWith('//')) return r;
+    return '/';
+  }, [searchParams]);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
-        navigate('/');
+        navigate(safeRedirect, { replace: true });
       }
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        navigate('/');
+        navigate(safeRedirect, { replace: true });
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, [navigate, safeRedirect]);
 
   const validateInputs = () => {
     try {
