@@ -79,8 +79,61 @@ export async function streamSSE(
       try {
         const parsed = JSON.parse(payload);
         if (parsed.delta) onDelta(parsed.delta as string);
+        else if (parsed.type === "token" && parsed.content) onDelta(parsed.content as string);
       } catch {
         // partial JSON — push back and wait for more
+        buffer = line + "\n" + buffer;
+        break;
+      }
+    }
+  }
+}
+
+/**
+ * Stream raw SSE events (parsed JSON payloads) — for endpoints that emit
+ * heterogeneous event types like `{type:"token"}`, `{type:"result"}`, `{type:"done"}`.
+ */
+export async function streamSSEEvents<E = Record<string, unknown>>(
+  path: string,
+  body: unknown,
+  onEvent: (evt: E) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const headers = {
+    "Content-Type": "application/json",
+    Accept: "text/event-stream",
+    ...(await authHeader()),
+  };
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+    signal,
+  });
+  if (!res.ok || !res.body) {
+    throw new Error(`Stream failed: ${res.status} ${res.statusText}`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let nl: number;
+    while ((nl = buffer.indexOf("\n")) !== -1) {
+      let line = buffer.slice(0, nl);
+      buffer = buffer.slice(nl + 1);
+      if (line.endsWith("\r")) line = line.slice(0, -1);
+      if (line.startsWith(":") || !line.startsWith("data: ")) continue;
+      const payload = line.slice(6).trim();
+      if (payload === "[DONE]") return;
+      try {
+        onEvent(JSON.parse(payload) as E);
+      } catch {
         buffer = line + "\n" + buffer;
         break;
       }
