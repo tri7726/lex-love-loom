@@ -1,15 +1,22 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, GraduationCap, Map as MapIcon, Trophy, User, ShieldCheck } from 'lucide-react';
+import { Home, GraduationCap, Map as MapIcon, Trophy, BookOpen, LogIn, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 
-const items = [
+const authedItems = [
   { path: '/', icon: Home, label: 'Trang chủ' },
   { path: '/my-classes', icon: GraduationCap, label: 'Khóa học' },
   { path: '/learning-path', icon: MapIcon, label: 'Lộ trình' },
   { path: '/leagues', icon: Trophy, label: 'Bảng XH' },
+];
+
+const guestItems = [
+  { path: '/', icon: Home, label: 'Trang chủ' },
+  { path: '/vocabulary', icon: BookOpen, label: 'Từ vựng' },
+  { path: '/learning-path', icon: MapIcon, label: 'Lộ trình' },
+  { path: '/auth', icon: LogIn, label: 'Đăng nhập' },
 ];
 
 export const BottomNav: React.FC = () => {
@@ -17,18 +24,14 @@ export const BottomNav: React.FC = () => {
   const { profile } = useProfile();
   const { user } = useAuth();
 
-  if (!user) return null;
+  let dynamicItems = user ? [...authedItems] : [...guestItems];
 
-  const dynamicItems = [...items];
-  
-  if (profile?.role === 'admin') {
+  if (user && profile?.role === 'admin') {
     dynamicItems.push({ path: '/admin', icon: ShieldCheck, label: 'Hệ thống' });
-    dynamicItems.push({ path: '/teacher', icon: GraduationCap, label: 'Dạy học' });
-  } else if (profile?.role === 'teacher') {
+  } else if (user && profile?.role === 'teacher') {
     dynamicItems.push({ path: '/teacher', icon: GraduationCap, label: 'Dạy học' });
   }
 
-  // Remove redundant items if needed to keep it clean (limit to 5)
   const displayItems = dynamicItems.slice(0, 5);
 
   return (
