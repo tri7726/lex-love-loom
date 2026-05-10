@@ -12,6 +12,7 @@ import { dictDB } from "@/lib/dictDB";
 import { WritingLabProvider } from "@/contexts/WritingLabContext";
 import { ConfettiProvider } from "@/components/common/ConfettiProvider";
 import { StandardErrorBoundary } from "@/components/error/StandardErrorBoundary";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { LevelUpModal } from "@/components/effects/LevelUpModal";
 import { XPGainToast } from "@/components/effects/XPGainToast";
 import { AppLayout } from "./components/layout/AppLayout";
