@@ -21,9 +21,11 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Noto Sans JP', 'system-ui', 'sans-serif'],
-        display: ['Playfair Display', 'Noto Sans JP', 'serif'],
-        jp: ['Noto Sans JP', 'sans-serif'],
+        sans: ['Inter', 'Noto Sans JP', 'system-ui', '-apple-system', 'sans-serif'],
+        display: ['Inter', 'Noto Serif JP', 'serif'],
+        jp: ['Noto Sans JP', 'Hiragino Kaku Gothic ProN', 'Meiryo', 'sans-serif'],
+        'jp-serif': ['Noto Serif JP', 'Hiragino Mincho ProN', 'YuMincho', 'serif'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'SF Mono', 'monospace'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -108,6 +110,7 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       boxShadow: {
+        xs: "var(--shadow-xs)",
         soft: "var(--shadow-soft)",
         card: "var(--shadow-card)",
         elevated: "var(--shadow-elevated)",
