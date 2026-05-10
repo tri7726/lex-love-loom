@@ -676,6 +676,147 @@ export type Database = {
         }
         Relationships: []
       }
+      curriculum_items: {
+        Row: {
+          content_link: string | null
+          created_at: string | null
+          id: string
+          is_required: boolean | null
+          order_index: number
+          status: string | null
+          title: string
+          type: string
+          unit_id: string
+        }
+        Insert: {
+          content_link?: string | null
+          created_at?: string | null
+          id?: string
+          is_required?: boolean | null
+          order_index: number
+          status?: string | null
+          title: string
+          type: string
+          unit_id: string
+        }
+        Update: {
+          content_link?: string | null
+          created_at?: string | null
+          id?: string
+          is_required?: boolean | null
+          order_index?: number
+          status?: string | null
+          title?: string
+          type?: string
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curriculum_items_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "curriculum_units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curriculum_levels: {
+        Row: {
+          code: string
+          created_at: string | null
+          description: string | null
+          id: string
+          title: string
+          xp_required: number | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          title: string
+          xp_required?: number | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          title?: string
+          xp_required?: number | null
+        }
+        Relationships: []
+      }
+      curriculum_progress: {
+        Row: {
+          completed_at: string | null
+          id: string
+          is_completed: boolean | null
+          item_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          id?: string
+          is_completed?: boolean | null
+          item_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          id?: string
+          is_completed?: boolean | null
+          item_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curriculum_progress_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "curriculum_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curriculum_units: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          level_id: string
+          order_index: number
+          status: string | null
+          title: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          level_id: string
+          order_index: number
+          status?: string | null
+          title: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          level_id?: string
+          order_index?: number
+          status?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curriculum_units_level_id_fkey"
+            columns: ["level_id"]
+            isOneToOne: false
+            referencedRelation: "curriculum_levels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_quest_progress: {
         Row: {
           is_claimed: boolean | null
@@ -1438,6 +1579,7 @@ export type Database = {
           options: Json | null
           order_index: number
           question_text: string | null
+          settings: Json | null
           slide_type: string
           title: string | null
         }
@@ -1453,6 +1595,7 @@ export type Database = {
           options?: Json | null
           order_index?: number
           question_text?: string | null
+          settings?: Json | null
           slide_type?: string
           title?: string | null
         }
@@ -1468,6 +1611,7 @@ export type Database = {
           options?: Json | null
           order_index?: number
           question_text?: string | null
+          settings?: Json | null
           slide_type?: string
           title?: string | null
         }
@@ -1489,8 +1633,10 @@ export type Database = {
           description: string | null
           id: string
           is_published: boolean | null
+          status: Database["public"]["Enums"]["lesson_status"] | null
           teacher_id: string
           title: string
+          type: Database["public"]["Enums"]["lesson_type"] | null
           updated_at: string | null
         }
         Insert: {
@@ -1500,8 +1646,10 @@ export type Database = {
           description?: string | null
           id?: string
           is_published?: boolean | null
+          status?: Database["public"]["Enums"]["lesson_status"] | null
           teacher_id: string
           title: string
+          type?: Database["public"]["Enums"]["lesson_type"] | null
           updated_at?: string | null
         }
         Update: {
@@ -1511,8 +1659,10 @@ export type Database = {
           description?: string | null
           id?: string
           is_published?: boolean | null
+          status?: Database["public"]["Enums"]["lesson_status"] | null
           teacher_id?: string
           title?: string
+          type?: Database["public"]["Enums"]["lesson_type"] | null
           updated_at?: string | null
         }
         Relationships: [
@@ -1914,6 +2064,8 @@ export type Database = {
           id: string
           is_published: boolean | null
           level: string
+          passing_total: number | null
+          section_benchmarks: Json | null
           title: string
           updated_at: string | null
         }
@@ -1926,6 +2078,8 @@ export type Database = {
           id?: string
           is_published?: boolean | null
           level?: string
+          passing_total?: number | null
+          section_benchmarks?: Json | null
           title: string
           updated_at?: string | null
         }
@@ -1938,6 +2092,8 @@ export type Database = {
           id?: string
           is_published?: boolean | null
           level?: string
+          passing_total?: number | null
+          section_benchmarks?: Json | null
           title?: string
           updated_at?: string | null
         }
@@ -4626,6 +4782,10 @@ export type Database = {
         }
         Returns: number
       }
+      is_classroom_teacher: {
+        Args: { p_class_id: string; p_user_id: string }
+        Returns: boolean
+      }
       join_class_by_code: { Args: { p_code: string }; Returns: Json }
       log_experiment_event: {
         Args: { p_event: string; p_key: string; p_value?: number }
@@ -4685,6 +4845,8 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "teacher" | "user" | "parent"
+      lesson_status: "draft" | "published"
+      lesson_type: "presentation" | "assessment" | "video" | "paragraph"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4813,6 +4975,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "teacher", "user", "parent"],
+      lesson_status: ["draft", "published"],
+      lesson_type: ["presentation", "assessment", "video", "paragraph"],
     },
   },
 } as const
