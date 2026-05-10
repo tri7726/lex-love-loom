@@ -529,11 +529,17 @@ function AdminToolsGrid() {
 // ─── Main Dashboard ──────────────────────────────────────────────────────
 export const AdminDashboard = () => {
   const { isAdmin, loading } = useIsAdmin();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && !isAdmin) navigate('/');
-  }, [isAdmin, loading, navigate]);
+    if (loading) return;
+    if (!user) {
+      navigate('/auth?redirect=/admin', { replace: true });
+      return;
+    }
+    if (!isAdmin) navigate('/', { replace: true });
+  }, [isAdmin, loading, user, navigate]);
 
   if (loading) {
     return (
