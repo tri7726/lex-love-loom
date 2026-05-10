@@ -102,19 +102,19 @@ export const WelcomeHero: React.FC<WelcomeHeroProps> = ({ profile, history = [] 
           </div>
         </div>
 
-        <div className="flex items-center gap-6 bg-background/40 p-6 rounded-xl backdrop-blur-sm self-start">
-          <div className="text-center">
-            <p className="text-4xl font-bold text-gradient-sakura">
+        <div className="flex items-center gap-4 md:gap-6 bg-background/40 p-3 md:p-6 rounded-xl backdrop-blur-sm self-start">
+          <div className="text-center flex-1">
+            <p className="text-2xl md:text-4xl font-bold text-gradient-sakura">
               {userStats.levelInfo.level}
             </p>
-            <p className="text-xs text-sakura-dark uppercase tracking-wider font-black">Level</p>
+            <p className="text-[10px] md:text-xs text-sakura-dark uppercase tracking-wider font-black">Level</p>
           </div>
-          <div className="w-px h-12 bg-border/50" />
-          <div className="text-center">
-            <p className="text-4xl font-bold text-gradient-gold">
+          <div className="w-px h-8 md:h-12 bg-border/50" />
+          <div className="text-center flex-1">
+            <p className="text-2xl md:text-4xl font-bold text-gradient-gold">
               {userStats.streak}
             </p>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Chuỗi ngày</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wider font-semibold">Chuỗi ngày</p>
           </div>
         </div>
       </div>
