@@ -1,4 +1,5 @@
 import React, { Suspense, useEffect } from "react";
+import { HelmetProvider } from "react-helmet-async";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -131,6 +132,7 @@ const App = () => {
   }, []);
 
   return (
+  <HelmetProvider>
   <QueryClientProvider client={queryClient}>
     <ConfettiProvider>
       <AuthProvider>
@@ -245,6 +247,7 @@ const App = () => {
       </AuthProvider>
     </ConfettiProvider>
   </QueryClientProvider>
+  </HelmetProvider>
   );
 };
 

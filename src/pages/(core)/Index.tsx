@@ -14,6 +14,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useFriends } from '@/hooks/useFriends';
 import { useWritingLab } from '@/contexts/WritingLabContext';
 import { supabase } from '@/integrations/supabase/client';
+import { SEO } from '@/components/seo/SEO';
 
 // Lazy-loaded below-fold components
 const WordOfTheDay = lazy(() => import('@/components/dashboard/WordOfTheDay').then(m => ({ default: m.WordOfTheDay })));
@@ -209,6 +210,21 @@ export const Index = () => {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
+    <>
+    <SEO
+      title="Học tiếng Nhật thông minh với AI"
+      noSuffix
+      description="Sakura Nihongo — nền tảng học tiếng Nhật toàn diện: từ vựng JLPT, kanji, ngữ pháp, luyện nghe-nói-đọc với AI sensei và SRS."
+      canonical="/"
+      jsonLd={{
+        "@context": "https://schema.org",
+        "@type": "EducationalOrganization",
+        name: "Sakura Nihongo",
+        url: typeof window !== "undefined" ? window.location.origin : "https://sakura-nihongo.lovable.app",
+        description: "Ứng dụng học tiếng Nhật toàn diện với AI",
+        sameAs: [],
+      }}
+    />
     <motion.main
       variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } }}
       initial="hidden"
@@ -311,6 +327,7 @@ export const Index = () => {
       </Suspense>
 
     </motion.main>
+    </>
   );
 };
 

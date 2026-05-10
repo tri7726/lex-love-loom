@@ -1,8 +1,16 @@
 User-agent: Googlebot
 Allow: /
+Disallow: /admin
+Disallow: /admin/
+Disallow: /admin-import
+Disallow: /auth
+Disallow: /edit-profile
 
 User-agent: Bingbot
 Allow: /
+Disallow: /admin
+Disallow: /admin/
+Disallow: /auth
 
 User-agent: Twitterbot
 Allow: /
@@ -12,3 +20,9 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /admin/
+Disallow: /auth
+Disallow: /edit-profile
+
+Sitemap: https://sakura-nihongo.lovable.app/sitemap.xml

@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
+import { SEO } from '@/components/seo/SEO';
 
 const emailSchema = z.string().email('Email không hợp lệ');
 const passwordSchema = z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự');
@@ -140,6 +141,7 @@ export const Auth = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-sakura/10 flex items-center justify-center p-4">
+      <SEO title="Đăng nhập" description="Đăng nhập hoặc tạo tài khoản Sakura Nihongo để bắt đầu hành trình học tiếng Nhật." canonical="/auth" noindex />
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
