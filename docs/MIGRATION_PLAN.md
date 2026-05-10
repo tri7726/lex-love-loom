@@ -222,3 +222,21 @@ lex-love-loom/
 - [ ] CI xanh trên main
 - [ ] 3 ADR documents
 - [ ] Demo video 3-5 phút
+
+---
+
+## 8. Trạng thái thực tế (cập nhật 2026-05-10)
+
+### ✅ Đã hoàn thành
+- **Tuần 1:** `turbo.json` ở root, `packages/types/` (DTO + Zod schemas chia sẻ), `packages/config/` (ESLint + tsconfig + Tailwind preset)
+- **Tuần 2:** `apps/backend/` NestJS skeleton, JWT Guard (jose + JWKS), `/health` + `/me`, Dockerfile + railway.json, CORS cho `*.lovable.app`, `src/lib/apiClient.ts` + `streamSSE` helper
+- **Bonus (vượt scope):** 4 module showcase (`ai`, `quiz`, `speaking`, `rag`), Swagger + Zod pipe + Pino + exception filter (Tuần 5), Throttler (Tuần 6), unit test, GitHub Actions CI (`.github/workflows/backend-ci.yml`), ADR 001, demo component `BackendExplainDemo`
+
+### ⚠️ Cố ý SKIP (Lovable constraint)
+- **Move FE → `apps/frontend/`**: giữ FE ở `src/` root để Lovable preview không vỡ. Khi tách repo cho production, di chuyển + thêm `"workspaces": ["apps/*", "packages/*"]` vào root `package.json`.
+- **Activate workspaces**: `packages/*` đã scaffold nhưng chưa wire vào root để tránh `npm install` reconcile với `apps/backend/`. Xem `packages/README.md` để kích hoạt.
+
+### 🔜 Cần làm tiếp
+- Deploy thử lên Railway (push repo → connect Railway → set env vars → verify `/docs` accessible)
+- ADR 002 (JWT verification strategy) + ADR 003 (migration order)
+- Wire FE thật sự chuyển 1 endpoint sang gọi NestJS thay vì Edge Function (verify song song)

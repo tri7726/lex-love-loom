@@ -1,0 +1,11 @@
+{
+  "name": "@lex-love-loom/config",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared lint / tsconfig / tailwind presets for the monorepo.",
+  "exports": {
+    "./eslint": "./eslint.base.js",
+    "./tsconfig": "./tsconfig.base.json",
+    "./tailwind": "./tailwind.preset.js"
+  }
+}
