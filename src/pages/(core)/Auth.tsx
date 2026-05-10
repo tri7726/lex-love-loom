@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Mail, Lock, User, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { SEO } from '@/components/seo/SEO';
+import { useAuth } from '@/hooks/useAuth';
 
 const emailSchema = z.string().email('Email không hợp lệ');
 const passwordSchema = z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự');
@@ -21,8 +22,10 @@ export const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user, loading: authLoading } = useAuth();
 
   const safeRedirect = React.useMemo(() => {
     const r = searchParams.get('redirect');
@@ -30,21 +33,12 @@ export const Auth = () => {
     return '/';
   }, [searchParams]);
 
+  // Khi đã có session (vừa đăng nhập hoặc đã đăng nhập sẵn) → redirect.
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        navigate(safeRedirect, { replace: true });
-      }
-    });
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        navigate(safeRedirect, { replace: true });
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate, safeRedirect]);
+    if (!authLoading && user) {
+      navigate(safeRedirect, { replace: true });
+    }
+  }, [authLoading, user, navigate, safeRedirect]);
 
   const validateInputs = () => {
     try {
@@ -53,9 +47,9 @@ export const Auth = () => {
       return true;
     } catch (error) {
       if (error instanceof z.ZodError) {
-        toast.error('Lỗi xác thực', {
-          description: error.errors[0].message,
-        });
+        const msg = error.errors[0].message;
+        setErrorMsg(msg);
+        toast.error('Lỗi xác thực', { description: msg });
       }
       return false;
     }
@@ -63,14 +57,12 @@ export const Auth = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
     if (!validateInputs()) return;
 
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
 
       if (error) {
         let message = error.message;
@@ -84,13 +76,12 @@ export const Auth = () => {
         throw new Error(message);
       }
 
-      toast.success('Đăng nhập thành công!', {
-        description: 'Chào mừng bạn quay trở lại!',
-      });
+      toast.success('Đăng nhập thành công!', { description: 'Đang chuyển hướng…' });
+      // Redirect được xử lý bởi useEffect khi auth state cập nhật.
     } catch (error: unknown) {
-      toast.error('Lỗi đăng nhập', {
-        description: error instanceof Error ? error.message : 'Unknown error',
-      });
+      const msg = error instanceof Error ? error.message : 'Lỗi không xác định';
+      setErrorMsg(msg);
+      toast.error('Lỗi đăng nhập', { description: msg });
     } finally {
       setIsLoading(false);
     }
@@ -98,12 +89,13 @@ export const Auth = () => {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
     if (!validateInputs()) return;
 
     setIsLoading(true);
     try {
       const redirectUrl = `${window.location.origin}/`;
-      
+
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -131,13 +123,27 @@ export const Auth = () => {
         description: 'Vui lòng kiểm tra email để xác nhận tài khoản.',
       });
     } catch (error: unknown) {
-      toast.error('Lỗi đăng ký', {
-        description: error instanceof Error ? error.message : 'Unknown error',
-      });
+      const msg = error instanceof Error ? error.message : 'Lỗi không xác định';
+      setErrorMsg(msg);
+      toast.error('Lỗi đăng ký', { description: msg });
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Đang khôi phục session ban đầu → tránh nháy form.
+  if (authLoading || (user && !authLoading)) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background to-sakura/10 flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-sakura" />
+          <p className="text-sm text-muted-foreground">
+            {user ? 'Đang chuyển hướng…' : 'Đang kiểm tra phiên đăng nhập…'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-sakura/10 flex items-center justify-center p-4">
@@ -161,9 +167,16 @@ export const Auth = () => {
           <CardContent>
             <Tabs defaultValue="login" className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="login">Đăng nhập</TabsTrigger>
-                <TabsTrigger value="signup">Đăng ký</TabsTrigger>
+                <TabsTrigger value="login" onClick={() => setErrorMsg(null)}>Đăng nhập</TabsTrigger>
+                <TabsTrigger value="signup" onClick={() => setErrorMsg(null)}>Đăng ký</TabsTrigger>
               </TabsList>
+
+              {errorMsg && (
+                <div className="mb-4 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
 
               <TabsContent value="login">
                 <form onSubmit={handleLogin} className="space-y-4">

@@ -14,6 +14,7 @@ import { WritingLabProvider } from "@/contexts/WritingLabContext";
 import { ConfettiProvider } from "@/components/common/ConfettiProvider";
 import { StandardErrorBoundary } from "@/components/error/StandardErrorBoundary";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { AdminGuard } from "@/components/auth/AdminGuard";
 import { LevelUpModal } from "@/components/effects/LevelUpModal";
 import { XPGainToast } from "@/components/effects/XPGainToast";
 import { AppLayout } from "./components/layout/AppLayout";
@@ -192,16 +193,16 @@ const App = () => {
                             <Route path="/folders" element={<FolderManager />} />
                             <Route path="/speaking" element={<SpeakingPractice />} />
                             <Route path="/user-guide" element={<UserGuide />} />
-                            <Route path="/admin-import" element={<AdminImport />} />
-                            
-                            
-                            <Route path="/admin/exam-manager" element={<AdminExamManager />} />
-                            <Route path="/admin" element={<AdminDashboard />} />
-                            <Route path="/admin/experiments" element={<AdminExperiments />} />
-                            <Route path="/admin/docs" element={<AdminDocs />} />
-                            <Route path="/admin/pitch-overrides" element={<AdminPitchOverrides />} />
-                            <Route path="/admin/telemetry" element={<AdminTelemetry />} />
-                            <Route path="/admin/roles" element={<AdminRoles />} />
+                            <Route path="/admin-import" element={<AdminGuard><AdminImport /></AdminGuard>} />
+
+
+                            <Route path="/admin/exam-manager" element={<AdminGuard><AdminExamManager /></AdminGuard>} />
+                            <Route path="/admin" element={<AdminGuard><AdminDashboard /></AdminGuard>} />
+                            <Route path="/admin/experiments" element={<AdminGuard><AdminExperiments /></AdminGuard>} />
+                            <Route path="/admin/docs" element={<AdminGuard><AdminDocs /></AdminGuard>} />
+                            <Route path="/admin/pitch-overrides" element={<AdminGuard><AdminPitchOverrides /></AdminGuard>} />
+                            <Route path="/admin/telemetry" element={<AdminGuard><AdminTelemetry /></AdminGuard>} />
+                            <Route path="/admin/roles" element={<AdminGuard><AdminRoles /></AdminGuard>} />
                             <Route path="/heatmap" element={<WeaknessHeatmap />} />
                             <Route path="/listening-lab" element={<ListeningLab />} />
                             <Route path="/reader" element={<ReaderPage />} />
