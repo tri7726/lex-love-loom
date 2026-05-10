@@ -35,7 +35,7 @@ const Reading = React.lazy(() => import("./pages/(learning)/Reading"));
 const VideoLearning = React.lazy(() => import("./pages/(learning)/VideoLearning"));
 const KanjiDetail = React.lazy(() => import("./pages/(learning)/KanjiDetail"));
 const UnitContent = React.lazy(() => import("./pages/(learning)/UnitContent"));
-const MinnaVocabulary = React.lazy(() => import("./pages/(learning)/MinnaVocabulary"));
+
 const SpeakingPractice = React.lazy(() => import("./pages/(learning)/SpeakingPractice"));
 const KanjiByLevel = React.lazy(() => import("./pages/(learning)/KanjiByLevel"));
 
@@ -209,7 +209,7 @@ const App = () => {
                             
                             <Route path="/achievements" element={<Achievements />} />
                             <Route path="/pet" element={<PetPage />} />
-                            <Route path="/minna" element={<MinnaVocabulary />} />
+                            <Route path="/minna" element={<Navigate to="/vocabulary" replace />} />
                              <Route path="/chat" element={<Chat />} />
                              <Route path="/shop" element={<SakuraShop />} />
                              <Route path="/community-library" element={<CommunityLibrary />} />

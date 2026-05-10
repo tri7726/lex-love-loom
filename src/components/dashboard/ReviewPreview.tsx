@@ -102,7 +102,7 @@ export const ReviewPreview: React.FC<ReviewPreviewProps> = ({
 
   function handleGoMinna() {
     trackEvent('review_empty_goto_minna_click');
-    navigate('/minna');
+    navigate('/vocabulary');
   }
 
   // ── Loading state ───────────────────────────────────────────────────────────
