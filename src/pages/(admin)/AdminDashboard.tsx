@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -529,11 +530,17 @@ function AdminToolsGrid() {
 // ─── Main Dashboard ──────────────────────────────────────────────────────
 export const AdminDashboard = () => {
   const { isAdmin, loading } = useIsAdmin();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && !isAdmin) navigate('/');
-  }, [isAdmin, loading, navigate]);
+    if (loading) return;
+    if (!user) {
+      navigate('/auth?redirect=/admin', { replace: true });
+      return;
+    }
+    if (!isAdmin) navigate('/', { replace: true });
+  }, [isAdmin, loading, user, navigate]);
 
   if (loading) {
     return (

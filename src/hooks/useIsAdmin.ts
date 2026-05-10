@@ -7,13 +7,24 @@ import { useAuth } from "@/hooks/useAuth";
  * Avoids race conditions with profile loading.
  */
 export function useIsAdmin() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    if (!user) { setIsAdmin(false); setLoading(false); return; }
+    // Chờ auth restore xong rồi mới quyết định — tránh false negative khi
+    // user vẫn đang được hydrate từ storage.
+    if (authLoading) {
+      setLoading(true);
+      return;
+    }
+    if (!user) {
+      setIsAdmin(false);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     (async () => {
       try {
         const { data, error } = await supabase.rpc("has_role", {
@@ -28,7 +39,7 @@ export function useIsAdmin() {
       }
     })();
     return () => { cancelled = true; };
-  }, [user]);
+  }, [user, authLoading]);
 
-  return { isAdmin: !!isAdmin, loading };
+  return { isAdmin: !!isAdmin, loading: loading || authLoading };
 }
