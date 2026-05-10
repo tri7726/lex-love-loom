@@ -229,7 +229,7 @@ export const Index = () => {
       variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } }}
       initial="hidden"
       animate="show"
-      className="py-8 space-y-10"
+      className="py-4 md:py-8 space-y-5 md:space-y-10"
     >
       <StreakReminderBanner />
       <QuickModeBanner />
