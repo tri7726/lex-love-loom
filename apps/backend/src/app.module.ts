@@ -15,6 +15,8 @@ import { AiModule } from './modules/ai/ai.module';
 import { QuizModule } from './modules/quiz/quiz.module';
 import { SpeakingModule } from './modules/speaking/speaking.module';
 import { RagModule } from './modules/rag/rag.module';
+import { VocabularyModule } from './modules/vocabulary/vocabulary.module';
+import { FlashcardModule } from './modules/flashcard/flashcard.module';
 
 @Module({
   imports: [
@@ -37,6 +39,8 @@ import { RagModule } from './modules/rag/rag.module';
     QuizModule,
     SpeakingModule,
     RagModule,
+    VocabularyModule,
+    FlashcardModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
