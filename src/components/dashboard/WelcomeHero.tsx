@@ -51,32 +51,32 @@ export const WelcomeHero: React.FC<WelcomeHeroProps> = ({ profile, history = [] 
   return (
     <motion.section
       variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
-      className="sakura-bg rounded-[2.5rem] p-8 md:p-10 border border-sakura-light/50 shadow-card"
+      className="sakura-bg rounded-2xl md:rounded-[2.5rem] p-4 md:p-10 border border-sakura-light/50 shadow-card"
     >
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="flex-1">
-          <h1 className="text-2xl md:text-3xl font-display font-bold mb-2">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
+        <div className="flex-1 min-w-0">
+          <h1 className="text-lg md:text-3xl font-display font-bold mb-1 md:mb-2">
             Chào mừng trở lại! 🌸
           </h1>
-          <div className="mb-6 space-y-2">
-            <p className="text-muted-foreground">
-              Bạn đang ở cấp học thuật <strong>{userStats.level}</strong>. Hãy tiếp tục lộ trình chinh phục JLPT nhé!
+          <div className="mb-3 md:mb-6 space-y-2">
+            <p className="text-xs md:text-base text-muted-foreground">
+              Bạn đang ở cấp <strong>{userStats.level}</strong>. Tiếp tục chinh phục JLPT nhé!
             </p>
 
             {/* Gamification Shimmer Bar */}
-            <div className="w-full max-w-sm space-y-1.5 mt-4">
-              <div className="flex justify-between text-xs font-bold text-sakura-dark">
+            <div className="w-full max-w-sm space-y-1 md:space-y-1.5 mt-2 md:mt-4">
+              <div className="flex justify-between text-[10px] md:text-xs font-bold text-sakura-dark">
                 <span>Level {userStats.levelInfo.level}</span>
                 <span>{Math.floor(userStats.levelInfo.progressPercentage)}%</span>
               </div>
-              <Progress value={userStats.levelInfo.progressPercentage} showShimmer={true} className="h-3" />
-              <p className="text-[10px] text-muted-foreground text-right font-medium">
-                Còn {userStats.levelInfo.xpRequiredForNextLevel - userStats.levelInfo.currentXpInLevel} XP để lên Lv.{userStats.levelInfo.level + 1}
+              <Progress value={userStats.levelInfo.progressPercentage} showShimmer={true} className="h-2 md:h-3" />
+              <p className="text-[9px] md:text-[10px] text-muted-foreground text-right font-medium">
+                Còn {userStats.levelInfo.xpRequiredForNextLevel - userStats.levelInfo.currentXpInLevel} XP → Lv.{userStats.levelInfo.level + 1}
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+          <div className="grid grid-cols-5 gap-2 md:gap-4">
             {[
               { level: 'N5', progress: userStats.jlptProgress.N5, color: 'bg-sakura' },
               { level: 'N4', progress: userStats.jlptProgress.N4, color: 'bg-indigo-jp' },
