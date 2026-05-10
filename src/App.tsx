@@ -12,6 +12,7 @@ import { dictDB } from "@/lib/dictDB";
 import { WritingLabProvider } from "@/contexts/WritingLabContext";
 import { ConfettiProvider } from "@/components/common/ConfettiProvider";
 import { StandardErrorBoundary } from "@/components/error/StandardErrorBoundary";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { LevelUpModal } from "@/components/effects/LevelUpModal";
 import { XPGainToast } from "@/components/effects/XPGainToast";
 import { AppLayout } from "./components/layout/AppLayout";
@@ -176,10 +177,10 @@ const App = () => {
                             <Route path="/squads" element={<Squads />} />
                             <Route path="/squads/:squadId" element={<SquadDetail />} />
 
-                            <Route path="/mock-tests" element={<MockTestCenter />} />
-                            <Route path="/mock-tests/:examId" element={<JLPTMockExam />} />
+                            <Route path="/mock-tests" element={<ProtectedRoute><MockTestCenter /></ProtectedRoute>} />
+                            <Route path="/mock-tests/:examId" element={<ProtectedRoute><JLPTMockExam /></ProtectedRoute>} />
                             <Route path="/grammar" element={<GrammarWiki />} />
-                            <Route path="/reading" element={<Reading />} />
+                            <Route path="/reading" element={<ProtectedRoute><Reading /></ProtectedRoute>} />
                             <Route path="/video-learning" element={<VideoLearning />} />
                             <Route path="/kanji/:kanji" element={<KanjiDetail />} />
                             <Route path="/kanji-by-level/:level" element={<KanjiByLevel />} />
