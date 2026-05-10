@@ -89,12 +89,13 @@ export const Auth = () => {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
     if (!validateInputs()) return;
 
     setIsLoading(true);
     try {
       const redirectUrl = `${window.location.origin}/`;
-      
+
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -122,13 +123,27 @@ export const Auth = () => {
         description: 'Vui lòng kiểm tra email để xác nhận tài khoản.',
       });
     } catch (error: unknown) {
-      toast.error('Lỗi đăng ký', {
-        description: error instanceof Error ? error.message : 'Unknown error',
-      });
+      const msg = error instanceof Error ? error.message : 'Lỗi không xác định';
+      setErrorMsg(msg);
+      toast.error('Lỗi đăng ký', { description: msg });
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Đang khôi phục session ban đầu → tránh nháy form.
+  if (authLoading || (user && !authLoading)) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background to-sakura/10 flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-sakura" />
+          <p className="text-sm text-muted-foreground">
+            {user ? 'Đang chuyển hướng…' : 'Đang kiểm tra phiên đăng nhập…'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-sakura/10 flex items-center justify-center p-4">
