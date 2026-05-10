@@ -57,14 +57,12 @@ export const Auth = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
     if (!validateInputs()) return;
 
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
 
       if (error) {
         let message = error.message;
@@ -78,13 +76,12 @@ export const Auth = () => {
         throw new Error(message);
       }
 
-      toast.success('Đăng nhập thành công!', {
-        description: 'Chào mừng bạn quay trở lại!',
-      });
+      toast.success('Đăng nhập thành công!', { description: 'Đang chuyển hướng…' });
+      // Redirect được xử lý bởi useEffect khi auth state cập nhật.
     } catch (error: unknown) {
-      toast.error('Lỗi đăng nhập', {
-        description: error instanceof Error ? error.message : 'Unknown error',
-      });
+      const msg = error instanceof Error ? error.message : 'Lỗi không xác định';
+      setErrorMsg(msg);
+      toast.error('Lỗi đăng nhập', { description: msg });
     } finally {
       setIsLoading(false);
     }
