@@ -74,7 +74,7 @@ export async function deepExplain(
     const data = await explain({
       question,
       context,
-      explain_type: explainType === 'error' || explainType === 'pattern' ? 'grammar' : explainType,
+      explain_type: explainType,
     });
     return data as DeepExplainResult;
   } catch (err) {
