@@ -47,9 +47,9 @@ export const Auth = () => {
       return true;
     } catch (error) {
       if (error instanceof z.ZodError) {
-        toast.error('Lỗi xác thực', {
-          description: error.errors[0].message,
-        });
+        const msg = error.errors[0].message;
+        setErrorMsg(msg);
+        toast.error('Lỗi xác thực', { description: msg });
       }
       return false;
     }
