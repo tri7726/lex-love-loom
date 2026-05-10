@@ -241,4 +241,18 @@ lex-love-loom/
 - ~~ADR 002~~ ✅ `docs/adr/002-hybrid-edge-and-nestjs.md`
 - ~~ADR 003~~ ✅ `docs/adr/003-migration-order.md`
 - ~~Wire FE 1 endpoint feature-flag~~ ✅ `src/lib/aiExplainClient.ts` (flag `VITE_USE_NESTJS_AI_EXPLAIN`)
-- Bước cuối Wave 1: refactor các call site `supabase.functions.invoke('ai-explain')` → `explain()` từ `aiExplainClient` để hưởng feature flag
+- ~~Refactor `deepExplain()` → `explain()` từ `aiExplainClient`~~ ✅ `src/services/groqServices.ts`
+
+### 🐛 Audit flow Wave 1 (2026-05-10) — đã fix
+
+Trước đó 3 schema cho `/ai/explain` lệch nhau (`{prompt}` vs `{text}` vs `{question}`) và NestJS stream text trong khi FE gọi `JSON.parse()`. Đã chuẩn hoá theo contract của Edge:
+
+- `packages/types`: `ExplainSchema = { question, context?, explain_type? }` + `DeepExplainResultSchema` (shared response shape).
+- `apps/backend/ai/dto/explain.dto.ts`: cùng schema, mirror để build standalone.
+- `apps/backend/ai/ai.service.ts`: non-stream JSON gọi Lovable AI Gateway với `response_format: json_object`, system prompt structured giống Edge, validate response qua Zod.
+- `apps/backend/ai/ai.controller.ts`: `POST /ai/explain` trả `DeepExplainResult` JSON (SSE để Wave 2).
+- `src/lib/aiExplainClient.ts`: NestJS branch dùng `apiFetch()` thay vì `streamSSE` + `JSON.parse(full)`.
+- `.env.example`: thêm `VITE_BACKEND_URL` và `VITE_USE_NESTJS_AI_EXPLAIN`.
+
+**Verify:** chạy `apps/backend` local, set `VITE_BACKEND_URL=http://localhost:3001` + `VITE_USE_NESTJS_AI_EXPLAIN=true`, mở game bất kỳ → "Giải thích AI" phải trả response giống khi tắt cờ. Tắt cờ → fallback Edge.
+

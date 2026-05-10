@@ -1,111 +1,78 @@
-# Lộ trình nâng cấp 9 feature
+## Mục tiêu
+Audit lại flow `Frontend → aiExplainClient → (NestJS | Edge) → AI Gateway` sau khi đã refactor `deepExplain()`. Phát hiện và fix các mismatch để cờ `VITE_USE_NESTJS_AI_EXPLAIN=true` thực sự hoạt động end-to-end.
 
-Chia 4 phase theo độ phụ thuộc dữ liệu & độ phức tạp. Mỗi phase độc lập, có thể ship riêng.
+## Vấn đề phát hiện được
 
----
+### 1. DTO mismatch (BLOCKER) — request sẽ bị Zod 400
+- FE `aiExplainClient` gửi: `{ prompt, context }`
+- NestJS `ExplainSchema` (apps/backend) yêu cầu: `{ text, context, language, model }` — **field `text` required**, không có `prompt`
+- Shared `packages/types` lại định nghĩa thứ ba: `{ prompt, level, context }`
+- Edge function nhận: `{ question, context, explain_type }`
+→ Ba schema khác nhau cho cùng 1 endpoint.
 
-## Phase 1 — Nền tảng phân tích & UX nhanh thắng (1 lượt)
-Mục tiêu: dựng dữ liệu phân tích & 2 tính năng chạm nhiều user nhất.
+### 2. Response shape mismatch (BLOCKER) — JSON.parse sẽ throw
+- NestJS stream **plain Vietnamese text** (system prompt: "giải thích ngắn gọn")
+- FE `explain()` gom hết delta rồi `JSON.parse(full)` mong đợi object `{ reasoning_steps, conclusion, difficulty, related_patterns, ... }`
+- Edge function trả JSON object có cấu trúc trên (non-stream mode)
+→ Khi bật cờ NestJS: chắc chắn lỗi "non-JSON payload".
 
-### 1.1 Weakness Heatmap (`/dashboard/heatmap`)
-- Trang grid JLPT N5–N1 × {Kanji, Grammar, Vocab}.
-- Màu ô = mastery score (xanh→đỏ) tính từ `user_kanji_progress`, `user_grammar_progress`, `user_vocabulary_progress` + `grammar_mistakes`.
-- Click ô đỏ → mở modal "Mini-Quest 5 phút" gọi RPC `generate_weakness_quest(category, level)` → trả 10 câu nhắm yếu nhất.
-- DB: thêm view `v_user_mastery_matrix` aggregate sẵn.
+### 3. Mất `explain_type`
+- FE map `explain_type` = `'grammar' | 'vocab' | 'kanji'` nhưng NestJS DTO không có field này → ngữ cảnh bị mất, prompt sinh ra không phân loại được.
 
-### 1.2 Cmd+K Search Palette
-- Component `CommandPalette` (shadcn `cmdk`) global, shortcut ⌘K / Ctrl+K.
-- Tab: All / Kanji / Vocab / Deck / Video / Friend / Lesson / Page.
-- Backend: edge function `global-search` dùng Postgres `pg_trgm` similarity trên các bảng tương ứng.
-- Recent + pinned items lưu localStorage.
+### 4. `VITE_BACKEND_URL` mặc định `localhost:3001`
+- Trong preview Lovable, FE chạy trên domain `*.lovable.app` → fetch `localhost:3001` sẽ fail. Cần document/cảnh báo phải set khi bật cờ.
 
-### 1.3 A/B Test framework
-- Bảng `experiments(id, key, variants jsonb, traffic, is_active)` + `experiment_assignments(user_id, experiment_key, variant)`.
-- Hook `useExperiment(key)` → trả variant ổn định (hash user_id).
-- Bảng `experiment_events(user_id, experiment_key, variant, event, value, ts)` log conversion.
-- Trang admin `/admin/experiments` xem funnel cơ bản (assign → convert).
+### 5. JwtAuthGuard global — `/ai/explain` yêu cầu Bearer
+- Đã đúng (FE gửi Supabase access_token trong `streamSSE`), nhưng cần verify JWKS URL đã có trong env Railway.
 
----
+## Phương án fix (đề xuất)
 
-## Phase 2 — Adaptive SRS dùng AI
-Phụ thuộc: Phase 1 đã có heatmap dữ liệu mastery.
+### Phương án A — Thống nhất theo contract của Edge (đỡ phải sửa FE nhiều)
+Chuẩn hoá tất cả về `{ question, context, explain_type }` + response JSON cùng schema `DeepExplainResult`.
 
-### 2.1 Mistake pattern miner
-- Edge function `analyze-mistakes` chạy nightly (Inngest cron) — gom `grammar_mistakes`, `pronunciation_results`, sai trong `user_kanji_progress` của 30 ngày gần nhất.
-- AI (gemini-3-flash-preview) phân loại pattern: `homophone_kanji`, `verb_group2_te_form`, `particle_wa_ga`, … → lưu `user_weakness_patterns(user_id, pattern_key, score, evidence jsonb, updated_at)`.
+1. **packages/types**: Sửa `ExplainSchema` thành
+   ```ts
+   { question: string, context?: string, explain_type?: 'grammar'|'vocab'|'kanji'|'error'|'pattern' }
+   ```
+   Thêm `DeepExplainResultSchema` (reasoning_steps, conclusion, difficulty, related_patterns, mnemonics?, common_mistakes?, model_used?).
 
-### 2.2 Adaptive review session
-- RPC `get_adaptive_review_queue(limit)` trả mix: 70% FSRS due cards + 30% câu nhắm `user_weakness_patterns` top 3.
-- Mỗi câu chèn thêm có `injected_reason` để UI hiển thị badge "🎯 luyện điểm yếu: nhầm kanji đồng âm".
-- Frontend `FlashcardSession` hỗ trợ render badge + log kết quả về pattern để giảm score khi đúng.
+2. **apps/backend/ai/dto/explain.dto.ts**: Re-export từ `packages/types` (xoá schema riêng).
 
-### 2.3 Visualization
-- Trên Heatmap thêm panel "Top 5 điểm yếu của bạn" + nút "Luyện ngay 10 phút".
+3. **apps/backend/ai/ai.service.ts**:
+   - Đổi prompt sang system prompt structured-JSON giống Edge (`REASONING_SYSTEM_PROMPT`).
+   - Stream JSON-mode hoặc stream raw text rồi extract JSON bằng regex `\{[\s\S]*\}` ở client (giống Edge hiện tại).
+   - Hoặc thêm endpoint non-stream `POST /ai/explain` trả về JSON object luôn (đơn giản hơn cho showcase Wave 1).
 
----
+4. **apps/backend/ai/ai.controller.ts**: Thêm endpoint non-stream `/ai/explain` (`@Post`) trả JSON. Giữ `/ai/explain/stream` (SSE) cho Wave 2.
 
-## Phase 3 — Nội dung học mở rộng
-2 feature lớn, độc lập nhau, có thể song song.
+5. **src/lib/aiExplainClient.ts**:
+   - NestJS path: gọi `apiFetch<DeepExplainResult>('/ai/explain', { method: 'POST', body: JSON.stringify({ question, context, explain_type }) })` thay vì `streamSSE`.
+   - Bỏ `JSON.parse(full)` fragile.
 
-### 3.1 Listening Lab (`/listening-lab`)
-- Nguồn audio: từ `video_segments` (đã có), thêm bảng `listening_exercises(id, title, audio_url, transcript, jlpt_level, type)`.
-- 3 chế độ:
-  - **Speed Trainer**: player tốc độ 0.5/0.75/1/1.25/1.5x (Web Audio playbackRate).
-  - **Fill-in-the-blank**: AI tự đục lỗ key words trong transcript → user gõ.
-  - **Dictation**: dùng lại logic char-diff hiện có.
-- Lưu `user_listening_attempts(exercise_id, score, mistakes jsonb)`.
+6. **packages/types/index.ts**: export thêm `DeepExplainResult` để FE và BE share type.
 
-### 3.2 Reader Mode (`/reader`)
-- Input: URL hoặc paste text.
-- Edge function `fetch-article` dùng Mozilla Readability (port Deno) → trả text sạch.
-- Edge function `add-furigana` dùng kuromoji.js (đã có trong project) → wrap kanji bằng `<ruby>`.
-- UI: toggle furigana on/off, hover từ → popover dictionary (jisho-style từ bảng `vocabulary` + AI fallback), nút "Lưu vào deck".
-- Lưu lịch sử `reader_articles(user_id, url, title, content, created_at)` để offline đọc lại.
+### Phương án B — Giữ NestJS streaming, đổi UI để render text dần
+Thiết kế lại UI tab giải thích để show streaming text (markdown) thay vì structured object. Phù hợp ADR (SSE) nhưng tốn công sửa các component (`GrammarSensei`, `DeepExplanationSheet`, game feedback).
 
----
+**Đề xuất Phương án A** cho Wave 1 (giữ shape ổn định), Wave 2 mới chuyển sang streaming khi UI sẵn sàng.
 
-## Phase 4 — Cộng đồng & Offline
-Phụ thuộc: profiles & friendships đã có.
+## Việc cần làm cụ thể (Phương án A)
+1. Update `packages/types/src/schemas/index.ts` — `ExplainSchema` + thêm `DeepExplainResultSchema`.
+2. Update `apps/backend/src/modules/ai/dto/explain.dto.ts` — dùng schema mới.
+3. Refactor `ai.service.ts` — copy `REASONING_SYSTEM_PROMPT` + `buildUserPrompt` từ Edge, parse JSON từ AI Gateway response (non-stream cho v1).
+4. Refactor `ai.controller.ts` — `@Post('explain')` non-stream JSON, giữ `/ai/explain/stream` cho sau.
+5. Update `src/lib/aiExplainClient.ts` — đổi nhánh NestJS sang `apiFetch` JSON.
+6. Cập nhật `.env.example` (FE) ghi rõ `VITE_BACKEND_URL` bắt buộc khi bật cờ.
+7. Cập nhật `apps/backend/.env.example` — yêu cầu `LOVABLE_API_KEY`, `SUPABASE_JWKS_URL`, `CORS_ORIGINS`.
+8. Cập nhật `docs/MIGRATION_PLAN.md` — đánh dấu Wave 1 done sau khi flow thông.
 
-### 4.1 Study Buddy Match
-- Mở rộng `profiles`: thêm `learning_goal`, `daily_minutes_target`, `timezone`, `looking_for_buddy bool`.
-- Edge function `match-study-buddy` nightly: chạy thuật toán ghép cặp (cùng JLPT ±1, timezone chênh ≤3h, cùng goal) → tạo `buddy_suggestions`.
-- Trang `/buddies`: xem 5 gợi ý/tuần, accept → tự tạo `conversations` + `buddy_schedule(buddy_pair_id, type='shadowing', cron, next_at)`.
-- Notification khi tới giờ luyện chung.
+## Cách verify sau khi fix
+- Chạy backend local (`cd apps/backend && npm run start:dev`).
+- Set `VITE_BACKEND_URL=http://localhost:3001` + `VITE_USE_NESTJS_AI_EXPLAIN=true` trong `.env`.
+- Mở 1 game (vd MultipleChoiceGame) → bấm "Giải thích AI" → verify response shape giống khi tắt cờ.
+- Tắt cờ → verify Edge path vẫn hoạt động (regression).
+- Check Swagger `http://localhost:3001/docs` — `POST /ai/explain` có đúng schema mới.
 
-### 4.2 Public Profile `/u/:username`
-- Thêm `profiles.username` unique + `is_public bool`.
-- Trang public (no auth) hiển thị: avatar, streak, total XP, top 10 kanji mastered, decks đã publish (community_decks), badges, biểu đồ XP 30 ngày.
-- Open Graph meta cho share social.
-- RLS: public view `v_public_profile` chỉ expose field cho phép.
-
-### 4.3 Offline-first PWA mở rộng
-- Mở rộng `useOfflineQueue` hiện có: cache thêm
-  - Flashcard due hôm nay (IndexedDB `dexie`).
-  - Bài đọc Reader Mode đã mở.
-  - 5 listening exercise cuối.
-- Sync queue khi `online`: replay POST/PATCH trong queue.
-- UI badge "Offline mode — X items cached".
-- ⚠️ PWA service worker chỉ enable production (không trong preview iframe).
-
----
-
-## Technical notes
-- DB migrations: ~6 migration files, 1 cho mỗi nhóm phase.
-- AI: tất cả gọi qua Lovable AI Gateway (`google/gemini-3-flash-preview`), không lộ key client.
-- Background jobs (analyze-mistakes, match-study-buddy): dùng Inngest connector + cron event.
-- Realtime: tận dụng `messages`/`notifications` đã enable.
-- Performance: heatmap & cmd+K phải <200ms — dùng materialized view + pg_trgm index.
-
----
-
-## Đề xuất thứ tự ship
-1. **Phase 1** trước (giá trị tức thì + dựng nền data) — ~3–4 vòng chat.
-2. **Phase 2** (Adaptive SRS) — cần data từ Phase 1.
-3. **Phase 3** (Listening Lab & Reader Mode song song hoặc lần lượt).
-4. **Phase 4** (Social + Offline).
-
-**Câu hỏi cho bạn:**
-- OK với thứ tự này không, hay muốn đảo (vd. Reader Mode trước vì cần gấp)?
-- Phase 1 có muốn enable Inngest connector ngay (phục vụ A/B + nightly job sau này) hay để Phase 2 mới bật?
-- Cmd+K có cần search cả nội dung trong deck/lesson (full-text) hay chỉ tiêu đề?
+## Lưu ý
+- Không động vào 3 chỗ `MinnaVocabulary` (image/text analyzer) và `ImportVocabularyDialog` — payload `image_vocab/text_vocab` riêng, không thuộc luồng giải thích.
+- `streamExplain()` trong `groqServices.ts` (streaming token UI) tạm thời vẫn gọi thẳng Edge — sẽ migrate ở Wave 2 cùng SSE.
