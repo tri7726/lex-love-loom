@@ -1,72 +1,54 @@
-import { supabase } from '@/integrations/supabase/client';
-import { Database } from '@/integrations/supabase/types';
+/**
+ * Thin facade over `vocabularyClient` so existing call sites keep working
+ * while the underlying transport switches between NestJS and Supabase via
+ * the `VITE_USE_NESTJS_DATA` flag.
+ */
+import {
+  deleteVocabulary,
+  listVocabulary,
+  updateVocabulary,
+  upsertVocabulary,
+  type SavedVocabulary as ClientSavedVocabulary,
+  type UpsertVocabularyInput,
+} from "@/lib/vocabularyClient";
 
-import { 
-  SavedVocabulary, 
-  InsertVocabulary, 
-  UpdateVocabulary 
-} from '@/types/vocabulary';
+import type {
+  InsertVocabulary,
+  SavedVocabulary,
+  UpdateVocabulary,
+} from "@/types/vocabulary";
+
+function toUpsertInput(word: InsertVocabulary): UpsertVocabularyInput {
+  return {
+    word: word.word,
+    reading: word.reading ?? null,
+    meaning: word.meaning,
+    example_sentence: word.example_sentence ?? null,
+    mastery_level: word.mastery_level ?? undefined,
+  };
+}
 
 export const vocabularyService = {
-  /**
-   * Fetch all saved vocabulary for the current user
-   */
-  async getSavedVocabulary(userId: string) {
-    const { data, error } = await supabase
-      .from('saved_vocabulary')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
+  async getSavedVocabulary(userId: string): Promise<ClientSavedVocabulary[]> {
+    return listVocabulary(userId, { limit: 500 });
   },
 
-  /**
-   * Save a new word or update an existing one (upsert based on word text)
-   * Note: The DB should have a unique constraint or we handle it here.
-   * Based on useWordHistory, there is an upsert with onConflict: 'user_id,word'
-   */
-  async upsertWord(word: InsertVocabulary) {
-    const { data, error } = await supabase
-      .from('saved_vocabulary')
-      .upsert(word as any, { onConflict: 'user_id,word' })
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
+  async upsertWord(word: InsertVocabulary): Promise<ClientSavedVocabulary> {
+    return upsertVocabulary(word.user_id, toUpsertInput(word));
   },
 
-  /**
-   * Delete a word by ID
-   */
-  async deleteWord(id: string, userId: string) {
-    const { error } = await supabase
-      .from('saved_vocabulary')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', userId);
-
-    if (error) throw error;
+  async deleteWord(id: string, userId: string): Promise<true> {
+    await deleteVocabulary(userId, id);
     return true;
   },
 
-  /**
-   * Update mastery level or other fields
-   */
-  async updateWord(id: string, userId: string, updates: UpdateVocabulary) {
-    const { data, error } = await supabase
-      .from('saved_vocabulary')
-      .update(updates as any)
-      .eq('id', id)
-      .eq('user_id', userId)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
-  }
+  async updateWord(
+    id: string,
+    userId: string,
+    updates: UpdateVocabulary,
+  ): Promise<ClientSavedVocabulary> {
+    return updateVocabulary(userId, id, updates as Partial<UpsertVocabularyInput>);
+  },
 };
 
-export type { InsertVocabulary, UpdateVocabulary } from '@/types/vocabulary';
+export type { InsertVocabulary, UpdateVocabulary, SavedVocabulary } from "@/types/vocabulary";
