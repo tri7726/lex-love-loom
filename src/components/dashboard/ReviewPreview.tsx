@@ -5,7 +5,7 @@ import {
   ChevronRight,
   ChevronLeft,
   BookOpen,
-  Sparkles,
+  
   CalendarClock,
   Eye,
   EyeOff,
