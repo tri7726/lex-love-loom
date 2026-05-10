@@ -209,7 +209,7 @@ const App = () => {
                             
                             <Route path="/achievements" element={<Achievements />} />
                             <Route path="/pet" element={<PetPage />} />
-                            <Route path="/minna" element={<MinnaVocabulary />} />
+                            <Route path="/minna" element={<Navigate to="/vocabulary" replace />} />
                              <Route path="/chat" element={<Chat />} />
                              <Route path="/shop" element={<SakuraShop />} />
                              <Route path="/community-library" element={<CommunityLibrary />} />
