@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Mail, Lock, User, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { SEO } from '@/components/seo/SEO';
+import { useAuth } from '@/hooks/useAuth';
 
 const emailSchema = z.string().email('Email không hợp lệ');
 const passwordSchema = z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự');
@@ -21,8 +22,10 @@ export const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user, loading: authLoading } = useAuth();
 
   const safeRedirect = React.useMemo(() => {
     const r = searchParams.get('redirect');
@@ -30,21 +33,12 @@ export const Auth = () => {
     return '/';
   }, [searchParams]);
 
+  // Khi đã có session (vừa đăng nhập hoặc đã đăng nhập sẵn) → redirect.
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        navigate(safeRedirect, { replace: true });
-      }
-    });
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        navigate(safeRedirect, { replace: true });
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate, safeRedirect]);
+    if (!authLoading && user) {
+      navigate(safeRedirect, { replace: true });
+    }
+  }, [authLoading, user, navigate, safeRedirect]);
 
   const validateInputs = () => {
     try {
