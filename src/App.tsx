@@ -176,10 +176,10 @@ const App = () => {
                             <Route path="/squads" element={<Squads />} />
                             <Route path="/squads/:squadId" element={<SquadDetail />} />
 
-                            <Route path="/mock-tests" element={<MockTestCenter />} />
-                            <Route path="/mock-tests/:examId" element={<JLPTMockExam />} />
+                            <Route path="/mock-tests" element={<ProtectedRoute><MockTestCenter /></ProtectedRoute>} />
+                            <Route path="/mock-tests/:examId" element={<ProtectedRoute><JLPTMockExam /></ProtectedRoute>} />
                             <Route path="/grammar" element={<GrammarWiki />} />
-                            <Route path="/reading" element={<Reading />} />
+                            <Route path="/reading" element={<ProtectedRoute><Reading /></ProtectedRoute>} />
                             <Route path="/video-learning" element={<VideoLearning />} />
                             <Route path="/kanji/:kanji" element={<KanjiDetail />} />
                             <Route path="/kanji-by-level/:level" element={<KanjiByLevel />} />
