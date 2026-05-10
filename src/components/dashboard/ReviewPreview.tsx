@@ -161,15 +161,6 @@ export const ReviewPreview: React.FC<ReviewPreviewProps> = ({
                 <BookOpen className="h-4 w-4" />
                 Khám phá Từ vựng
               </Button>
-              <Button
-                id="review-empty-goto-minna-btn"
-                variant="outline"
-                onClick={handleGoMinna}
-                className="gap-2 border-border/60 rounded-full px-6 h-10 font-black text-xs uppercase tracking-widest hover:bg-muted/50"
-              >
-                <Sparkles className="h-4 w-4 text-gold" />
-                Học từ mới (Minna)
-              </Button>
             </div>
           </CardContent>
         </Card>
