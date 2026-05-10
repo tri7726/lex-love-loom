@@ -167,9 +167,16 @@ export const Auth = () => {
           <CardContent>
             <Tabs defaultValue="login" className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="login">Đăng nhập</TabsTrigger>
-                <TabsTrigger value="signup">Đăng ký</TabsTrigger>
+                <TabsTrigger value="login" onClick={() => setErrorMsg(null)}>Đăng nhập</TabsTrigger>
+                <TabsTrigger value="signup" onClick={() => setErrorMsg(null)}>Đăng ký</TabsTrigger>
               </TabsList>
+
+              {errorMsg && (
+                <div className="mb-4 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
 
               <TabsContent value="login">
                 <form onSubmit={handleLogin} className="space-y-4">
