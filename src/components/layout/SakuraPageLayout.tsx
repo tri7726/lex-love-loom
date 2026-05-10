@@ -28,7 +28,7 @@ export const SakuraPageLayout: React.FC<SakuraPageLayoutProps> = ({
       className={cn(
         'mx-auto w-full transition-all duration-300',
         maxWidthClass,
-        !noPadding && 'px-4 sm:px-6 lg:px-8 py-6 md:py-10',
+        !noPadding && 'px-3 sm:px-6 lg:px-8 py-4 md:py-10',
         className
       )}
     >
