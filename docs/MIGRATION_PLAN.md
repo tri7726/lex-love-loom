@@ -238,5 +238,7 @@ lex-love-loom/
 
 ### 🔜 Cần làm tiếp
 - Deploy thử lên Railway (push repo → connect Railway → set env vars → verify `/docs` accessible)
-- ADR 002 (JWT verification strategy) + ADR 003 (migration order)
-- Wire FE thật sự chuyển 1 endpoint sang gọi NestJS thay vì Edge Function (verify song song)
+- ~~ADR 002~~ ✅ `docs/adr/002-hybrid-edge-and-nestjs.md`
+- ~~ADR 003~~ ✅ `docs/adr/003-migration-order.md`
+- ~~Wire FE 1 endpoint feature-flag~~ ✅ `src/lib/aiExplainClient.ts` (flag `VITE_USE_NESTJS_AI_EXPLAIN`)
+- Bước cuối Wave 1: refactor các call site `supabase.functions.invoke('ai-explain')` → `explain()` từ `aiExplainClient` để hưởng feature flag
