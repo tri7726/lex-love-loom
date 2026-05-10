@@ -69,14 +69,13 @@ export async function deepExplain(
   explainType: ExplainType = 'grammar'
 ): Promise<DeepExplainResult | null> {
   try {
-    const { data, error } = await supabase.functions.invoke('ai-explain', {
-      body: {
-        question,
-        context,
-        explain_type: explainType,
-      },
+    // Routed via feature-flagged client (NestJS or Edge) — see ADR 003 Wave 1.
+    const { explain } = await import('@/lib/aiExplainClient');
+    const data = await explain({
+      question,
+      context,
+      explain_type: explainType === 'error' || explainType === 'pattern' ? 'grammar' : explainType,
     });
-    if (error) throw error;
     return data as DeepExplainResult;
   } catch (err) {
     console.error('deepExplain error:', err);
