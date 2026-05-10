@@ -14,6 +14,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useFriends } from '@/hooks/useFriends';
 import { useWritingLab } from '@/contexts/WritingLabContext';
 import { supabase } from '@/integrations/supabase/client';
+import { SEO } from '@/components/seo/SEO';
 
 // Lazy-loaded below-fold components
 const WordOfTheDay = lazy(() => import('@/components/dashboard/WordOfTheDay').then(m => ({ default: m.WordOfTheDay })));
@@ -326,6 +327,7 @@ export const Index = () => {
       </Suspense>
 
     </motion.main>
+    </>
   );
 };
 
