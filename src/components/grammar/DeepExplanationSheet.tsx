@@ -165,7 +165,7 @@ export const DeepExplanationSheet: React.FC<DeepExplanationSheetProps> = ({
                   </div>
 
                   <div className="space-y-7">
-                    {result.reasoning_steps.map((step, idx) => (
+                    {(result.reasoning_steps ?? []).map((step, idx) => (
                         <motion.div
                           key={idx}
                           variants={stepVariants}
