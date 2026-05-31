@@ -4,7 +4,110 @@
 import { serve } from "std/http/server.ts";
 // @ts-ignore Deno imports
 import { createClient } from "@supabase/supabase-js";
+// @ts-ignore Deno npm specifier
+import { z } from "npm:zod@3.23.8";
 import { checkRateLimit } from "../_shared/rate-limit.ts";
+
+// ── Zod schemas (lenient: missing arrays default to [], unknown keys passthrough) ──
+const StructuredAnalysisSchema = z.object({
+  overall_analysis: z.object({
+    jlpt_level: z.string().default('N?'),
+    politeness_level: z.string().default(''),
+    register: z.string().optional(),
+    dialect: z.string().optional(),
+    text_type: z.string().default(''),
+    summary: z.string().default(''),
+  }).passthrough().default({} as any),
+  sentences: z.array(z.object({
+    japanese: z.string().default(''),
+    vietnamese: z.string().default(''),
+    structure: z.any().optional(),
+    breakdown: z.object({
+      words: z.array(z.any()).default([]),
+      grammar_patterns: z.array(z.any()).default([]),
+    }).passthrough().default({ words: [], grammar_patterns: [] } as any),
+  }).passthrough()).default([]),
+  suggested_flashcards: z.array(z.any()).default([]),
+  grammar_summary: z.object({
+    particles_used: z.array(z.string()).default([]),
+    verb_forms: z.array(z.string()).default([]),
+    key_patterns: z.array(z.any()).default([]),
+  }).passthrough().optional().default({} as any),
+  cultural_notes: z.array(z.string()).default([]),
+}).passthrough();
+
+const OverviewSchema = z.object({
+  overall_analysis: z.object({
+    jlpt_level: z.string().default('N?'),
+    politeness_level: z.string().default(''),
+    register: z.string().optional(),
+    dialect: z.string().optional(),
+    text_type: z.string().default(''),
+    summary: z.string().default(''),
+  }).passthrough().default({} as any),
+  key_vocab_preview: z.array(z.any()).default([]),
+  cultural_notes: z.array(z.string()).default([]),
+}).passthrough();
+
+const RewriteSchema = z.object({
+  original: z.string().default(''),
+  variants: z.array(z.object({
+    label: z.string().default(''),
+    japanese: z.string().default(''),
+    reading: z.string().default(''),
+    vietnamese: z.string().default(''),
+    nuance: z.string().default(''),
+  }).passthrough()).default([]),
+  recommendation: z.string().default(''),
+}).passthrough();
+
+const EtymologySchema = z.object({
+  word: z.string().default(''),
+  reading: z.string().default(''),
+  meaning: z.string().default(''),
+  kanji_breakdown: z.array(z.any()).default([]),
+  etymology: z.string().default(''),
+  synonyms: z.array(z.any()).default([]),
+  antonyms: z.array(z.any()).default([]),
+  collocations: z.array(z.string()).default([]),
+}).passthrough();
+
+const GrammarSchema = z.object({
+  isCorrect: z.boolean().default(false),
+  corrected: z.string().default(''),
+  corrected_formal: z.string().optional(),
+  corrected_casual: z.string().optional(),
+  corrected_natural: z.string().optional(),
+  errors: z.array(z.any()).default([]),
+  explanation: z.string().default(''),
+  rules_detail: z.array(z.any()).default([]),
+}).passthrough();
+
+const CompareSchema = z.object({
+  sentences: z.array(z.any()).default([]),
+  verdict: z.string().default(''),
+  differences: z.array(z.any()).default([]),
+}).passthrough();
+
+const VisionSchema = z.object({
+  object_name: z.string().default(''),
+  reading: z.string().default(''),
+  vietnamese_meaning: z.string().default(''),
+  description: z.string().default(''),
+  vocabulary: z.array(z.any()).default([]),
+  sample_sentences: z.array(z.any()).default([]),
+}).passthrough();
+
+/** Safe-parse: returns normalized data with defaults, never throws. */
+function safeNormalize<T>(schema: z.ZodType<T>, raw: unknown, label: string): T {
+  const r = schema.safeParse(raw ?? {});
+  if (!r.success) {
+    console.warn(`[zod:${label}] validation issues, using defaults:`, r.error.flatten());
+    // Re-parse empty object to get full default shape
+    return schema.parse({}) as T;
+  }
+  return r.data;
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
