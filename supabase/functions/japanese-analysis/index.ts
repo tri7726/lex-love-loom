@@ -4,7 +4,110 @@
 import { serve } from "std/http/server.ts";
 // @ts-ignore Deno imports
 import { createClient } from "@supabase/supabase-js";
+// @ts-ignore Deno npm specifier
+import { z } from "npm:zod@3.23.8";
 import { checkRateLimit } from "../_shared/rate-limit.ts";
+
+// ── Zod schemas (lenient: missing arrays default to [], unknown keys passthrough) ──
+const StructuredAnalysisSchema = z.object({
+  overall_analysis: z.object({
+    jlpt_level: z.string().default('N?'),
+    politeness_level: z.string().default(''),
+    register: z.string().optional(),
+    dialect: z.string().optional(),
+    text_type: z.string().default(''),
+    summary: z.string().default(''),
+  }).passthrough().default({} as any),
+  sentences: z.array(z.object({
+    japanese: z.string().default(''),
+    vietnamese: z.string().default(''),
+    structure: z.any().optional(),
+    breakdown: z.object({
+      words: z.array(z.any()).default([]),
+      grammar_patterns: z.array(z.any()).default([]),
+    }).passthrough().default({ words: [], grammar_patterns: [] } as any),
+  }).passthrough()).default([]),
+  suggested_flashcards: z.array(z.any()).default([]),
+  grammar_summary: z.object({
+    particles_used: z.array(z.string()).default([]),
+    verb_forms: z.array(z.string()).default([]),
+    key_patterns: z.array(z.any()).default([]),
+  }).passthrough().optional().default({} as any),
+  cultural_notes: z.array(z.string()).default([]),
+}).passthrough();
+
+const OverviewSchema = z.object({
+  overall_analysis: z.object({
+    jlpt_level: z.string().default('N?'),
+    politeness_level: z.string().default(''),
+    register: z.string().optional(),
+    dialect: z.string().optional(),
+    text_type: z.string().default(''),
+    summary: z.string().default(''),
+  }).passthrough().default({} as any),
+  key_vocab_preview: z.array(z.any()).default([]),
+  cultural_notes: z.array(z.string()).default([]),
+}).passthrough();
+
+const RewriteSchema = z.object({
+  original: z.string().default(''),
+  variants: z.array(z.object({
+    label: z.string().default(''),
+    japanese: z.string().default(''),
+    reading: z.string().default(''),
+    vietnamese: z.string().default(''),
+    nuance: z.string().default(''),
+  }).passthrough()).default([]),
+  recommendation: z.string().default(''),
+}).passthrough();
+
+const EtymologySchema = z.object({
+  word: z.string().default(''),
+  reading: z.string().default(''),
+  meaning: z.string().default(''),
+  kanji_breakdown: z.array(z.any()).default([]),
+  etymology: z.string().default(''),
+  synonyms: z.array(z.any()).default([]),
+  antonyms: z.array(z.any()).default([]),
+  collocations: z.array(z.string()).default([]),
+}).passthrough();
+
+const GrammarSchema = z.object({
+  isCorrect: z.boolean().default(false),
+  corrected: z.string().default(''),
+  corrected_formal: z.string().optional(),
+  corrected_casual: z.string().optional(),
+  corrected_natural: z.string().optional(),
+  errors: z.array(z.any()).default([]),
+  explanation: z.string().default(''),
+  rules_detail: z.array(z.any()).default([]),
+}).passthrough();
+
+const CompareSchema = z.object({
+  sentences: z.array(z.any()).default([]),
+  verdict: z.string().default(''),
+  differences: z.array(z.any()).default([]),
+}).passthrough();
+
+const VisionSchema = z.object({
+  object_name: z.string().default(''),
+  reading: z.string().default(''),
+  vietnamese_meaning: z.string().default(''),
+  description: z.string().default(''),
+  vocabulary: z.array(z.any()).default([]),
+  sample_sentences: z.array(z.any()).default([]),
+}).passthrough();
+
+/** Safe-parse: returns normalized data with defaults, never throws. */
+function safeNormalize<T>(schema: z.ZodType<T>, raw: unknown, label: string): T {
+  const r = schema.safeParse(raw ?? {});
+  if (!r.success) {
+    console.warn(`[zod:${label}] validation issues, using defaults:`, r.error.flatten());
+    // Re-parse empty object to get full default shape
+    return schema.parse({}) as T;
+  }
+  return r.data;
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -538,27 +641,32 @@ serve(async (req: Request) => {
         { type: "image_url", image_url: { url: `data:image/jpeg;base64,${image}` } }
       ];
       const rawVision = await fetchWithFallback(groqApiKeys, geminiApiKey, visionModel, VISION_SYSTEM_PROMPT, userContent);
-      resultData = { format: 'vision', result: extractJSON(rawVision), engine: groqApiKeys.length > 0 ? "groq" : "gemini" };
+      const parsed = safeNormalize(VisionSchema, extractJSON(rawVision), 'vision');
+      resultData = { format: 'vision', result: parsed, engine: groqApiKeys.length > 0 ? "groq" : "gemini" };
     } else if (body.isComparison && body.compare_sentences && body.compare_sentences.length >= 2) {
       const sentences = body.compare_sentences.map((s, i) => `Câu ${i + 1}: ${s}`).join('\n');
       const raw = await fetchWithFallback(groqApiKeys, geminiApiKey, "llama-3.3-70b-versatile", COMPARE_SYSTEM_PROMPT, sentences);
-      resultData = { format: 'compare', result: extractJSON(raw), engine: groqApiKeys.length > 0 ? "groq" : "gemini" };
+      const parsed = safeNormalize(CompareSchema, extractJSON(raw), 'compare');
+      resultData = { format: 'compare', result: parsed, engine: groqApiKeys.length > 0 ? "groq" : "gemini" };
     } else if (task === 'rewrite' || rewrite_mode) {
       const rmode = rewrite_mode || 'politeness';
       const model = selectAnalysisModel('rewrite', content || '', reasoning_mode);
       const userContent = `mode = "${rmode}"\nSentence:\n"""\n${content}\n"""`;
       const raw = await fetchWithFallback(groqApiKeys, geminiApiKey, model, REWRITE_SYSTEM_PROMPT, userContent, true);
-      resultData = { format: 'rewrite', mode: rmode, result: extractJSON(raw), engine: groqApiKeys.length > 0 ? 'groq' : 'gemini' };
+      const parsed = safeNormalize(RewriteSchema, extractJSON(raw), 'rewrite');
+      resultData = { format: 'rewrite', mode: rmode, result: parsed, engine: groqApiKeys.length > 0 ? 'groq' : 'gemini' };
     } else if (task === 'etymology') {
       const model = selectAnalysisModel('etymology', content || '', reasoning_mode);
       const userContent = `Word: ${target_word || content}\nContext sentence (if any): ${content}`;
       const raw = await fetchWithFallback(groqApiKeys, geminiApiKey, model, ETYMOLOGY_SYSTEM_PROMPT, userContent, true);
-      resultData = { format: 'etymology', result: extractJSON(raw), engine: groqApiKeys.length > 0 ? 'groq' : 'gemini' };
+      const parsed = safeNormalize(EtymologySchema, extractJSON(raw), 'etymology');
+      resultData = { format: 'etymology', result: parsed, engine: groqApiKeys.length > 0 ? 'groq' : 'gemini' };
     } else if (pass === 'overview') {
       const model = selectAnalysisModel('overview', content || '', reasoning_mode);
       const userContent = `Text:\n"""\n${content}\n"""`;
       const raw = await fetchWithFallback(groqApiKeys, geminiApiKey, model, OVERVIEW_SYSTEM_PROMPT, userContent, true);
-      resultData = { format: 'overview', analysis: extractJSON(raw), engine: groqApiKeys.length > 0 ? 'groq' : 'gemini' };
+      const parsed = safeNormalize(OverviewSchema, extractJSON(raw), 'overview');
+      resultData = { format: 'overview', analysis: parsed, engine: groqApiKeys.length > 0 ? 'groq' : 'gemini' };
     } else {
       const chosenModel = selectAnalysisModel(isGrammarRequest ? 'grammar' : 'text', content || '', reasoning_mode);
       const systemPrompt = isGrammarRequest ? GRAMMAR_SYSTEM_PROMPT : ENHANCED_SYSTEM_PROMPT;
@@ -566,22 +674,24 @@ serve(async (req: Request) => {
       if (prompt) userContent += `\n\nUser Instruction:\n"""\n${prompt}\n"""`;
 
       const raw = await fetchWithFallback(groqApiKeys, geminiApiKey, chosenModel, systemPrompt, userContent, true);
-      const parsed = extractJSON(raw);
+      const rawParsed = extractJSON(raw);
 
       if (isGrammarRequest) {
+        const parsed = safeNormalize(GrammarSchema, rawParsed, 'grammar');
         resultData = { format: 'grammar', result: parsed, engine: groqApiKeys.length > 0 ? "groq" : "gemini" };
       } else {
+        const parsed = safeNormalize(StructuredAnalysisSchema, rawParsed, 'structured');
         resultData = { format: 'structured', analysis: parsed, engine: groqApiKeys.length > 0 ? "groq" : "gemini" };
-      }
 
-      if (saveToHistory && userId) {
-        supabase.from('analysis_history').insert({
-          user_id: userId,
-          content,
-          analysis: parsed,
-          engine: resultData.engine,
-          language: 'japanese',
-        }).then(() => {}).catch(e => console.warn('Failed to save history:', e));
+        if (saveToHistory && userId) {
+          supabase.from('analysis_history').insert({
+            user_id: userId,
+            content,
+            analysis: parsed,
+            engine: resultData.engine,
+            language: 'japanese',
+          }).then(() => {}).catch(e => console.warn('Failed to save history:', e));
+        }
       }
     }
 
